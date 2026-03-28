@@ -231,6 +231,34 @@ Edit Section 0 (PowerShell/Bash) or parameters file (Bicep):
 
 ---
 
+## DCV Certificate Automation
+
+The POC includes automated Domain Control Validation testing (9 proof tests) plus a DCV gap remediation script that adds production-readiness for cert lifecycle automation.
+
+### Quick Start
+```powershell
+# Run all implementable gaps (1, 3, 4) — skip customer-dependent gaps
+.\Zava_DCV_Automation.ps1 -SkipCustomerDependentGaps
+
+# Run individual gaps
+.\Zava_DCV_Automation.ps1 -RunGap Gap1   # Service Principal
+.\Zava_DCV_Automation.ps1 -RunGap Gap3   # Key Vault
+.\Zava_DCV_Automation.ps1 -RunGap Gap4   # Renewal runbook scaffold
+.\Zava_DCV_Automation.ps1 -RunGap Gap2   # DigiCert (needs customer input)
+```
+
+### Customer Prerequisites for Full DCV Automation
+
+| Item | Provider | When |
+|---|---|---|
+| DigiCert CertCentral API key | Customer (DigiCert admin) | Before cert issuance testing |
+| DigiCert Organization ID | Customer | Before cert issuance testing |
+| Real domain with NS delegation to Azure DNS | Customer (registrar) | Before live DCV testing |
+| Approval to create Entra service principal | Customer platform team | Before SP creation in prod |
+| certbot on Linux host (optional) | Customer | For ACME-based automation |
+
+---
+
 ## Security
 
 - Least-privilege SAS policies (Send/Listen separated, never root key in app code)
