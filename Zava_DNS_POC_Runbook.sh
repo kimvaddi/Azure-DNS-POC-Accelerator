@@ -31,6 +31,12 @@
 #   - Correct subscription set: az account set -s "<subscription-id>"
 #   - Resource group rg-dns-poc exists in the enterprise landing zone
 #
+# DCV Automation (Gaps 1-5):
+#   For full cert lifecycle automation, run Zava_DCV_Automation.ps1 after
+#   deploying the base infrastructure. The Bash equivalent is documented inline
+#   (Section 5.2-5.6). Key Vault + SP creation use the PowerShell script.
+#   CUSTOMER ACTION: Provide DigiCert API key + Org ID for Gaps 2+5.
+#
 # Variables — SET THESE FIRST (Section 0)
 # ============================================================================
 

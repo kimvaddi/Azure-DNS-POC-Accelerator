@@ -123,6 +123,22 @@ module storage 'modules/storage-account.bicep' = {
 }
 
 // ============================================================================
+// KEY VAULT — Certificate Storage for DCV Automation (Gap 3)
+// ============================================================================
+// Stores TLS certs issued via DigiCert/ACME. RBAC-enabled (no access policies).
+// CUSTOMER ACTION: Assign SP after creating it with Zava_DCV_Automation.ps1 Gap1
+
+module keyVault 'modules/key-vault.bicep' = {
+  scope: rg
+  name: 'deploy-key-vault'
+  params: {
+    kvName: 'kv-dns-poc-${uniqueString(subscription().subscriptionId)}'
+    location: location
+    tags: tags
+  }
+}
+
+// ============================================================================
 // VIRTUAL NETWORK
 // ============================================================================
 // VNet for private DNS zone testing
