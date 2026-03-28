@@ -15,6 +15,9 @@ zone-snapshots/
 # Bind zone files (customer-provided — contain DNS data)
 zone-files/
 
+# Customer-specific engagement docs (not for public repo)
+Valero_DNS_POC_Scoping_Session_Agenda.md
+
 # Backup files
 *.bkp
 *.bak
