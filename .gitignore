@@ -43,3 +43,6 @@ desktop.ini
 
 # Generated role definition (contains subscription ID)
 dns-operator-role.json
+
+# Internal analysis docs (not for public repo)
+DCV_Gap_Analysis.md
