@@ -1,7 +1,7 @@
-# Valero — Azure DNS POC Plan
+# Zava — Azure DNS POC Plan
 
 **Document Type:** POC Scope & Execution Plan  
-**Customer:** Valero Energy Corporation  
+**Customer:** Zava Energy Corporation  
 **Microsoft Contacts:** Kim Vaddi (Account Team)  
 **Customer Contacts:** Jeremy (Primary Technical), Mike (Technical Stakeholder), Matt Boulder (Technical Engineer), Charles Mylak (PM — requires project documentation), Noel (Coordination/Paperwork)  
 **Date Created:** March 24, 2026  
@@ -17,12 +17,12 @@
 
 ## 1. Executive Summary
 
-Valero is replacing aging Bind-based DNS servers in their DMZ with a cloud-hosted authoritative DNS service. Azure DNS is being evaluated in a competitive POC against at least one other vendor. Valero recently stood up their Azure Enterprise Landing Zone, which positions this POC well — the foundational networking, identity, and governance guardrails are already in place.
+Zava is replacing aging Bind-based DNS servers in their DMZ with a cloud-hosted authoritative DNS service. Azure DNS is being evaluated in a competitive POC against at least one other vendor. Zava recently stood up their Azure Enterprise Landing Zone, which positions this POC well — the foundational networking, identity, and governance guardrails are already in place.
 
 **The goal:** Validate that Azure DNS can fully replace Bind while improving security posture, operational scalability, and enabling future capabilities (geo-routing, automation, certificate integration).
 
 **Why this POC matters competitively:**  
-- Valero is finishing another vendor's POC first — Azure DNS needs to be *faster, cleaner, and more compelling* to win.  
+- Zava is finishing another vendor's POC first — Azure DNS needs to be *faster, cleaner, and more compelling* to win.  
 - The enterprise landing zone is already Azure — this is a natural extension, not a new platform bet.  
 - If DNS moves to Azure, it deepens Azure footprint and opens the door for broader network services adoption.
 
@@ -61,7 +61,7 @@ Valero is replacing aging Bind-based DNS servers in their DMZ with a cloud-hoste
 ### 2.3 OUT OF SCOPE
 
 - Full production migration (this is validation only)  
-- Recursive/resolver DNS (Valero's use case is authoritative; recursive resolvers remain separate)  
+- Recursive/resolver DNS (Zava's use case is authoritative; recursive resolvers remain separate)  
 - Full GSLB / application-layer load balancing (Azure Front Door, Application Gateway — can be discussed as future phase)  
 - DNS-based DDoS testing (Azure DNS has built-in DDoS protection via Azure's global network, but stress testing is not in POC scope)  
 - Registrar transfer or NS delegation changes to production domains  
@@ -72,14 +72,14 @@ Valero is replacing aging Bind-based DNS servers in their DMZ with a cloud-hoste
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    VALERO ENTERPRISE LANDING ZONE                     │
+│                    Zava ENTERPRISE LANDING ZONE                     │
 │                                                                       │
 │  ┌─────────────────────────────────────────────────────────────────┐ │
 │  │  POC Resource Group: rg-dns-poc                                  │ │
 │  │                                                                   │ │
 │  │  ┌──────────────────┐    ┌──────────────────────┐               │ │
 │  │  │  Azure DNS Zone   │    │  Azure DNS Zone       │               │ │
-│  │  │  poc.valero.com   │    │  poc-internal.valero   │               │ │
+│  │  │  poc.Zava.com   │    │  poc-internal.Zava   │               │ │
 │  │  │  (Public)         │    │  (Private DNS Zone)    │               │ │
 │  │  └────────┬─────────┘    └──────────┬───────────┘               │ │
 │  │           │                          │                            │ │
@@ -105,7 +105,7 @@ Valero is replacing aging Bind-based DNS servers in their DMZ with a cloud-hoste
 
 **Key design decisions:**
 - Use a **dedicated POC resource group** (`rg-dns-poc`) inside the existing landing zone — easy to provision, easy to tear down.
-- Use a **subdomain or non-production domain** for testing (e.g., `poc.valero.com`) — no risk to production DNS.
+- Use a **subdomain or non-production domain** for testing (e.g., `poc.Zava.com`) — no risk to production DNS.
 - Landing zone RBAC and policies already apply — POC inherits governance automatically.
 - Event Hub namespace for log streaming to existing SIEM pipeline.
 
@@ -117,10 +117,10 @@ Valero is replacing aging Bind-based DNS servers in their DMZ with a cloud-hoste
 
 | Task | Owner | Target |
 |---|---|---|
-| Confirm POC domain/subdomain (e.g., `poc.valero.com`) | Jeremy / Valero DNS team | Before POC start |
+| Confirm POC domain/subdomain (e.g., `poc.Zava.com`) | Jeremy / Zava DNS team | Before POC start |
 | Export 2–3 representative Bind zone files (RFC 1035 format) | Jeremy / Matt / Mike | Before POC start |
-| Confirm QRadar Event Hub DSM connector is available | Valero Security team | Before POC start |
-| Provision POC resource group `rg-dns-poc` in landing zone | Valero Platform team | Before POC start |
+| Confirm QRadar Event Hub DSM connector is available | Zava Security team | Before POC start |
+| Provision POC resource group `rg-dns-poc` in landing zone | Zava Platform team | Before POC start |
 | Identify 2 test users: 1 "Operator" + 1 "Admin" for RBAC testing | Jeremy | Before POC start |
 | Share DigiCert CertCentral workflow details (API access, current DCV process) | Jeremy / Matt | Before POC start |
 
@@ -153,7 +153,7 @@ Valero is replacing aging Bind-based DNS servers in their DMZ with a cloud-hoste
 
 ## 5. Success Criteria Matrix (Customer Scorecard)
 
-This scorecard was confirmed with Valero during the scoping session (March 25, 2026). Charles Mylak requires formal project documentation including these results.
+This scorecard was confirmed with Zava during the scoping session (March 25, 2026). Charles Mylak requires formal project documentation including these results.
 
 ### Required — All Must Pass
 
@@ -185,11 +185,11 @@ This scorecard was confirmed with Valero during the scoping session (March 25, 2
 
 ```bash
 # Export zone from Bind (on existing server)
-named-checkzone valero.com /etc/bind/zones/db.valero.com > valero.com.zone
+named-checkzone Zava.com /etc/bind/zones/db.Zava.com > Zava.com.zone
 
 # Import into Azure DNS
-az network dns zone create -g rg-dns-poc -n poc.valero.com
-az network dns zone import -g rg-dns-poc -n poc.valero.com -f valero.com.zone
+az network dns zone create -g rg-dns-poc -n poc.Zava.com
+az network dns zone import -g rg-dns-poc -n poc.Zava.com -f Zava.com.zone
 ```
 
 **Caveats:**  
@@ -246,13 +246,13 @@ Azure DNS Zone
 
 ```bash
 # Enable DNSSEC signing on a zone
-az network dns dnssec-config create -g rg-dns-poc -z poc.valero.com
+az network dns dnssec-config create -g rg-dns-poc -z poc.Zava.com
 
 # Get the DS record to publish at the parent/registrar
-az network dns dnssec-config show -g rg-dns-poc -z poc.valero.com
+az network dns dnssec-config show -g rg-dns-poc -z poc.Zava.com
 
 # Validate
-dig +dnssec poc.valero.com @ns1-01.azure-dns.com
+dig +dnssec poc.Zava.com @ns1-01.azure-dns.com
 ```
 
 ### 6.5 Geo-Based Routing (Traffic Manager)
@@ -261,21 +261,21 @@ dig +dnssec poc.valero.com @ns1-01.azure-dns.com
 # Create Traffic Manager profile with Geographic routing
 az network traffic-manager profile create \
   -g rg-dns-poc \
-  -n tm-valero-geo \
+  -n tm-Zava-geo \
   --routing-method Geographic \
-  --unique-dns-name valero-geo-poc
+  --unique-dns-name Zava-geo-poc
 
 # Add endpoints with geo mappings
 az network traffic-manager endpoint create \
   -g rg-dns-poc \
-  --profile-name tm-valero-geo \
+  --profile-name tm-Zava-geo \
   -n us-endpoint --type externalEndpoints \
   --target 1.2.3.4 \
   --geo-mapping "US"
 
 az network traffic-manager endpoint create \
   -g rg-dns-poc \
-  --profile-name tm-valero-geo \
+  --profile-name tm-Zava-geo \
   -n uk-endpoint --type externalEndpoints \
   --target 5.6.7.8 \
   --geo-mapping "GB"
@@ -283,7 +283,7 @@ az network traffic-manager endpoint create \
 
 ### 6.6 DigiCert DCV — Certificate Domain Validation
 
-Valero uses **DigiCert CertCentral** for certificate management. DigiCert uses `_dnsauth` TXT records (not `_acme-challenge`).
+Zava uses **DigiCert CertCentral** for certificate management. DigiCert uses `_dnsauth` TXT records (not `_acme-challenge`).
 
 ```bash
 # DigiCert DCV Flow:
@@ -292,7 +292,7 @@ Valero uses **DigiCert CertCentral** for certificate management. DigiCert uses `
 # 3. DigiCert validates → issues certificate
 # 4. Clean up TXT record
 
-DOMAIN="poc.valero.com"
+DOMAIN="poc.Zava.com"
 DCV_TOKEN="<digicert-dcv-random-value>"  # From DigiCert CertCentral order
 
 # Create the _dnsauth TXT record
@@ -318,16 +318,16 @@ az network dns record-set txt remove-record \
 ```bash
 # On-demand zone snapshot
 az network dns zone export \
-  -g rg-dns-poc -n poc.valero.com \
-  -f "snapshot-poc-valero-com-$(date +%Y%m%d-%H%M%S).zone"
+  -g rg-dns-poc -n poc.Zava.com \
+  -f "snapshot-poc-Zava-com-$(date +%Y%m%d-%H%M%S).zone"
 
 # Verify snapshot is valid (re-import to a test zone)
-az network dns zone create -g rg-dns-poc -n snapshot-test.poc.valero.com
-az network dns zone import -g rg-dns-poc -n snapshot-test.poc.valero.com \
-  -f snapshot-poc-valero-com-*.zone
+az network dns zone create -g rg-dns-poc -n snapshot-test.poc.Zava.com
+az network dns zone import -g rg-dns-poc -n snapshot-test.poc.Zava.com \
+  -f snapshot-poc-Zava-com-*.zone
 
 # Cleanup test zone
-az network dns zone delete -g rg-dns-poc -n snapshot-test.poc.valero.com --yes
+az network dns zone delete -g rg-dns-poc -n snapshot-test.poc.Zava.com --yes
 ```
 
 **Scheduled snapshots:** Use Azure Automation (runbook on a schedule) or a cron job on an admin workstation to export zones daily/weekly.
@@ -382,7 +382,7 @@ Once logs flow to Log Analytics, build dashboards in Azure Monitor Workbooks:
 | DNSSEC DS record publication blocked by registrar | Medium | Low | Use test domain if registrar doesn't support DS updates via API; document process for production |
 | Geo-routing accuracy not meeting expectations | Low | Medium | Traffic Manager uses EDNS client subnet; accuracy depends on resolver behavior — set expectations |
 | Competitive vendor POC delays push Azure POC timeline | Medium | Medium | Keep pre-POC tasks moving; be ready to start the day their other POC concludes |
-| Limited Valero staff availability (only 2–3 DNS people) | Medium | Medium | Provide runbooks and scripts so POC can proceed even with limited hands-on time |
+| Limited Zava staff availability (only 2–3 DNS people) | Medium | Medium | Provide runbooks and scripts so POC can proceed even with limited hands-on time |
 
 ---
 
@@ -392,7 +392,7 @@ Use these points throughout the POC engagement:
 
 | Advantage | Detail |
 |---|---|
-| **Already in the ecosystem** | Valero has an enterprise landing zone — Azure DNS is a natural extension, not a new platform |
+| **Already in the ecosystem** | Zava has an enterprise landing zone — Azure DNS is a natural extension, not a new platform |
 | **100% SLA** | Azure DNS offers a 100% availability SLA — the highest in the industry for managed DNS |
 | **Global anycast network** | Queries answered from the nearest Azure edge node worldwide — no infrastructure to manage |
 | **Native Azure integration** | RBAC, Azure Policy, Diagnostic Settings, Event Hub, Terraform, ARM/Bicep — all first-party |
@@ -410,12 +410,12 @@ Use these points throughout the POC engagement:
 | 1 | Confirm POC start date (target: week of April 7) | Charles Mylak / Noel | March 28 | Pending |
 | 2 | Select POC domain/subdomain | Jeremy | March 28 | Pending |
 | 3 | Export 2–3 Bind zone files (RFC 1035 format) | Jeremy / Matt / Mike | Before Day 1 | Pending |
-| 4 | Confirm QRadar Event Hub DSM connector availability | Valero Security team | Before Day 1 | Pending |
-| 5 | Provision `rg-dns-poc` resource group in landing zone | Valero Platform team | Before Day 1 | Pending |
+| 4 | Confirm QRadar Event Hub DSM connector availability | Zava Security team | Before Day 1 | Pending |
+| 5 | Provision `rg-dns-poc` resource group in landing zone | Zava Platform team | Before Day 1 | Pending |
 | 6 | Identify Operator + Admin test accounts for RBAC | Jeremy | Before Day 1 | Pending |
 | 7 | Share DigiCert CertCentral workflow details (API access, current DCV process) | Jeremy / Matt | Before Day 1 | Pending |
 | 8 | Schedule Phase 1/2/3 checkpoint calls | Kim / Charles | March 28 | Pending |
-| 9 | Deliver updated POC runbook and documentation to Valero team | Kim / Microsoft | 2 days before Day 1 | Pending |
+| 9 | Deliver updated POC runbook and documentation to Zava team | Kim / Microsoft | 2 days before Day 1 | Pending |
 | 10 | Define project documentation format requirements | Charles Mylak | Before Day 1 | Pending |
 
 ---
@@ -439,7 +439,7 @@ If the POC passes:
 2. **NS Delegation Cutover** — Gradual cutover (zone by zone) by updating NS records at registrar  
 3. **Parallel Run** — Run Azure DNS alongside Bind for a validation window before decommissioning  
 4. **Decommission Bind** — Remove Bind servers from DMZ after validation period  
-5. **Operational Handoff** —  RBAC finalization, runbooks, and SOP documentation for Valero's broader team  
+5. **Operational Handoff** —  RBAC finalization, runbooks, and SOP documentation for Zava's broader team  
 
 ---
 

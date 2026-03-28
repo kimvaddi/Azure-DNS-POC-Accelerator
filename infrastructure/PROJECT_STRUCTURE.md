@@ -1,4 +1,4 @@
-# Valero DNS POC — Bicep Infrastructure Files
+# Zava DNS POC — Bicep Infrastructure Files
 
 ## 📁 Project Structure
 
@@ -188,7 +188,7 @@ infrastructure/
 ### Option 2: Azure CLI + Bicep Parameters
 ```powershell
 az deployment sub create \
-  --name valero-dns-poc \
+  --name Zava-dns-poc \
   --location southcentralus \
   --template-file main.bicep \
   --parameters main.bicepparam
@@ -197,7 +197,7 @@ az deployment sub create \
 ### Option 3: Azure CLI + JSON Parameters
 ```powershell
 az deployment sub create \
-  --name valero-dns-poc \
+  --name Zava-dns-poc \
   --location southcentralus \
   --template-file main.bicep \
   --parameters main.parameters.json
@@ -221,7 +221,7 @@ Before deploying, ensure:
 - [ ] Azure CLI installed and authenticated (`az login`)
 - [ ] Bicep CLI installed (`az bicep install`)
 - [ ] Subscription permissions (Owner or Contributor + User Access Administrator)
-- [ ] Domain `poc.valero.com` registered (or ready to use subdomain)
+- [ ] Domain `poc.Zava.com` registered (or ready to use subdomain)
 - [ ] Resource names are globally unique (especially web apps, storage account)
 - [ ] Parameters reviewed in `main.bicepparam` or `main.parameters.json`
 - [ ] Cost estimate approved (~$26 for 2 weeks)

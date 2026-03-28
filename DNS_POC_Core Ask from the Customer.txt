@@ -1,5 +1,5 @@
 Core Ask from the Customer
-Valero wants to replace their aging Bind-based DNS servers (running in their DMZ) with a cloud-hosted DNS service—Azure DNS is one of the options they are evaluating. Their goal is a POC of Azure DNS within the next couple of weeks to decide whether to migrate.
+Zava wants to replace their aging Bind-based DNS servers (running in their DMZ) with a cloud-hosted DNS service—Azure DNS is one of the options they are evaluating. Their goal is a POC of Azure DNS within the next couple of weeks to decide whether to migrate.
 💡 What They Need / Are Asking For
 1. Replicate existing Bind DNS functionality (minimum requirement)
 They want Azure DNS to support:
@@ -37,7 +37,7 @@ Plus testing of:
       • Noel = Main contact for paperwork/coordination
       • Charles Mylak = Project manager
 🎯 In One Line
-Valero wants a fast, low-friction POC of Azure DNS to validate whether it can replace their aging Bind servers while meeting core DNS needs, security requirements, automation workflows, and future geo-capabilities.
+Zava wants a fast, low-friction POC of Azure DNS to validate whether it can replace their aging Bind servers while meeting core DNS needs, security requirements, automation workflows, and future geo-capabilities.
 
 ✅ Success Criteria (from the customer’s words)
 1. Must‑have: Replicate Bind functionality

@@ -1,7 +1,7 @@
 ###############################################################################
 # Azure DNS POC — End-to-End Deployment Script (PowerShell / Azure CLI)
 #
-# Customer Template: Valero Energy Corporation
+# Customer Template: Zava Energy Corporation
 # Author: Kim Vaddi (Microsoft)
 # Tested: March 27, 2026 — All steps validated in Azure
 # Subscription: MCAPS-Hybrid-REQ-118274-2025-kimvaddi
@@ -21,7 +21,7 @@
 #   - For DNS Delegation: Access to domain registrar (GoDaddy, Namecheap, etc.)
 #
 # IMPORTANT — DNS DELEGATION (if domain is NOT already in Azure DNS):
-#   If the parent domain (e.g., valero.com) is hosted at an external registrar
+#   If the parent domain (e.g., Zava.com) is hosted at an external registrar
 #   like GoDaddy, Namecheap, Cloudflare, etc., you MUST configure NS delegation
 #   at the registrar BEFORE Azure DNS can answer queries. See SECTION 2.5 below.
 #
@@ -36,7 +36,7 @@
 # │  1  │ Azure subscription ID       │ Customer IT          │ Before start │
 # │     │ with Owner/Contributor      │                      │              │
 # │  2  │ POC domain name             │ Customer DNS team    │ Before start │
-# │     │ (e.g., poc.valero.com)      │                      │              │
+# │     │ (e.g., poc.Zava.com)      │                      │              │
 # │  3  │ Exported Bind zone file(s)  │ Customer DNS team    │ Before start │
 # │     │ RFC 1035 format             │ Run: named-checkzone │              │
 # │  4  │ Registrar login             │ Customer DNS admin   │ After Step 1 │
@@ -160,7 +160,7 @@
 #    Works correctly but may change in future CLI versions.
 #
 #  - DNS delegation: takes 5 min to 48 hours to propagate globally
-#    Test with: nslookup -type=NS poc.valero.com 8.8.8.8
+#    Test with: nslookup -type=NS poc.Zava.com 8.8.8.8
 #
 ###############################################################################
 
@@ -174,8 +174,8 @@ $RG_NAME           = "rg-dns-poc"
 $LOCATION_PRIMARY  = "westus3"           # Primary region (web apps)
 $LOCATION_SECONDARY = "eastasia"          # Secondary region (web apps)
 $LOCATION_RG       = "southcentralus"     # Resource group location
-$DOMAIN            = "poc.valero.com"     # Public DNS zone
-$PRIVATE_ZONE      = "poc-internal.valero.local"  # Private DNS zone
+$DOMAIN            = "poc.Zava.com"     # Public DNS zone
+$PRIVATE_ZONE      = "poc-internal.Zava.local"  # Private DNS zone
 $LAW_NAME          = "law-dns-poc"
 $EH_NAMESPACE      = "ehns-dns-poc"       # Must be globally unique
 $EH_NAME           = "dns-logs"
@@ -192,11 +192,11 @@ $WEBAPP_UK         = "webapp-poc-uk"      # Must be globally unique
 # Place exported zone files in ./zone-files/ directory before running.
 # Export from Bind: named-checkzone <zone> <path> > output.zone
 $ZONE_FILES_DIR    = ".\zone-files"                    # Directory containing zone files
-$ZONE_FILE_1       = ".\zone-files\valero-zone1.zone"   # First Bind zone file
-$ZONE_FILE_2       = ".\zone-files\valero-zone2.zone"   # Second Bind zone file  (leave empty if only 1)
+$ZONE_FILE_1       = ".\zone-files\Zava-zone1.zone"   # First Bind zone file
+$ZONE_FILE_2       = ".\zone-files\Zava-zone2.zone"   # Second Bind zone file  (leave empty if only 1)
 $ZONE_FILE_3       = ""                                 # Third Bind zone file   (leave empty if not needed)
-$ZONE_NAME_1       = "poc.valero.com"                   # Azure zone name for file 1 (primary zone)
-$ZONE_NAME_2       = "zone2.poc.valero.com"             # Azure zone name for file 2
+$ZONE_NAME_1       = "poc.Zava.com"                   # Azure zone name for file 1 (primary zone)
+$ZONE_NAME_2       = "zone2.poc.Zava.com"             # Azure zone name for file 2
 $ZONE_NAME_3       = ""                                 # Azure zone name for file 3 (leave empty if not needed)
 
 # ============================================================================
@@ -213,7 +213,7 @@ az account set --subscription $SUBSCRIPTION_ID
 # 0.2 Create Resource Group
 Write-Host "--- Creating Resource Group: $RG_NAME ---"
 az group create --name $RG_NAME --location $LOCATION_RG `
-  --tags "project=dns-poc" "customer=valero" -o table
+  --tags "project=dns-poc" "customer=Zava" -o table
 
 # 0.3 Create Log Analytics Workspace (for reporting + audit log destination)
 Write-Host "--- Creating Log Analytics Workspace: $LAW_NAME ---"
@@ -314,8 +314,8 @@ Write-Host "  These resolve only from VMs/services inside $VNET_NAME"
 #
 # PREREQUISITES — Customer must provide:
 #   1. Export zone files from Bind server:
-#      named-checkzone valero.com /etc/bind/zones/db.valero.com > valero-zone1.zone
-#      named-checkzone zone2.valero.com /etc/bind/zones/db.zone2 > valero-zone2.zone
+#      named-checkzone Zava.com /etc/bind/zones/db.Zava.com > Zava-zone1.zone
+#      named-checkzone zone2.Zava.com /etc/bind/zones/db.zone2 > Zava-zone2.zone
 #   2. Place exported files in the ./zone-files/ directory
 #   3. Update $ZONE_FILE_1, $ZONE_FILE_2, $ZONE_NAME_1, $ZONE_NAME_2 in Section 0
 
@@ -413,27 +413,27 @@ nslookup -type=MX $DOMAIN $NS
 # ┌─────────────────────────────────────────────────────────────────────────┐
 # │               WHY IS THIS NEEDED?                                      │
 # │                                                                         │
-# │  When the parent domain (valero.com) is at GoDaddy/Namecheap/etc.,    │
-# │  the internet doesn't know that poc.valero.com lives in Azure DNS.    │
-# │  You must tell the registrar: "for anything under poc.valero.com,     │
+# │  When the parent domain (Zava.com) is at GoDaddy/Namecheap/etc.,    │
+# │  the internet doesn't know that poc.Zava.com lives in Azure DNS.    │
+# │  You must tell the registrar: "for anything under poc.Zava.com,     │
 # │  ask Azure DNS nameservers instead of my current DNS provider."       │
 # │                                                                         │
 # │  This is called SUBDOMAIN DELEGATION — adding NS records at the       │
 # │  parent zone for the child subdomain.                                  │
 # │                                                                         │
-# │  WITHOUT THIS: nslookup www.poc.valero.com → NXDOMAIN (not found)    │
-# │  WITH THIS:    nslookup www.poc.valero.com → 10.0.1.2 (from Azure)   │
+# │  WITHOUT THIS: nslookup www.poc.Zava.com → NXDOMAIN (not found)    │
+# │  WITH THIS:    nslookup www.poc.Zava.com → 10.0.1.2 (from Azure)   │
 # └─────────────────────────────────────────────────────────────────────────┘
 #
 # TWO OPTIONS:
 #
 # OPTION A — SUBDOMAIN DELEGATION (Recommended for POC)
 #   At the registrar (GoDaddy), add NS records for the subdomain only.
-#   Production DNS stays untouched. Only poc.valero.com goes to Azure.
+#   Production DNS stays untouched. Only poc.Zava.com goes to Azure.
 #
 # OPTION B — FULL ZONE DELEGATION (Production migration — NOT for POC)
 #   Change the NS records for the entire domain at the registrar.
-#   ALL DNS for valero.com moves to Azure.
+#   ALL DNS for Zava.com moves to Azure.
 #
 # ============================================================================
 
@@ -453,10 +453,10 @@ Write-Host @"
 ║  OPTION A: SUBDOMAIN DELEGATION (Recommended for POC)                    ║
 ║  ─────────────────────────────────────────────────────                    ║
 ║  Log into your registrar (GoDaddy, Namecheap, Cloudflare, etc.)         ║
-║  and add these NS records to the PARENT zone (valero.com):              ║
+║  and add these NS records to the PARENT zone (Zava.com):              ║
 ║                                                                          ║
 ║  Record Type: NS                                                         ║
-║  Host/Name:   poc           (this creates poc.valero.com)                ║
+║  Host/Name:   poc           (this creates poc.Zava.com)                ║
 ║  Value:       ns1-03.azure-dns.com                                       ║
 ║                                                                          ║
 ║  Record Type: NS                                                         ║
@@ -471,19 +471,19 @@ Write-Host @"
 ║  Host/Name:   poc                                                        ║
 ║  Value:       ns4-03.azure-dns.info                                      ║
 ║                                                                          ║
-║  This tells the internet: "for anything under poc.valero.com,           ║
+║  This tells the internet: "for anything under poc.Zava.com,           ║
 ║  ask Azure DNS instead of GoDaddy."                                      ║
 ║                                                                          ║
 ║  ─────────────────────────────────────────────────────                    ║
 ║  OPTION B: FULL ZONE DELEGATION (Production — NOT for POC)               ║
 ║  ─────────────────────────────────────────────────────                    ║
-║  At the registrar, change the nameservers for valero.com itself:         ║
+║  At the registrar, change the nameservers for Zava.com itself:         ║
 ║    ns1-03.azure-dns.com                                                  ║
 ║    ns2-03.azure-dns.net                                                  ║
 ║    ns3-03.azure-dns.org                                                  ║
 ║    ns4-03.azure-dns.info                                                 ║
 ║                                                                          ║
-║  WARNING: This moves ALL DNS for valero.com to Azure.                    ║
+║  WARNING: This moves ALL DNS for Zava.com to Azure.                    ║
 ║  Only do this after full production migration.                           ║
 ║                                                                          ║
 ╠══════════════════════════════════════════════════════════════════════════╣
@@ -507,7 +507,7 @@ Write-Host @"
 ║    3. Repeat for all 4 nameservers                                       ║
 ║                                                                          ║
 ║  AWS Route 53:                                                           ║
-║    1. Hosted Zones → valero.com → Create Record                         ║
+║    1. Hosted Zones → Zava.com → Create Record                         ║
 ║    2. Record name: poc  |  Type: NS                                      ║
 ║    3. Value: ns1-03.azure-dns.com (one per line, all 4)                 ║
 ║                                                                          ║
@@ -519,10 +519,10 @@ Write-Host @"
 # 1.5.1 Verify delegation is working (test from public DNS)
 Write-Host "`n--- Verify delegation (query from public DNS 8.8.8.8) ---" -ForegroundColor Green
 Write-Host "Run this AFTER configuring NS records at the registrar:"
-Write-Host "  nslookup -type=NS poc.valero.com 8.8.8.8"
+Write-Host "  nslookup -type=NS poc.Zava.com 8.8.8.8"
 Write-Host "  Expected: ns1-03.azure-dns.com, ns2-03.azure-dns.net, etc."
 Write-Host ""
-Write-Host "  nslookup www.poc.valero.com 8.8.8.8"
+Write-Host "  nslookup www.poc.Zava.com 8.8.8.8"
 Write-Host "  Expected: 10.0.1.2 (resolved from Azure DNS)"
 Write-Host ""
 
@@ -653,7 +653,7 @@ Write-Host "  10 bulk records deleted"
 # Uncomment and save as dns-records.bicep, then deploy with:
 #   az deployment group create -g rg-dns-poc --template-file dns-records.bicep
 #
-# param dnsZoneName string = 'poc.valero.com'
+# param dnsZoneName string = 'poc.Zava.com'
 #
 # resource dnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' existing = {
 #   name: dnsZoneName
@@ -676,7 +676,7 @@ Write-Host "  10 bulk records deleted"
 #   properties: {
 #     TTL: 3600
 #     CNAMERecord: {
-#       cname: 'bicep-test.poc.valero.com'
+#       cname: 'bicep-test.poc.Zava.com'
 #     }
 #   }
 # }
@@ -687,8 +687,8 @@ Write-Host "  10 bulk records deleted"
 #   properties: {
 #     TTL: 3600
 #     MXRecords: [
-#       { preference: 10, exchange: 'mail.poc.valero.com' }
-#       { preference: 20, exchange: 'mail2.poc.valero.com' }
+#       { preference: 10, exchange: 'mail.poc.Zava.com' }
+#       { preference: 20, exchange: 'mail2.poc.Zava.com' }
 #     ]
 #   }
 # }
@@ -832,7 +832,7 @@ Write-Host @"
 ║             export-to-splunk-or-qradar                                  ║
 ╠══════════════════════════════════════════════════════════════════════════╣
 ║                                                                          ║
-║  Give this info to the Valero Security / QRadar team:                   ║
+║  Give this info to the Zava Security / QRadar team:                   ║
 ║                                                                          ║
 ║  ── AZURE SIDE (already deployed by this script) ──                     ║
 ║                                                                          ║
@@ -1497,7 +1497,7 @@ az lock create --name "dns-zone-nodelete" `
 #      via Azure AD / Managed Identity. Must use SAS Listen connection string.
 #
 #   3. Azure-native consumers (Functions, Logic Apps): CAN use managed identity.
-#      If Valero adds Azure Functions to process Event Hub events in the future,
+#      If Zava adds Azure Functions to process Event Hub events in the future,
 #      those should use managed identity + RBAC — not SAS keys.
 #
 # WHAT WE DO:
@@ -1652,7 +1652,7 @@ Write-Host "  5. Schedule zone snapshot automation"
 
 # $AFD_PROFILE    = "afd-dns-poc"                    # AFD profile name
 # $AFD_ENDPOINT   = "poc-endpoint"                   # AFD endpoint name (globally unique)
-# $AFD_SUBDOMAIN  = "app"                            # app.poc.valero.com → AFD
+# $AFD_SUBDOMAIN  = "app"                            # app.poc.Zava.com → AFD
 #
 # Write-Host "`n=== STEP 11: AZURE FRONT DOOR (Optional) ===" -ForegroundColor Cyan
 #
@@ -1816,7 +1816,7 @@ Write-Host "  5. Schedule zone snapshot automation"
 # #    ❌ Higher cost, more complex setup
 # #    💰 ~$35/month base + per-request charges
 # #
-# #  For Valero POC: Traffic Manager covers all Required + Optional scope items.
+# #  For Zava POC: Traffic Manager covers all Required + Optional scope items.
 # #  Front Door is a future discussion for application-layer needs.
 
 

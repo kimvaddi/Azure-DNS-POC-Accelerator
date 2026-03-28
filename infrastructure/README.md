@@ -1,13 +1,13 @@
-# Valero DNS POC — Bicep Infrastructure Deployment
+# Zava DNS POC — Bicep Infrastructure Deployment
 
 Complete Infrastructure-as-Code deployment for Azure DNS POC evaluation, including DNS zones, Event Hub integration for IBM QRadar, multi-region Traffic Manager profiles, and comprehensive diagnostics.
 
 ## 📋 What Gets Deployed
 
 ### Core DNS Infrastructure
-- **Public DNS Zone**: `poc.valero.com` (with CanNotDelete lock)
-- **Private DNS Zone**: `poc-internal.valero.local` (VNet-linked)
-- Private DNS A records: `db.poc-internal.valero.local`, `app`, `cache`
+- **Public DNS Zone**: `poc.Zava.com` (with CanNotDelete lock)
+- **Private DNS Zone**: `poc-internal.Zava.local` (VNet-linked)
+- Private DNS A records: `db.poc-internal.Zava.local`, `app`, `cache`
 
 ### Logging & Integration
 - **Log Analytics Workspace**: 30-day retention, PerGB2018 pricing
@@ -28,9 +28,9 @@ Complete Infrastructure-as-Code deployment for Azure DNS POC evaluation, includi
 - Security hardening: `httpsOnly=true`, `ftpsState=Disabled`, `minTlsVersion=1.2`
 
 ### DNS Records (TTL=30)
-- `failover.poc.valero.com` → Traffic Manager failover FQDN
-- `geo.poc.valero.com` → Traffic Manager geographic FQDN
-- `weighted.poc.valero.com` → Traffic Manager weighted FQDN
+- `failover.poc.Zava.com` → Traffic Manager failover FQDN
+- `geo.poc.Zava.com` → Traffic Manager geographic FQDN
+- `weighted.poc.Zava.com` → Traffic Manager weighted FQDN
 
 ### Diagnostic Settings
 - **Subscription Activity Log**: All 8 categories → Event Hub + Log Analytics
@@ -48,7 +48,7 @@ Complete Infrastructure-as-Code deployment for Azure DNS POC evaluation, includi
 1. **Azure CLI** installed and authenticated
 2. **Bicep CLI** (bundled with Azure CLI 2.20+)
 3. **Subscription permissions**: Owner or Contributor + User Access Administrator
-4. **Verified domain ownership**: Ensure `poc.valero.com` is registered and you can update NS records at registrar
+4. **Verified domain ownership**: Ensure `poc.Zava.com` is registered and you can update NS records at registrar
 
 ### Step 1: Review Parameters
 Edit `main.bicepparam` to customize:
@@ -57,8 +57,8 @@ Edit `main.bicepparam` to customize:
 - Regions (default: `southcentralus`, `westus3`, `eastasia`)
 
 ```bicep
-param domain = 'poc.valero.com'
-param privateDomain = 'poc-internal.valero.local'
+param domain = 'poc.Zava.com'
+param privateDomain = 'poc-internal.Zava.local'
 param location = 'southcentralus'
 ```
 
@@ -75,7 +75,7 @@ az deployment sub validate `
 ```powershell
 # Deploy to subscription scope
 az deployment sub create `
-  --name valero-dns-poc-deployment `
+  --name Zava-dns-poc-deployment `
   --location southcentralus `
   --template-file main.bicep `
   --parameters main.bicepparam `
@@ -88,7 +88,7 @@ az deployment sub create `
 ```powershell
 # Get all deployment outputs
 az deployment sub show `
-  --name valero-dns-poc-deployment `
+  --name Zava-dns-poc-deployment `
   --query properties.outputs
 ```
 
@@ -103,7 +103,7 @@ az deployment sub show `
 ## 🔧 Post-Deployment Configuration
 
 ### 1. Update DNS Registrar
-Point `poc.valero.com` NS records to Azure DNS name servers (from outputs):
+Point `poc.Zava.com` NS records to Azure DNS name servers (from outputs):
 ```
 ns1-01.azure-dns.com.
 ns2-01.azure-dns.net.
@@ -111,7 +111,7 @@ ns3-01.azure-dns.org.
 ns4-01.azure-dns.info.
 ```
 
-⚠️ **DO NOT** update registrar during POC if this is a test subdomain — validate with `dig @ns1-01.azure-dns.com poc.valero.com` instead.
+⚠️ **DO NOT** update registrar during POC if this is a test subdomain — validate with `dig @ns1-01.azure-dns.com poc.Zava.com` instead.
 
 ### 2. Configure IBM QRadar Event Hub Consumer
 Use `eventHubListenConnectionString` output to configure QRadar DSM connector:
@@ -137,19 +137,19 @@ Expected: All endpoints show `Online` within 2 minutes of deployment.
 ### 4. Test DNS Resolution
 ```powershell
 # Test public DNS records
-nslookup failover.poc.valero.com
-nslookup geo.poc.valero.com
-nslookup weighted.poc.valero.com
+nslookup failover.poc.Zava.com
+nslookup geo.poc.Zava.com
+nslookup weighted.poc.Zava.com
 
 # Test private DNS (requires VNet VM)
-nslookup db.poc-internal.valero.local 10.0.0.4
+nslookup db.poc-internal.Zava.local 10.0.0.4
 ```
 
 ### 5. Test Web Apps
 ```powershell
-curl https://failover.poc.valero.com
-curl https://geo.poc.valero.com
-curl https://weighted.poc.valero.com
+curl https://failover.poc.Zava.com
+curl https://geo.poc.Zava.com
+curl https://weighted.poc.Zava.com
 ```
 
 ---
@@ -187,15 +187,15 @@ AzureMetrics
 ## 🧪 POC Test Scenarios
 
 ### Scenario 1: DNS Failover Test
-1. **Baseline**: `curl https://failover.poc.valero.com` → returns US web app
+1. **Baseline**: `curl https://failover.poc.Zava.com` → returns US web app
 2. **Simulate failure**: Stop US web app
 3. **Wait 60 seconds**: Traffic Manager health probe detects failure
-4. **Verify**: `curl https://failover.poc.valero.com` → returns UK web app
+4. **Verify**: `curl https://failover.poc.Zava.com` → returns UK web app
 
 ### Scenario 2: Geographic Routing
 ```powershell
 # From US IP: Should route to US web app
-curl https://geo.poc.valero.com
+curl https://geo.poc.Zava.com
 
 # From UK IP (use VPN/proxy): Should route to UK web app
 ```
@@ -204,7 +204,7 @@ curl https://geo.poc.valero.com
 Run 100 requests and verify ~70% hit US, ~30% hit UK:
 ```powershell
 1..100 | ForEach-Object {
-    curl -s https://weighted.poc.valero.com | Select-String "webapp-poc"
+    curl -s https://weighted.poc.Zava.com | Select-String "webapp-poc"
 } | Group-Object
 ```
 
@@ -273,13 +273,13 @@ az monitor diagnostic-settings subscription delete `
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    AZURE SUBSCRIPTION (Valero)                   │
+│                    AZURE SUBSCRIPTION (Zava)                   │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                   │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │           Resource Group: rg-dns-poc                        │ │
 │  │  ┌──────────────────────────────────────────────────────┐  │ │
-│  │  │  PUBLIC DNS ZONE: poc.valero.com                      │  │ │
+│  │  │  PUBLIC DNS ZONE: poc.Zava.com                      │  │ │
 │  │  │  • CNAME: failover → tm-poc-failover.trafficmgr.net  │  │ │
 │  │  │  • CNAME: geo → tm-poc-geo.trafficmgr.net            │  │ │
 │  │  │  • CNAME: weighted → tm-poc-weighted.trafficmgr.net  │  │ │
@@ -287,7 +287,7 @@ az monitor diagnostic-settings subscription delete `
 │  │  └──────────────────────────────────────────────────────┘  │ │
 │  │                                                              │ │
 │  │  ┌──────────────────────────────────────────────────────┐  │ │
-│  │  │  PRIVATE DNS ZONE: poc-internal.valero.local          │  │ │
+│  │  │  PRIVATE DNS ZONE: poc-internal.Zava.local          │  │ │
 │  │  │  • A: db → 10.0.1.100                                 │  │ │
 │  │  │  • A: app → 10.0.1.101                                │  │ │
 │  │  │  • A: cache → 10.0.1.102                              │  │ │

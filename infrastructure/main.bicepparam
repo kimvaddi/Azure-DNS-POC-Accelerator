@@ -1,5 +1,5 @@
 // ============================================================================
-// Parameters file for Valero DNS POC Deployment
+// Parameters file for Zava DNS POC Deployment
 // ============================================================================
 // Use this file with: az deployment sub create --template-file main.bicep --parameters main.bicepparam
 
@@ -23,8 +23,8 @@ param rgName = 'rg-dns-poc'
 // DNS DOMAINS
 // ============================================================================
 
-param domain = 'poc.valero.com'
-param privateDomain = 'poc-internal.valero.local'
+param domain = 'poc.Zava.com'
+param privateDomain = 'poc-internal.Zava.local'
 
 // ============================================================================
 // WEB APP NAMES
@@ -47,7 +47,7 @@ param lawName = 'law-dns-poc'
 
 param tags = {
   project: 'dns-poc'
-  customer: 'valero'
+  customer: 'Zava'
   environment: 'poc'
   'managed-by': 'bicep'
   'created-date': '2026-03-27'

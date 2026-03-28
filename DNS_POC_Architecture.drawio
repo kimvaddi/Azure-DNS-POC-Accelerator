@@ -6,12 +6,12 @@
         <mxCell id="1" parent="0" />
 
         <!-- Title -->
-        <mxCell id="title" value="Azure DNS POC — Solution Accelerator Architecture&#xa;Valero_DNS_POC_Deployment.ps1 (1,361 lines | 13 sections | 13 findings)" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;fontColor=#333333;" vertex="1" parent="1">
+        <mxCell id="title" value="Azure DNS POC — Solution Accelerator Architecture&#xa;Zava_DNS_POC_Deployment.ps1 (1,361 lines | 13 sections | 13 findings)" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;fontColor=#333333;" vertex="1" parent="1">
           <mxGeometry x="350" y="10" width="700" height="50" as="geometry" />
         </mxCell>
 
         <!-- Resource Group Container -->
-        <mxCell id="rg" value="Resource Group: rg-dns-poc (southcentralus)&#xa;Tags: project=dns-poc, customer=valero" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;fontStyle=1;fontSize=12;arcSize=5;align=center;" vertex="1" parent="1">
+        <mxCell id="rg" value="Resource Group: rg-dns-poc (southcentralus)&#xa;Tags: project=dns-poc, customer=Zava" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;fontStyle=1;fontSize=12;arcSize=5;align=center;" vertex="1" parent="1">
           <mxGeometry x="40" y="70" width="1520" height="1080" as="geometry" />
         </mxCell>
 
@@ -21,12 +21,12 @@
         </mxCell>
 
         <!-- Public DNS Zone -->
-        <mxCell id="dns-public" value="Azure DNS Zone (Public)&#xa;poc.valero.com&#xa;───────────────&#xa;23 records imported&#xa;A, AAAA, CNAME, MX,&#xa;TXT, SRV, NS, SOA&#xa;DNSSEC: Enabled&#xa;(ZSK + KSK)" style="shape=mxgraph.azure.dns;fillColor=#0078D4;fontColor=#FFFFFF;strokeColor=#0078D4;fontSize=10;whiteSpace=wrap;html=1;verticalAlign=middle;align=center;" vertex="1" parent="1">
+        <mxCell id="dns-public" value="Azure DNS Zone (Public)&#xa;poc.Zava.com&#xa;───────────────&#xa;23 records imported&#xa;A, AAAA, CNAME, MX,&#xa;TXT, SRV, NS, SOA&#xa;DNSSEC: Enabled&#xa;(ZSK + KSK)" style="shape=mxgraph.azure.dns;fillColor=#0078D4;fontColor=#FFFFFF;strokeColor=#0078D4;fontSize=10;whiteSpace=wrap;html=1;verticalAlign=middle;align=center;" vertex="1" parent="1">
           <mxGeometry x="220" y="120" width="200" height="140" as="geometry" />
         </mxCell>
 
         <!-- Private DNS Zone -->
-        <mxCell id="dns-private" value="Private DNS Zone&#xa;poc-internal.valero.local&#xa;───────────────&#xa;VNet-linked" style="shape=mxgraph.azure.dns;fillColor=#505050;fontColor=#FFFFFF;strokeColor=#505050;fontSize=10;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+        <mxCell id="dns-private" value="Private DNS Zone&#xa;poc-internal.Zava.local&#xa;───────────────&#xa;VNet-linked" style="shape=mxgraph.azure.dns;fillColor=#505050;fontColor=#FFFFFF;strokeColor=#505050;fontSize=10;whiteSpace=wrap;html=1;" vertex="1" parent="1">
           <mxGeometry x="480" y="120" width="180" height="100" as="geometry" />
         </mxCell>
 

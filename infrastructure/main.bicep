@@ -1,5 +1,5 @@
 // ============================================================================
-// Valero Azure DNS POC - Main Bicep Template
+// Zava Azure DNS POC - Main Bicep Template
 // ============================================================================
 // Deploys complete DNS POC infrastructure including:
 // - Public and Private DNS Zones
@@ -29,10 +29,10 @@ param locationSecondary string = 'eastasia'
 param rgName string = 'rg-dns-poc'
 
 @description('Public DNS domain for the POC')
-param domain string = 'poc.valero.com'
+param domain string = 'poc.Zava.com'
 
 @description('Private DNS domain for internal resources')
-param privateDomain string = 'poc-internal.valero.local'
+param privateDomain string = 'poc-internal.Zava.local'
 
 @description('Web app name for US region')
 param webAppNameUS string = 'webapp-poc-us'
@@ -53,7 +53,7 @@ param lawName string = 'law-dns-poc'
 @description('Tags to apply to all resources')
 param tags object = {
   project: 'dns-poc'
-  customer: 'valero'
+  customer: 'Zava'
   environment: 'poc'
   managed-by: 'bicep'
 }
@@ -143,7 +143,7 @@ module vnet 'modules/vnet.bicep' = {
 // ============================================================================
 // PUBLIC DNS ZONE
 // ============================================================================
-// Primary POC DNS zone (poc.valero.com)
+// Primary POC DNS zone (poc.Zava.com)
 
 module publicDnsZone 'modules/public-dns-zone.bicep' = {
   scope: rg

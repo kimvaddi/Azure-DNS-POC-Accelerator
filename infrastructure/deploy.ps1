@@ -1,5 +1,5 @@
 # ============================================================================
-# Valero DNS POC - Bicep Deployment Script
+# Zava DNS POC - Bicep Deployment Script
 # ============================================================================
 # Deploys complete DNS POC infrastructure to Azure subscription
 # Validates template before deployment and captures all outputs
@@ -10,7 +10,7 @@ param(
     [string]$Location = "southcentralus",
     
     [Parameter(Mandatory=$false)]
-    [string]$DeploymentName = "valero-dns-poc-$(Get-Date -Format 'yyyyMMdd-HHmmss')",
+    [string]$DeploymentName = "Zava-dns-poc-$(Get-Date -Format 'yyyyMMdd-HHmmss')",
     
     [Parameter(Mandatory=$false)]
     [string]$TemplateFile = "main.bicep",

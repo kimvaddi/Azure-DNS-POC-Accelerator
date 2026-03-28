@@ -1,8 +1,8 @@
 # Azure DNS POC — Solution Accelerator Discovery
 
-**Document Type:** Current State Discovery + Valero Use Case Mapping  
+**Document Type:** Current State Discovery + Zava Use Case Mapping  
 **Reference Deployment:** kimvaddi.com (Subscription: MCAPS-Hybrid-REQ-118274-2025-kimvaddi)  
-**Target Customer:** Valero Energy Corporation  
+**Target Customer:** Zava Energy Corporation  
 **Author:** Kim Vaddi  
 **Date:** March 27, 2026  
 
@@ -167,7 +167,7 @@
 
 ---
 
-## 2. Valero POC Scope — Full Requirements Matrix
+## 2. Zava POC Scope — Full Requirements Matrix
 
 ### 2.1 Required (All Must Pass)
 
@@ -189,9 +189,9 @@
 | 9 | **API Support** | Record CRUD via CLI, REST, PowerShell, Terraform, Bicep | Azure DNS zone + multiple CLI/SDK demos | ✅ DNS zone exists; scripting demos needed |
 | 10 | **DNSSEC** | Zone signed, RRSIG records visible | `az network dns dnssec-config create` | ❌ Not configured |
 
-### 2.3 Infrastructure Required by Valero That kimvaddi.com Does NOT Have
+### 2.3 Infrastructure Required by Zava That kimvaddi.com Does NOT Have
 
-| Resource | Why Valero Needs It | Deployment Layer |
+| Resource | Why Zava Needs It | Deployment Layer |
 |----------|-------------------|-----------------|
 | **Event Hub Namespace + Hub** | QRadar SIEM integration for audit logging (Required #2) | Layer 1 |
 | **Diagnostic Settings** on DNS zone | Route DnsDiagnosticEvents to Event Hub + LAW (Required #2, #3) | Layer 6 |
@@ -200,17 +200,17 @@
 | **Custom RBAC role** (DNS Record Operator) | Operator vs Admin delegation (Scope #3) | Layer 6 |
 | **Traffic Manager — Priority profile** | DNS failover testing (Optional #6) | Layer 3 |
 | **Traffic Manager — Geographic profile** | Geo-based routing (Optional #8) | Layer 3 |
-| **VNet + Private DNS Zone** | Internal DNS testing (`poc-internal.valero.local`) | Layer 0/1 |
+| **VNet + Private DNS Zone** | Internal DNS testing (`poc-internal.Zava.local`) | Layer 0/1 |
 | **Function Apps** (multi-region) | Emulate geo-distributed DNS clients for nslookup from multiple regions | Layer 2 |
 | **Bind zone files** (sample) | Zone import testing — customer provides or we generate samples | Pre-POC |
 
 ---
 
-## 3. Valero Use Case — What the Accelerator Must Deliver
+## 3. Zava Use Case — What the Accelerator Must Deliver
 
 ### 3.1 The Business Problem
 
-Valero Energy runs aging **Bind DNS servers in their DMZ**. Only 2-3 engineers understand Bind. The servers require OS patching, config file management, and manual SIEM integration. Valero recently built an **Azure Enterprise Landing Zone** and wants to move DNS into Azure to:
+Zava Energy runs aging **Bind DNS servers in their DMZ**. Only 2-3 engineers understand Bind. The servers require OS patching, config file management, and manual SIEM integration. Zava recently built an **Azure Enterprise Landing Zone** and wants to move DNS into Azure to:
 
 1. **Eliminate DMZ risk** — remove DNS servers from the attack surface
 2. **Democratize DNS management** — RBAC lets more team members manage records safely
@@ -220,20 +220,20 @@ Valero Energy runs aging **Bind DNS servers in their DMZ**. Only 2-3 engineers u
 
 ### 3.2 Why This Is a Competitive Evaluation
 
-Valero is evaluating **Azure DNS against at least one other vendor**. They're finishing the other vendor's POC first. Azure must be:
+Zava is evaluating **Azure DNS against at least one other vendor**. They're finishing the other vendor's POC first. Azure must be:
 - **Faster to deploy** — hours, not days
 - **Cleaner to demonstrate** — copy-paste scripts, not documentation-only
 - **More compelling on integration** — native RBAC, Event Hub to QRadar, Monitor dashboards, Traffic Manager geo-routing... all first-party, no third-party connectors
 
-### 3.3 The Valero Use Case — End-to-End
+### 3.3 The Zava Use Case — End-to-End
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                     VALERO DNS POC USE CASE                              │
+│                     Zava DNS POC USE CASE                              │
 │                                                                          │
 │  ┌─────────────┐    ┌─────────────────┐    ┌──────────────────────────┐ │
 │  │ Bind Servers │    │ Azure DNS Zone   │    │ Traffic Manager          │ │
-│  │ (Legacy DMZ) │ →  │ poc.valero.com   │ →  │ Failover / Geo / Weight  │ │
+│  │ (Legacy DMZ) │ →  │ poc.Zava.com   │ →  │ Failover / Geo / Weight  │ │
 │  │ Zone Export  │    │ Zone Import      │    │           │              │ │
 │  └──────────────┘    └────────┬────────┘    └───────────┼──────────────┘ │
 │                               │                         │                │
@@ -261,17 +261,17 @@ Valero is evaluating **Azure DNS against at least one other vendor**. They're fi
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.4 Infrastructure Deployment Layers — Valero Greenfield
+### 3.4 Infrastructure Deployment Layers — Zava Greenfield
 
-Since Valero is **greenfield** (no existing Azure DNS infrastructure), the accelerator must deploy everything from scratch in the correct dependency order.
+Since Zava is **greenfield** (no existing Azure DNS infrastructure), the accelerator must deploy everything from scratch in the correct dependency order.
 
 #### Layer 0: Foundation (No dependencies — deploy first, parallel)
 
 ```
 az group create  →  Resource Group (rg-dns-poc, southcentralus)
 az monitor log-analytics workspace create  →  Log Analytics Workspace
-az network dns zone create  →  Public DNS Zone (poc.valero.com)
-az network dns zone create  →  Private DNS Zone (poc-internal.valero.local)
+az network dns zone create  →  Public DNS Zone (poc.Zava.com)
+az network dns zone create  →  Private DNS Zone (poc-internal.Zava.local)
 ```
 
 #### Layer 1: Observability + Messaging Platform (Depends on: Layer 0)
@@ -339,15 +339,15 @@ DCV proof suite (9 tests)              →  Certificate validation testing
 Function App geo-probe tests           →  Multi-region nslookup emulation
 ```
 
-### 3.5 Gap Analysis — What kimvaddi.com Teaches vs What Valero Requires
+### 3.5 Gap Analysis — What kimvaddi.com Teaches vs What Zava Requires
 
-| Capability | kimvaddi.com (Reference) | Valero POC (Required) | Gap |
+| Capability | kimvaddi.com (Reference) | Zava POC (Required) | Gap |
 |-----------|-------------------------|----------------------|-----|
-| DNS Zone (Public) | ✅ kimvaddi.com | ✅ poc.valero.com | Pattern matches — reuse |
-| DNS Zone (Private) | ❌ None | ✅ poc-internal.valero.local | **NEW** — add VNet + private zone |
+| DNS Zone (Public) | ✅ kimvaddi.com | ✅ poc.Zava.com | Pattern matches — reuse |
+| DNS Zone (Private) | ❌ None | ✅ poc-internal.Zava.local | **NEW** — add VNet + private zone |
 | Zone Import (Bind) | ❌ Manual records only | ✅ Import 2-3 Bind files | **NEW** — add import + validation |
 | Traffic Manager | ✅ Performance routing | ✅ Priority + Geographic + Weighted | **EXTEND** — 3 routing profiles needed |
-| Web Apps (multi-region) | ✅ West US 3 + East Asia | ✅ South Central US + UK South | **MODIFY** — different regions for Valero |
+| Web Apps (multi-region) | ✅ West US 3 + East Asia | ✅ South Central US + UK South | **MODIFY** — different regions for Zava |
 | TLS Certificates | ✅ App Service Managed | ✅ DigiCert DCV via `_dnsauth` | **NEW** — DCV automation workflow |
 | Log Analytics | ✅ law-kimvaddi | ✅ Required for reporting | Pattern matches — reuse |
 | Event Hub → SIEM | ❌ None | ✅ QRadar integration | **NEW** — Event Hub + diagnostic settings |
@@ -364,22 +364,22 @@ Function App geo-probe tests           →  Multi-region nslookup emulation
 
 The solution accelerator uses the kimvaddi.com pattern but makes everything configurable:
 
-| Parameter | kimvaddi.com Value | Valero Default | Customer Sets |
+| Parameter | kimvaddi.com Value | Zava Default | Customer Sets |
 |-----------|-------------------|----------------|--------------|
-| `DOMAIN` | kimvaddi.com | poc.valero.com | ✅ |
+| `DOMAIN` | kimvaddi.com | poc.Zava.com | ✅ |
 | `RG_NAME` | DNSdemo | rg-dns-poc | ✅ |
 | `LOCATION_PRIMARY` | westus3 | southcentralus | ✅ |
 | `LOCATION_SECONDARY` | eastasia | uksouth | ✅ |
 | `WEBAPP_NAME_A` | westus3webapp | webapp-poc-us | ✅ |
 | `WEBAPP_NAME_B` | eastasiawebapp | webapp-poc-uk | ✅ |
-| `TM_PROFILE_NAME` | tm-kimvaddi-perf | tm-poc-valero | ✅ |
+| `TM_PROFILE_NAME` | tm-kimvaddi-perf | tm-poc-Zava | ✅ |
 | `LAW_NAME` | law-kimvaddi | law-dns-poc | ✅ |
 | `SIEM_TYPE` | (none) | qradar | ✅ |
 | `CA_TYPE` | managed | digicert | ✅ |
 | `SUBSCRIPTION_ID` | ba89cfed-... | (customer) | ✅ |
 | `ENABLE_DNSSEC` | false | false | ✅ |
 | `ENABLE_PRIVATE_DNS` | false | true | ✅ |
-| `PRIVATE_ZONE` | (none) | poc-internal.valero.local | ✅ |
+| `PRIVATE_ZONE` | (none) | poc-internal.Zava.local | ✅ |
 
 ---
 
@@ -388,12 +388,12 @@ The solution accelerator uses the kimvaddi.com pattern but makes everything conf
 ### What We Learned from kimvaddi.com
 
 1. **Core pattern is proven** — DNS Zone → CNAME → Traffic Manager → multi-region Web Apps → custom domain + TLS works end-to-end
-2. **Performance routing works** — but Valero needs Priority (failover), Geographic, and Weighted profiles too
-3. **App Service Managed Certificates work** — but Valero uses DigiCert CertCentral with `_dnsauth` DCV, which is a different workflow
-4. **Logging gap is critical** — kimvaddi.com has zero diagnostic settings on the DNS zone, zero Event Hub, zero Workbooks. This is the #1 gap vs Valero's Required items
+2. **Performance routing works** — but Zava needs Priority (failover), Geographic, and Weighted profiles too
+3. **App Service Managed Certificates work** — but Zava uses DigiCert CertCentral with `_dnsauth` DCV, which is a different workflow
+4. **Logging gap is critical** — kimvaddi.com has zero diagnostic settings on the DNS zone, zero Event Hub, zero Workbooks. This is the #1 gap vs Zava's Required items
 5. **Web apps work as TM endpoints** — even basic B1 plans are sufficient for POC health checks
 
-### What Must Be Built New for Valero
+### What Must Be Built New for Zava
 
 1. **Event Hub + Diagnostic Settings** pipeline (Required #2: Audit Logging)
 2. **Azure Monitor Workbook** templates (Required #3: Reporting)

@@ -1,10 +1,10 @@
-# Project Guidelines — Valero Azure DNS POC
+# Project Guidelines — Zava Azure DNS POC
 
 ## Context
 
-This workspace contains customer-facing engagement materials for **Valero Energy Corporation's Azure DNS POC** — a competitive evaluation to replace aging Bind-based DNS servers with Azure DNS. This is **not a code repository**; it's a collection of plans, runbooks, guides, and agendas supporting a Microsoft account team's customer engagement.
+This workspace contains customer-facing engagement materials for **Zava Energy Corporation's Azure DNS POC** — a competitive evaluation to replace aging Bind-based DNS servers with Azure DNS. This is **not a code repository**; it's a collection of plans, runbooks, guides, and agendas supporting a Microsoft account team's customer engagement.
 
-**Customer:** Valero Energy Corporation (HQ: San Antonio, TX)  
+**Customer:** Zava Energy Corporation (HQ: San Antonio, TX)  
 **Microsoft Contact:** Kim Vaddi (Account Team)  
 **Key Customer Contacts:** Jeremy (Primary Technical), Mike (Technical Stakeholder), Matt Boulder (Engineer), Charles Mylak (PM — requires formal project documentation for go/no-go decision in weeks 3–4 of April), Noel (Coordination)  
 **POC Target:** 3-phase engagement, wrap-up weeks 3–4 of April 2026  
@@ -16,19 +16,19 @@ This workspace contains customer-facing engagement materials for **Valero Energy
 
 | File | Purpose |
 |------|---------|
-| `DNS_POC_Core Ask from the Customer.txt` | Raw customer requirements and success criteria (source of truth for what Valero needs) |
-| `Valero DNS POC Scope _3_25_2026.txt` | Workstream catalog, pre-POC task matrix with owners/dates, and prep checklist (output of March 25 scoping session) |
-| `Valero_Azure_DNS_POC_Plan.md` | Full POC scope, architecture, 3-phase timeline, success scorecard, risks, and competitive positioning |
-| `Valero_DNS_POC_Runbook.sh` | Copy-paste bash scripts for every POC workstream (13 sections: setup → zone import → RBAC → DigiCert DCV → QRadar logging → snapshots → reporting → failover → geo → cleanup) |
-| `Valero_DCV_Walkthrough_Guide.md` | Beginner-friendly guide explaining DCV (Domain Control Validation), certificate workflows, and step-by-step instructions for Jeremy & Matt |
-| `Valero_DNS_POC_Scoping_Session_Agenda.md` | 60-minute scoping session agenda with talking points, questions to ask, and decision templates |
+| `DNS_POC_Core Ask from the Customer.txt` | Raw customer requirements and success criteria (source of truth for what Zava needs) |
+| `Zava DNS POC Scope _3_25_2026.txt` | Workstream catalog, pre-POC task matrix with owners/dates, and prep checklist (output of March 25 scoping session) |
+| `Zava_Azure_DNS_POC_Plan.md` | Full POC scope, architecture, 3-phase timeline, success scorecard, risks, and competitive positioning |
+| `Zava_DNS_POC_Runbook.sh` | Copy-paste bash scripts for every POC workstream (13 sections: setup → zone import → RBAC → DigiCert DCV → QRadar logging → snapshots → reporting → failover → geo → cleanup) |
+| `Zava_DCV_Walkthrough_Guide.md` | Beginner-friendly guide explaining DCV (Domain Control Validation), certificate workflows, and step-by-step instructions for Jeremy & Matt |
+| `Zava_DNS_POC_Scoping_Session_Agenda.md` | 60-minute scoping session agenda with talking points, questions to ask, and decision templates |
 
 ## Conventions
 
 - **Audience is the customer team** (Jeremy, Matt) and internal Microsoft stakeholders (Kim). Write for DNS practitioners who are new to Azure, not Azure experts.
-- **Azure region:** `southcentralus` (closest to Valero HQ in San Antonio).
-- **Resource group:** `rg-dns-poc` inside Valero's existing Enterprise Landing Zone.
-- **POC domain:** `poc.valero.com` (public), `poc-internal.valero.local` (private).
+- **Azure region:** `southcentralus` (closest to Zava HQ in San Antonio).
+- **Resource group:** `rg-dns-poc` inside Zava's existing Enterprise Landing Zone.
+- **POC domain:** `poc.Zava.com` (public), `poc-internal.Zava.local` (private).
 - **Scripts use Azure CLI** (`az` commands). PowerShell alternatives are provided where noted.
 - Variables in the runbook use `UPPER_SNAKE_CASE` and must be set in Section 0 before execution.
 - Placeholders use angle brackets: `<subscription-id>`, `<tenant-id>`, etc.
@@ -69,7 +69,7 @@ This workspace contains customer-facing engagement materials for **Valero Energy
 
 ## Key Constraints
 
-- **No production domains in POC** — use `poc.valero.com` subdomain only.
+- **No production domains in POC** — use `poc.Zava.com` subdomain only.
 - **No registrar NS delegation changes** during POC.
 - **POC cost target:** Under $25 for the 2-week period.
 - **Competitive sensitivity:** Don't disparage other vendors. Lead with Azure's strengths (100% SLA, native integration, zero maintenance, global anycast).

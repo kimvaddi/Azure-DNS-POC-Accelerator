@@ -1,7 +1,7 @@
 ###############################################################################
 # Azure DNS POC — CLEANUP Script (PowerShell / Azure CLI)
 #
-# Purpose: Tear down ALL resources deployed by Valero_DNS_POC_Deployment.ps1
+# Purpose: Tear down ALL resources deployed by Zava_DNS_POC_Deployment.ps1
 # Author:  Kim Vaddi (Microsoft)
 # Date:    March 27, 2026
 #
@@ -40,8 +40,8 @@
 # ============================================================================
 
 $RG_NAME           = "rg-dns-poc"
-$DOMAIN            = "poc.valero.com"
-$PRIVATE_ZONE      = "poc-internal.valero.local"
+$DOMAIN            = "poc.Zava.com"
+$PRIVATE_ZONE      = "poc-internal.Zava.local"
 $EH_NAMESPACE      = "ehns-dns-poc"
 $SUBSCRIPTION_ID   = "<your-subscription-id>"  # Set this or use current
 
@@ -198,7 +198,7 @@ MANUAL STEPS (customer must do):
      - .\dns-operator-role.json
      - .\sample-bind-zone.txt
      - .\snapshot-*.zone
-     - .\Valero_DNS_POC_Deployment.ps1 (keep for reference/reuse)
+     - .\Zava_DNS_POC_Deployment.ps1 (keep for reference/reuse)
 
   4. VERIFY: After 5 minutes, confirm cleanup:
      az group exists --name $RG_NAME

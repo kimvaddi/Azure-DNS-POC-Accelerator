@@ -15,10 +15,10 @@
       "value": "rg-dns-poc"
     },
     "domain": {
-      "value": "poc.valero.com"
+      "value": "poc.Zava.com"
     },
     "privateDomain": {
-      "value": "poc-internal.valero.local"
+      "value": "poc-internal.Zava.local"
     },
     "webAppNameUS": {
       "value": "webapp-poc-us"
@@ -38,7 +38,7 @@
     "tags": {
       "value": {
         "project": "dns-poc",
-        "customer": "valero",
+        "customer": "Zava",
         "environment": "poc",
         "managed-by": "bicep",
         "created-date": "2026-03-27",

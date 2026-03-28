@@ -1,4 +1,4 @@
-# Valero DNS POC — Quick Reference
+# Zava DNS POC — Quick Reference
 
 ## 🚀 Quick Deployment
 
@@ -8,14 +8,14 @@
 
 # Option 2: Manual deployment with Bicep parameters
 az deployment sub create `
-  --name valero-dns-poc `
+  --name Zava-dns-poc `
   --location southcentralus `
   --template-file main.bicep `
   --parameters main.bicepparam
 
 # Option 3: Manual deployment with JSON parameters
 az deployment sub create `
-  --name valero-dns-poc `
+  --name Zava-dns-poc `
   --location southcentralus `
   --template-file main.bicep `
   --parameters main.parameters.json
@@ -28,8 +28,8 @@ az deployment sub create `
 | Resource Type | Name | Purpose |
 |---------------|------|---------|
 | **Resource Group** | `rg-dns-poc` | Container for all POC resources |
-| **Public DNS Zone** | `poc.valero.com` | Main POC DNS zone |
-| **Private DNS Zone** | `poc-internal.valero.local` | Internal DNS testing |
+| **Public DNS Zone** | `poc.Zava.com` | Main POC DNS zone |
+| **Private DNS Zone** | `poc-internal.Zava.local` | Internal DNS testing |
 | **Log Analytics** | `law-dns-poc` | Central logging (30-day retention) |
 | **Event Hub Namespace** | `ehns-dns-poc` | QRadar integration |
 | **Event Hub** | `dns-logs` | Activity log stream to QRadar |
@@ -49,12 +49,12 @@ az deployment sub create `
 
 | Record | Type | Target | TTL |
 |--------|------|--------|-----|
-| `failover.poc.valero.com` | CNAME | `tm-poc-failover.trafficmanager.net` | 30 |
-| `geo.poc.valero.com` | CNAME | `tm-poc-geo.trafficmanager.net` | 30 |
-| `weighted.poc.valero.com` | CNAME | `tm-poc-weighted.trafficmanager.net` | 30 |
-| `db.poc-internal.valero.local` | A | `10.0.1.100` | 300 |
-| `app.poc-internal.valero.local` | A | `10.0.1.101` | 300 |
-| `cache.poc-internal.valero.local` | A | `10.0.1.102` | 300 |
+| `failover.poc.Zava.com` | CNAME | `tm-poc-failover.trafficmanager.net` | 30 |
+| `geo.poc.Zava.com` | CNAME | `tm-poc-geo.trafficmanager.net` | 30 |
+| `weighted.poc.Zava.com` | CNAME | `tm-poc-weighted.trafficmanager.net` | 30 |
+| `db.poc-internal.Zava.local` | A | `10.0.1.100` | 300 |
+| `app.poc-internal.Zava.local` | A | `10.0.1.101` | 300 |
+| `cache.poc-internal.Zava.local` | A | `10.0.1.102` | 300 |
 
 ---
 
@@ -62,17 +62,17 @@ az deployment sub create `
 
 ### Check Deployment Status
 ```powershell
-az deployment sub show --name valero-dns-poc --query properties.provisioningState
+az deployment sub show --name Zava-dns-poc --query properties.provisioningState
 ```
 
 ### Get All Outputs
 ```powershell
-az deployment sub show --name valero-dns-poc --query properties.outputs
+az deployment sub show --name Zava-dns-poc --query properties.outputs
 ```
 
 ### Verify DNS Zone
 ```powershell
-az network dns zone show --name poc.valero.com --resource-group rg-dns-poc
+az network dns zone show --name poc.Zava.com --resource-group rg-dns-poc
 ```
 
 ### Check Traffic Manager Health
@@ -85,9 +85,9 @@ az network traffic-manager endpoint list `
 
 ### Test DNS Resolution
 ```powershell
-nslookup failover.poc.valero.com
-nslookup geo.poc.valero.com
-nslookup weighted.poc.valero.com
+nslookup failover.poc.Zava.com
+nslookup geo.poc.Zava.com
+nslookup weighted.poc.Zava.com
 ```
 
 ### Verify Event Hub
@@ -149,7 +149,7 @@ AzureDiagnostics
 ### Scenario 1: DNS Failover
 ```powershell
 # 1. Baseline
-curl https://failover.poc.valero.com
+curl https://failover.poc.Zava.com
 
 # 2. Stop US web app
 az webapp stop --name webapp-poc-us --resource-group rg-dns-poc
@@ -157,7 +157,7 @@ az webapp stop --name webapp-poc-us --resource-group rg-dns-poc
 # 3. Wait 60 seconds for health probe
 
 # 4. Test failover
-curl https://failover.poc.valero.com  # Should return UK app
+curl https://failover.poc.Zava.com  # Should return UK app
 
 # 5. Restart US web app
 az webapp start --name webapp-poc-us --resource-group rg-dns-poc
@@ -166,15 +166,15 @@ az webapp start --name webapp-poc-us --resource-group rg-dns-poc
 ### Scenario 2: Geographic Routing
 ```powershell
 # Test from different geographic locations
-curl -H "X-Forwarded-For: 1.1.1.1" https://geo.poc.valero.com  # US IP
-curl -H "X-Forwarded-For: 194.0.0.1" https://geo.poc.valero.com  # UK IP
+curl -H "X-Forwarded-For: 1.1.1.1" https://geo.poc.Zava.com  # US IP
+curl -H "X-Forwarded-For: 194.0.0.1" https://geo.poc.Zava.com  # UK IP
 ```
 
 ### Scenario 3: Weighted Distribution
 ```powershell
 # Run 100 requests and check distribution
 1..100 | ForEach-Object {
-    $response = curl -s https://weighted.poc.valero.com
+    $response = curl -s https://weighted.poc.Zava.com
     if ($response -match "webapp-poc-us") { "US" } else { "UK" }
 } | Group-Object | Select-Object Name, Count
 ```
@@ -296,17 +296,17 @@ az costmanagement query `
 
 ## 🔗 Useful Links
 
-- [POC Plan](../Valero_Azure_DNS_POC_Plan.md)
-- [Runbook Scripts](../Valero_DNS_POC_Runbook.sh)
-- [DCV Walkthrough](../Valero_DCV_Walkthrough_Guide.md)
-- [Scoping Session Agenda](../Valero_DNS_POC_Scoping_Session_Agenda.md)
+- [POC Plan](../Zava_Azure_DNS_POC_Plan.md)
+- [Runbook Scripts](../Zava_DNS_POC_Runbook.sh)
+- [DCV Walkthrough](../Zava_DCV_Walkthrough_Guide.md)
+- [Scoping Session Agenda](../Zava_DNS_POC_Scoping_Session_Agenda.md)
 
 ---
 
 ## 📞 Contacts
 
 **Microsoft**: Kim Vaddi (Account Team)  
-**Valero**: Jeremy (Primary), Matt Boulder (Engineer), Mike (Technical), Charles Mylak (PM), Noel (Coordination)
+**Zava**: Jeremy (Primary), Matt Boulder (Engineer), Mike (Technical), Charles Mylak (PM), Noel (Coordination)
 
 ---
 

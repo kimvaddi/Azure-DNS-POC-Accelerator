@@ -37,7 +37,7 @@
         <mxCell id="WfZHfwuRHXWrhoHdEw4W-11" parent="1" style="whiteSpace=wrap;strokeWidth=2;verticalAlign=top;" value="" vertex="1">
           <mxGeometry height="220" width="382" x="4478" y="46" as="geometry" />
         </mxCell>
-        <mxCell id="WfZHfwuRHXWrhoHdEw4W-12" parent="WfZHfwuRHXWrhoHdEw4W-11" style="whiteSpace=wrap;strokeWidth=2;" value="&lt;b&gt;Azure DNS POC — Solution Accelerator Architecture&lt;/b&gt;&#xa;Valero_DNS_POC_Deployment.ps1 | 1,361 lines | 13 sections | 13 findings" vertex="1">
+        <mxCell id="WfZHfwuRHXWrhoHdEw4W-12" parent="WfZHfwuRHXWrhoHdEw4W-11" style="whiteSpace=wrap;strokeWidth=2;" value="&lt;b&gt;Azure DNS POC — Solution Accelerator Architecture&lt;/b&gt;&#xa;Zava_DNS_POC_Deployment.ps1 | 1,361 lines | 13 sections | 13 findings" vertex="1">
           <mxGeometry height="150" width="307" x="46" y="43" as="geometry" />
         </mxCell>
         <mxCell id="WfZHfwuRHXWrhoHdEw4W-13" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="☁️ Internet / DNS Clients&#xa;&lt;i&gt;dig, nslookup, browsers&lt;/i&gt;" vertex="1">
@@ -52,10 +52,10 @@
         <mxCell id="WfZHfwuRHXWrhoHdEw4W-16" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="🛡️ IBM QRadar SIEM&#xa;&lt;i&gt;Customer On-Prem/SaaS&lt;/i&gt;&#xa;───────────&#xa;DSM: Azure Event Hub&#xa;Protocol: AMQP&#xa;Consumer: qradar-consumer" vertex="1">
           <mxGeometry height="198" width="260" x="4012" y="1226" as="geometry" />
         </mxCell>
-        <mxCell id="WfZHfwuRHXWrhoHdEw4W-17" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="🌍 Azure DNS Zone&#xa;&lt;b&gt;poc.valero.com&lt;/b&gt;&#xa;───────────&#xa;23 records imported&#xa;A, AAAA, CNAME, MX&#xa;TXT, SRV, NS, SOA&#xa;DNSSEC: Enabled&#xa;ZSK + KSK" vertex="1">
+        <mxCell id="WfZHfwuRHXWrhoHdEw4W-17" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="🌍 Azure DNS Zone&#xa;&lt;b&gt;poc.Zava.com&lt;/b&gt;&#xa;───────────&#xa;23 records imported&#xa;A, AAAA, CNAME, MX&#xa;TXT, SRV, NS, SOA&#xa;DNSSEC: Enabled&#xa;ZSK + KSK" vertex="1">
           <mxGeometry height="222" width="208" x="1950" y="415" as="geometry" />
         </mxCell>
-        <mxCell id="WfZHfwuRHXWrhoHdEw4W-18" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="🔐 Private DNS Zone&#xa;&lt;b&gt;poc-internal.valero.local&lt;/b&gt;&#xa;VNet-linked" vertex="1">
+        <mxCell id="WfZHfwuRHXWrhoHdEw4W-18" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="🔐 Private DNS Zone&#xa;&lt;b&gt;poc-internal.Zava.local&lt;/b&gt;&#xa;VNet-linked" vertex="1">
           <mxGeometry height="102" width="245" x="1740" y="893" as="geometry" />
         </mxCell>
         <mxCell id="WfZHfwuRHXWrhoHdEw4W-19" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="📋 DNS Records&#xa;───────────&#xa;• failover CNAME → TM (TTL=30s)&#xa;• geo CNAME → TM (TTL=30s)&#xa;• weighted CNAME → TM (TTL=30s)&#xa;• _dnsauth TXT (DCV)&#xa;• _acme-challenge TXT (ACME)&#xa;• Bind import records" vertex="1">
@@ -310,7 +310,7 @@
         <mxCell id="NpQz91fBUO8jQGnHF2kb-3" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Domain Registrar&#xa;(GoDaddy / Namecheap)&#xa;NS → Azure DNS" vertex="1">
           <mxGeometry height="102" width="236" x="539" y="20" as="geometry" />
         </mxCell>
-        <mxCell id="NpQz91fBUO8jQGnHF2kb-4" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Azure DNS Zone&#xa;poc.valero.com&#xa;DNSSEC Enabled" vertex="1">
+        <mxCell id="NpQz91fBUO8jQGnHF2kb-4" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Azure DNS Zone&#xa;poc.Zava.com&#xa;DNSSEC Enabled" vertex="1">
           <mxGeometry height="102" width="175" x="556" y="221" as="geometry" />
         </mxCell>
         <mxCell id="NpQz91fBUO8jQGnHF2kb-5" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Traffic Manager&#xa;Priority (Failover)" vertex="1">
@@ -340,7 +340,7 @@
         <mxCell id="NpQz91fBUO8jQGnHF2kb-13" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Custom RBAC&#xa;DNS Record Operator" vertex="1">
           <mxGeometry height="78" width="211" x="782" y="805" as="geometry" />
         </mxCell>
-        <mxCell id="NpQz91fBUO8jQGnHF2kb-14" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="VNet + Private DNS&#xa;poc-internal.valero.local" vertex="1">
+        <mxCell id="NpQz91fBUO8jQGnHF2kb-14" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="VNet + Private DNS&#xa;poc-internal.Zava.local" vertex="1">
           <mxGeometry height="78" width="238" x="1043" y="805" as="geometry" />
         </mxCell>
         <mxCell id="NpQz91fBUO8jQGnHF2kb-15" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="IBM QRadar SIEM" vertex="1">
@@ -497,7 +497,7 @@
         <mxCell id="OBl7_gHdcrrnu6QvAn1F-3" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Domain Registrar&#xa;NS Delegation" vertex="1">
           <mxGeometry height="78" width="182" x="308" y="31" as="geometry" />
         </mxCell>
-        <mxCell id="OBl7_gHdcrrnu6QvAn1F-4" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Azure DNS&#xa;poc.valero.com&#xa;+ DNSSEC" vertex="1">
+        <mxCell id="OBl7_gHdcrrnu6QvAn1F-4" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="Azure DNS&#xa;poc.Zava.com&#xa;+ DNSSEC" vertex="1">
           <mxGeometry height="102" width="171" x="318" y="195" as="geometry" />
         </mxCell>
         <mxCell id="OBl7_gHdcrrnu6QvAn1F-5" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="TM Failover" vertex="1">

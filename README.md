@@ -2,7 +2,7 @@
 
 **Repeatable, production-grade deployment kit for Azure DNS Proof of Concept engagements.**
 
-Built from the Valero Energy Corporation engagement. Parameterized for any customer.
+Built from the Zava Energy Corporation engagement. Parameterized for any customer.
 Three deployment options: **PowerShell**, **Bash (az CLI)**, and **Bicep (IaC)**.
 
 ---
@@ -13,9 +13,9 @@ Three deployment options: **PowerShell**, **Bash (az CLI)**, and **Bicep (IaC)**
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| **Valero_DNS_POC_Deployment.ps1** | 1,639 | PowerShell end-to-end deployment (16 sections). Tested live with 14 findings fixed. |
-| **Valero_DNS_POC_Runbook.sh** | 1,800+ | Bash/az CLI runbook (13 sections). Includes 9-test DCV proof suite with PASS/FAIL verdicts. |
-| **Valero_DNS_POC_Cleanup.ps1** | 182 | Tear-down script. Dependency-ordered cleanup (locks → DNSSEC → RBAC → RG). |
+| **Zava_DNS_POC_Deployment.ps1** | 1,639 | PowerShell end-to-end deployment (16 sections). Tested live with 14 findings fixed. |
+| **Zava_DNS_POC_Runbook.sh** | 1,800+ | Bash/az CLI runbook (13 sections). Includes 9-test DCV proof suite with PASS/FAIL verdicts. |
+| **Zava_DNS_POC_Cleanup.ps1** | 182 | Tear-down script. Dependency-ordered cleanup (locks → DNSSEC → RBAC → RG). |
 
 ### Bicep Infrastructure-as-Code
 
@@ -35,10 +35,10 @@ Three deployment options: **PowerShell**, **Bash (az CLI)**, and **Bicep (IaC)**
 |------|---------|
 | **DNS_POC_Architecture.drawio** | Architecture diagram (open in draw.io or VS Code draw.io extension) |
 | **DNS_POC_Solution_Accelerator_Discovery.md** | Discovery document — kimvaddi.com reference analysis + gap mapping |
-| **Valero_Azure_DNS_POC_Plan.md** | Full POC scope, 3-phase timeline, success scorecard, competitive positioning |
-| **Valero_DCV_Walkthrough_Guide.md** | Beginner-friendly DCV + certificate workflow guide |
+| **Zava_Azure_DNS_POC_Plan.md** | Full POC scope, 3-phase timeline, success scorecard, competitive positioning |
+| **Zava_DCV_Walkthrough_Guide.md** | Beginner-friendly DCV + certificate workflow guide |
 | **DNS_POC_Core Ask from the Customer.txt** | Raw customer requirements (source of truth) |
-| **Valero DNS POC Scope _3_25_2026.txt** | Workstream catalog from scoping session |
+| **Zava DNS POC Scope _3_25_2026.txt** | Workstream catalog from scoping session |
 | **sample-bind-zone.txt** | Sample Bind zone file (RFC 1035) with all record types |
 | **.github/copilot-instructions.md** | Copilot workspace instructions |
 
@@ -57,7 +57,7 @@ Three deployment options: **PowerShell**, **Bash (az CLI)**, and **Bicep (IaC)**
 
 ```powershell
 # 1. Edit Section 0 variables
-code Valero_DNS_POC_Deployment.ps1
+code Zava_DNS_POC_Deployment.ps1
 
 # 2. Place Bind zone files in ./zone-files/
 
@@ -69,7 +69,7 @@ code Valero_DNS_POC_Deployment.ps1
 
 ```bash
 # 1. Edit Section 0 variables
-vim Valero_DNS_POC_Runbook.sh
+vim Zava_DNS_POC_Runbook.sh
 
 # 2. Run section by section
 # Includes 9-test DCV proof suite with automated PASS/FAIL
@@ -92,7 +92,7 @@ cd infrastructure
 ### Clean Up (any option)
 
 ```powershell
-.\Valero_DNS_POC_Cleanup.ps1
+.\Zava_DNS_POC_Cleanup.ps1
 # Type 'DELETE' when prompted
 ```
 
@@ -165,7 +165,7 @@ See the PowerShell script header for the complete list. Key findings:
 ```mermaid
 graph TD
     CLIENTS(("Internet Clients"))
-    DNS["Azure DNS<br/>poc.valero.com"]
+    DNS["Azure DNS<br/>poc.Zava.com"]
     TM_F["TM Failover"]
     TM_G["TM Geographic"]
     TM_W["TM Weighted"]
@@ -190,15 +190,15 @@ Edit Section 0 (PowerShell/Bash) or parameters file (Bicep):
 
 | Parameter | Default | Customer Sets |
 |-----------|---------|--------------|
-| `$DOMAIN` / `domain` | poc.valero.com | ✅ |
+| `$DOMAIN` / `domain` | poc.Zava.com | ✅ |
 | `$RG_NAME` / `rgName` | rg-dns-poc | ✅ |
 | `$LOCATION_PRIMARY` / `locationPrimary` | westus3 | ✅ |
 | `$LOCATION_SECONDARY` / `locationSecondary` | eastasia | ✅ |
 | `$EH_NAMESPACE` | ehns-dns-poc | ✅ |
 | `$WEBAPP_US` / `webAppNameUS` | webapp-poc-us | ✅ |
 | `$WEBAPP_UK` / `webAppNameUK` | webapp-poc-uk | ✅ |
-| `$ZONE_FILE_1` | ./zone-files/valero-zone1.zone | ✅ |
-| `$ZONE_FILE_2` | ./zone-files/valero-zone2.zone | ✅ |
+| `$ZONE_FILE_1` | ./zone-files/Zava-zone1.zone | ✅ |
+| `$ZONE_FILE_2` | ./zone-files/Zava-zone2.zone | ✅ |
 | `$SNAPSHOT_DIR` | ./zone-snapshots | ✅ |
 
 ---
