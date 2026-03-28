@@ -11,6 +11,9 @@
 # Local zone snapshot exports
 snapshot-*.zone
 
+# Bind zone files (customer-provided — contain DNS data)
+zone-files/
+
 # Backup files
 *.bkp
 *.bak

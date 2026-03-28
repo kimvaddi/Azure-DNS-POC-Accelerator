@@ -187,7 +187,17 @@ $ASP_US            = "asp-poc-us"
 $ASP_UK            = "asp-poc-uk"
 $WEBAPP_US         = "webapp-poc-us"      # Must be globally unique
 $WEBAPP_UK         = "webapp-poc-uk"      # Must be globally unique
-$BIND_ZONE_FILE    = ""                        # Leave empty — script will prompt you
+
+# -- Bind zone files (local paths after export from Bind server) --
+# Place exported zone files in ./zone-files/ directory before running.
+# Export from Bind: named-checkzone <zone> <path> > output.zone
+$ZONE_FILES_DIR    = ".\zone-files"                    # Directory containing zone files
+$ZONE_FILE_1       = ".\zone-files\valero-zone1.zone"   # First Bind zone file
+$ZONE_FILE_2       = ".\zone-files\valero-zone2.zone"   # Second Bind zone file  (leave empty if only 1)
+$ZONE_FILE_3       = ""                                 # Third Bind zone file   (leave empty if not needed)
+$ZONE_NAME_1       = "poc.valero.com"                   # Azure zone name for file 1 (primary zone)
+$ZONE_NAME_2       = "zone2.poc.valero.com"             # Azure zone name for file 2
+$ZONE_NAME_3       = ""                                 # Azure zone name for file 3 (leave empty if not needed)
 
 # ============================================================================
 # SECTION 1: FOUNDATION (Step 0)
@@ -298,88 +308,91 @@ az network private-dns record-set a add-record -g $RG_NAME `
 Write-Host "  Added: db (10.0.1.100), app (10.0.1.101), cache (10.0.1.102)"
 Write-Host "  These resolve only from VMs/services inside $VNET_NAME"
 
-# 1.4 Import Bind Zone File
-# NOTE: Zone file must be RFC 1035 format. Validate with named-checkzone first.
+# 1.4 Import Bind Zone Files
+# NOTE: Zone files must be RFC 1035 format. Validate with named-checkzone first.
 #       SOA and NS records will be overwritten by Azure — this is expected.
 #
 # PREREQUISITES — Customer must provide:
 #   1. Export zone files from Bind server:
-#      named-checkzone valero.com /etc/bind/zones/db.valero.com > valero.com.zone
-#   2. Ensure the file contains all record types:
-#      A, AAAA, CNAME, MX, TXT, SRV, NS, SOA
-#   3. Place the file(s) on this machine before running the script
+#      named-checkzone valero.com /etc/bind/zones/db.valero.com > valero-zone1.zone
+#      named-checkzone zone2.valero.com /etc/bind/zones/db.zone2 > valero-zone2.zone
+#   2. Place exported files in the ./zone-files/ directory
+#   3. Update $ZONE_FILE_1, $ZONE_FILE_2, $ZONE_NAME_1, $ZONE_NAME_2 in Section 0
 
 Write-Host "`n--- Bind Zone File Import ---" -ForegroundColor Cyan
-Write-Host @"
 
-  The script will now import your exported Bind zone file into Azure DNS.
-  
-  REQUIREMENTS:
-    - File must be RFC 1035 format (standard Bind zone file)
-    - Validate first with: named-checkzone <zone-name> <file-path>
-    - Should contain: A, AAAA, CNAME, MX, TXT, SRV records
-    - SOA and NS records will be overwritten by Azure (expected)
-
-"@
-
-# Prompt for file path if not set in Section 0
-if ([string]::IsNullOrWhiteSpace($BIND_ZONE_FILE)) {
-    $BIND_ZONE_FILE = Read-Host "Enter the full path to your exported Bind zone file (e.g., C:\zones\valero.com.zone)"
+# Create zone-files directory if it doesn't exist
+if (-not (Test-Path $ZONE_FILES_DIR)) {
+    New-Item -ItemType Directory -Path $ZONE_FILES_DIR -Force | Out-Null
+    Write-Host "  Created directory: $ZONE_FILES_DIR"
+    Write-Host "  Place your exported Bind zone files here before importing."
 }
 
-if ([string]::IsNullOrWhiteSpace($BIND_ZONE_FILE)) {
-    Write-Host "No zone file provided — skipping import." -ForegroundColor Yellow
-    Write-Host "You can import later with:"
-    Write-Host "  az network dns zone import -g $RG_NAME -n $DOMAIN -f <your-zone-file>"
-} elseif (-not (Test-Path $BIND_ZONE_FILE)) {
-    Write-Host "ERROR: File not found at '$BIND_ZONE_FILE'" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "Troubleshooting:"
-    Write-Host "  1. Check the file path is correct"
-    Write-Host "  2. Use full path (e.g., C:\Users\you\zones\valero.com.zone)"
-    Write-Host "  3. Ensure the file was exported from Bind with:"
-    Write-Host "     named-checkzone $DOMAIN /etc/bind/zones/db.valero.com > valero.com.zone"
-    Write-Host ""
-    Write-Host "You can import later with:"
-    Write-Host "  az network dns zone import -g $RG_NAME -n $DOMAIN -f <your-zone-file>"
-} else {
-    # Show file info before importing
-    $fileInfo = Get-Item $BIND_ZONE_FILE
-    Write-Host "Zone file found:" -ForegroundColor Green
-    Write-Host "  Path: $($fileInfo.FullName)"
-    Write-Host "  Size: $([math]::Round($fileInfo.Length / 1KB, 1)) KB"
-    Write-Host "  Modified: $($fileInfo.LastWriteTime)"
-    Write-Host ""
+# Helper function: Import a single zone file with validation
+function Import-BindZoneFile {
+    param(
+        [string]$ZoneFile,
+        [string]$ZoneName,
+        [string]$Label
+    )
     
-    # Count record types in the file for pre-import summary
-    $content = Get-Content $BIND_ZONE_FILE
+    if ([string]::IsNullOrWhiteSpace($ZoneFile) -or [string]::IsNullOrWhiteSpace($ZoneName)) {
+        return  # Skip empty entries
+    }
+    
+    Write-Host "`n--- Importing $Label: $ZoneName ---" -ForegroundColor Cyan
+    
+    if (-not (Test-Path $ZoneFile)) {
+        Write-Host "  WARNING: File not found at '$ZoneFile' — skipping" -ForegroundColor Yellow
+        Write-Host "  Export from Bind: named-checkzone $ZoneName /etc/bind/zones/db.$ZoneName > $ZoneFile"
+        return
+    }
+    
+    # Show file info
+    $fileInfo = Get-Item $ZoneFile
+    Write-Host "  File: $($fileInfo.FullName)"
+    Write-Host "  Size: $([math]::Round($fileInfo.Length / 1KB, 1)) KB | Modified: $($fileInfo.LastWriteTime)"
+    
+    # Count records by type
+    $content = Get-Content $ZoneFile
     $aCount = ($content | Select-String -Pattern '\bIN\s+A\b' | Measure-Object).Count
     $aaaaCount = ($content | Select-String -Pattern '\bIN\s+AAAA\b' | Measure-Object).Count
     $cnameCount = ($content | Select-String -Pattern '\bIN\s+CNAME\b' | Measure-Object).Count
     $mxCount = ($content | Select-String -Pattern '\bIN\s+MX\b' | Measure-Object).Count
     $txtCount = ($content | Select-String -Pattern '\bIN\s+TXT\b' | Measure-Object).Count
     $srvCount = ($content | Select-String -Pattern '\bIN\s+SRV\b' | Measure-Object).Count
-    $totalRecords = $aCount + $aaaaCount + $cnameCount + $mxCount + $txtCount + $srvCount
+    $total = $aCount + $aaaaCount + $cnameCount + $mxCount + $txtCount + $srvCount
+    Write-Host "  Records: A=$aCount AAAA=$aaaaCount CNAME=$cnameCount MX=$mxCount TXT=$txtCount SRV=$srvCount (Total: $total)"
     
-    Write-Host "  Pre-import record count (from file):"
-    Write-Host "    A: $aCount | AAAA: $aaaaCount | CNAME: $cnameCount | MX: $mxCount | TXT: $txtCount | SRV: $srvCount"
-    Write-Host "    Total data records: $totalRecords (excludes SOA/NS which Azure overwrites)"
-    Write-Host ""
+    # Create zone if it doesn't exist (for additional zones beyond the primary)
+    if ($ZoneName -ne $DOMAIN) {
+        Write-Host "  Creating zone: $ZoneName"
+        az network dns zone create -g $RG_NAME -n $ZoneName -o none 2>$null
+    }
     
     # Import
-    Write-Host "Importing zone file into $DOMAIN..." -ForegroundColor Cyan
-    az network dns zone import `
-      --resource-group $RG_NAME `
-      --name $DOMAIN `
-      --file-name $BIND_ZONE_FILE
+    Write-Host "  Importing..."
+    az network dns zone import -g $RG_NAME -n $ZoneName -f $ZoneFile
     
-    # Post-import validation: compare counts
-    $azureRecordCount = (az network dns zone show -g $RG_NAME -n $DOMAIN --query "numberOfRecordSets" -o tsv)
-    Write-Host ""
-    Write-Host "Post-import validation:" -ForegroundColor Green
-    Write-Host "  Records in zone file: ~$totalRecords data records + SOA + NS"
-    Write-Host "  Record sets in Azure: $azureRecordCount"
-    Write-Host "  (Azure count includes auto-generated SOA + NS record sets)"
+    # Validate
+    $azCount = (az network dns zone show -g $RG_NAME -n $ZoneName --query "numberOfRecordSets" -o tsv)
+    Write-Host "  Post-import: $azCount record sets in Azure (includes auto-generated SOA + NS)" -ForegroundColor Green
+}
+
+# Import each zone file
+Import-BindZoneFile -ZoneFile $ZONE_FILE_1 -ZoneName $ZONE_NAME_1 -Label "Zone File 1"
+Import-BindZoneFile -ZoneFile $ZONE_FILE_2 -ZoneName $ZONE_NAME_2 -Label "Zone File 2"
+Import-BindZoneFile -ZoneFile $ZONE_FILE_3 -ZoneName $ZONE_NAME_3 -Label "Zone File 3"
+
+# Summary
+$zoneCount = (az network dns zone list -g $RG_NAME --query "length([])" -o tsv)
+Write-Host "`n--- Zone Import Summary ---" -ForegroundColor Green
+Write-Host "  Total DNS zones in $RG_NAME`: $zoneCount"
+Write-Host "  (Includes primary zone $DOMAIN + any imported zones)"
+if (-not (Test-Path $ZONE_FILE_1)) {
+    Write-Host "`n  No zone files found in $ZONE_FILES_DIR" -ForegroundColor Yellow
+    Write-Host "  To import later, place files in $ZONE_FILES_DIR and re-run this section."
+    Write-Host "  Or import manually: az network dns zone import -g $RG_NAME -n <zone> -f <file>"
 }
 
 # VERIFY Step 1 — DNS Resolution
