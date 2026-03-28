@@ -1,0 +1,36 @@
+# Bicep Build Artifacts
+*.json
+!main.parameters.json
+
+# Deployment Outputs
+deployment-outputs-*.json
+deployment-outputs-*.txt
+
+# Compiled ARM Templates
+main.json
+
+# Azure CLI Cache
+.azure/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Logs
+*.log
+
+# Temporary Files
+*.tmp
+*.bak
+*~
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Sensitive Data
+*.pfx
+*.cer
+*.key
+*-connection-string.txt
+*-secret.txt

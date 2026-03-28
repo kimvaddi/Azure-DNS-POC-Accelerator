@@ -1,0 +1,49 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "southcentralus"
+    },
+    "locationPrimary": {
+      "value": "westus3"
+    },
+    "locationSecondary": {
+      "value": "eastasia"
+    },
+    "rgName": {
+      "value": "rg-dns-poc"
+    },
+    "domain": {
+      "value": "poc.valero.com"
+    },
+    "privateDomain": {
+      "value": "poc-internal.valero.local"
+    },
+    "webAppNameUS": {
+      "value": "webapp-poc-us"
+    },
+    "webAppNameUK": {
+      "value": "webapp-poc-uk"
+    },
+    "storageAccountName": {
+      "value": "stqradarpoc"
+    },
+    "eventHubNamespaceName": {
+      "value": "ehns-dns-poc"
+    },
+    "lawName": {
+      "value": "law-dns-poc"
+    },
+    "tags": {
+      "value": {
+        "project": "dns-poc",
+        "customer": "valero",
+        "environment": "poc",
+        "managed-by": "bicep",
+        "created-date": "2026-03-27",
+        "contact": "kim-vaddi"
+      }
+    }
+  }
+}

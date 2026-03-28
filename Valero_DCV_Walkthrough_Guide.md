@@ -1,9 +1,9 @@
-# Valero — DCV & Certificate Management Walkthrough
+# kimvaddi — DCV & Certificate Management Walkthrough
 
 **Audience:** Jeremy, Mike, Matt, and anyone new to Azure DNS + certificate workflows  
 **Purpose:** Explain where certs live, how DCV works end-to-end with DigiCert CertCentral, and how to test it step by step  
 **Prerequisite:** Azure enterprise landing zone is set up, `rg-dns-poc` resource group exists  
-**Certificate Authority:** DigiCert CertCentral (Valero's current CA)  
+**Certificate Authority:** DigiCert CertCentral (kimvaddi's current CA)  
 
 ---
 
@@ -19,21 +19,21 @@ There are 3 methods:
 | **DNS-01** | Create a TXT record: `_acme-challenge.yourdomain` with a specific token value | **Yes — this is what we're testing** |
 | **Email** | CA sends email to admin@yourdomain, you click a link | No (manual) |
 
-**DNS-01 is the most important for Valero** because:
+**DNS-01 is the most important for kimvaddi** because:
 - It works for **wildcard certificates** (HTTP-01 doesn't)
 - It doesn't require a running web server
 - It can be fully automated with Azure DNS APIs
 - It works even if the server isn't publicly accessible
 - **DigiCert CertCentral supports DNS-01 validation** using `_dnsauth` TXT records
 
-### The DCV Flow — DigiCert CertCentral (Valero's Workflow)
+### The DCV Flow — DigiCert CertCentral (kimvaddi's Workflow)
 
 DigiCert uses `_dnsauth` as the TXT record name (not `_acme-challenge`):
 
 ```
-1. You order a cert for "app.valero.com" in DigiCert CertCentral
+1. You order a cert for "app.kimvaddi.com" in DigiCert CertCentral
 2. DigiCert says: "Prove you own this domain. Create a TXT record:
-   _dnsauth.app.valero.com = '<digicert-dcv-random-value>'"
+   _dnsauth.app.kimvaddi.com = '<digicert-dcv-random-value>'"
 3. You create that TXT record in Azure DNS
 4. DigiCert queries DNS, finds the TXT record, confirms the token matches
 5. DigiCert issues the certificate
@@ -48,7 +48,7 @@ DigiCert also offers an ACME-compatible endpoint for automation. The flow is the
 
 ```
 1. You request a cert using certbot/acme.sh pointed at DigiCert's ACME endpoint
-2. The ACME client creates: _acme-challenge.app.valero.com = 'token'
+2. The ACME client creates: _acme-challenge.app.kimvaddi.com = 'token'
 3. DigiCert validates, issues the certificate
 4. Cleanup happens automatically
 ```
@@ -78,7 +78,7 @@ When you use **certbot** or **acme.sh** (free ACME clients), the certificates ar
 
 ### Option B: Azure Key Vault (Recommended for Production)
 
-**Azure Key Vault** is a managed secret/key/certificate store. This is where Valero should store production certificates.
+**Azure Key Vault** is a managed secret/key/certificate store. This is where kimvaddi should store production certificates.
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -91,7 +91,7 @@ When you use **certbot** or **acme.sh** (free ACME clients), the certificates ar
 │  ┌──────────────────────────────────┐        │
 │  │  Certificates                     │        │
 │  │  ┌────────────────────────────┐  │        │
-│  │  │  app.valero.com            │  │        │
+│  │  │  app.kimvaddi.com            │  │        │
 │  │  │  - Certificate (public)    │  │        │
 │  │  │  - Private key             │  │        │
 │  │  │  - CA chain                │  │        │
@@ -111,7 +111,7 @@ When you use **certbot** or **acme.sh** (free ACME clients), the certificates ar
   └─────────────────────┘
 ```
 
-**Key Vault benefits for Valero:**
+**Key Vault benefits for kimvaddi:**
 - Centralized certificate storage (not scattered on servers)
 - Automatic expiration alerts
 - RBAC-controlled access (who can see the private key?)
@@ -120,7 +120,7 @@ When you use **certbot** or **acme.sh** (free ACME clients), the certificates ar
 
 ### Option C: Azure App Service Managed Certificates (Free, Automatic)
 
-If Valero runs web apps on Azure App Service, Azure can issue and renew certificates **automatically** — no ACME client needed. The DCV happens behind the scenes using a CNAME record.
+If kimvaddi runs web apps on Azure App Service, Azure can issue and renew certificates **automatically** — no ACME client needed. The DCV happens behind the scenes using a CNAME record.
 
 This is nice-to-know for the future but not the POC focus.
 
@@ -149,13 +149,13 @@ az account show --output table
 ### Step 1: Understand What You're Working With
 
 ```powershell
-# List your DNS zones — you should see poc.valero.com
+# List your DNS zones — you should see poc.kimvaddi.com
 az network dns zone list --resource-group rg-dns-poc --output table
 
 # See the nameservers Azure assigned to your zone
 az network dns zone show `
   --resource-group rg-dns-poc `
-  --name poc.valero.com `
+  --name poc.kimvaddi.com `
   --query "nameServers" `
   --output tsv
 ```
@@ -174,29 +174,29 @@ $token = "digicert-manual-test-12345"
 # This is what your automation would do when DigiCert issues a DCV challenge
 az network dns record-set txt add-record `
   --resource-group rg-dns-poc `
-  --zone-name poc.valero.com `
+  --zone-name poc.kimvaddi.com `
   --record-set-name "_dnsauth" `
   --value $token `
   --output table
 ```
 
-**What happened:** You just created a DNS TXT record. Anyone querying `_dnsauth.poc.valero.com` will now get the token value back. This is how DigiCert proves you control the domain.
+**What happened:** You just created a DNS TXT record. Anyone querying `_dnsauth.poc.kimvaddi.com` will now get the token value back. This is how DigiCert proves you control the domain.
 
 ```powershell
 # Step B: Verify it — pretend you're DigiCert checking the record
 $ns = (az network dns zone show `
   --resource-group rg-dns-poc `
-  --name poc.valero.com `
+  --name poc.kimvaddi.com `
   --query "nameServers[0]" `
   --output tsv)
 
 # Query the record (this is what DigiCert does)
-nslookup -type=TXT _dnsauth.poc.valero.com $ns
+nslookup -type=TXT _dnsauth.poc.kimvaddi.com $ns
 ```
 
 **What you should see:**
 ```
-_dnsauth.poc.valero.com  text = "digicert-manual-test-12345"
+_dnsauth.poc.kimvaddi.com  text = "digicert-manual-test-12345"
 ```
 
 That's the proof. DigiCert sees the token, confirms it matches what they issued, and gives you the certificate.
@@ -205,12 +205,12 @@ That's the proof. DigiCert sees the token, confirms it matches what they issued,
 # Step C: Clean up (delete the challenge record)
 az network dns record-set txt remove-record `
   --resource-group rg-dns-poc `
-  --zone-name poc.valero.com `
+  --zone-name poc.kimvaddi.com `
   --record-set-name "_dnsauth" `
   --value $token
 
 # Step D: Verify it's gone
-nslookup -type=TXT _dnsauth.poc.valero.com $ns
+nslookup -type=TXT _dnsauth.poc.kimvaddi.com $ns
 # Should return "Non-existent domain" or empty
 ```
 
@@ -222,7 +222,7 @@ For a team new to Azure, seeing it in the portal builds confidence:
 
 1. Go to **portal.azure.com**
 2. Search for **"DNS zones"** in the top search bar
-3. Click on **poc.valero.com**
+3. Click on **poc.kimvaddi.com**
 4. You'll see all your DNS records listed in a table
 5. When a `_acme-challenge` TXT record exists, you'll see it here
 6. You can also **add/edit/delete records** from this UI (but CLI is better for automation)
@@ -240,14 +240,14 @@ Now that the team understands what DCV is, run the full automated test suite fro
 ```bash
 # On a Linux/Mac machine or WSL:
 # Edit Section 0 of the runbook with your values, then run Section 5
-bash Valero_DNS_POC_Runbook.sh
+bash kimvaddi_DNS_POC_Runbook.sh
 ```
 
 Or run the DCV tests individually from PowerShell:
 
 ```powershell
 # === TEST: Standard DCV ===
-$zone = "poc.valero.com"
+$zone = "poc.kimvaddi.com"
 $rg = "rg-dns-poc"
 $token = "dcv-test-$(Get-Date -Format 'yyyyMMddHHmmss')"
 $ns = (az network dns zone show -g $rg -n $zone --query "nameServers[0]" -o tsv)
@@ -296,12 +296,12 @@ $env:AZUREDNS_APPID = "<service-principal-client-id>"
 $env:AZUREDNS_CLIENTSECRET = "<service-principal-secret>"
 
 # Issue a test cert (staging CA — doesn't count against rate limits)
-# acme.sh --issue --dns dns_azure -d poc.valero.com --staging
+# acme.sh --issue --dns dns_azure -d poc.kimvaddi.com --staging
 
 # If successful, the cert is stored at:
-# ~/.acme.sh/poc.valero.com_ecc/
-#   ├── poc.valero.com.cer      ← Your certificate
-#   ├── poc.valero.com.key      ← Your private key
+# ~/.acme.sh/poc.kimvaddi.com_ecc/
+#   ├── poc.kimvaddi.com.cer      ← Your certificate
+#   ├── poc.kimvaddi.com.key      ← Your private key
 #   ├── ca.cer                  ← CA chain
 #   └── fullchain.cer           ← Cert + chain (use this)
 ```
@@ -313,7 +313,7 @@ This shows the production pattern — cert in Key Vault instead of on disk:
 ```powershell
 # Create a Key Vault (if one doesn't exist in the landing zone)
 az keyvault create `
-  --name "kv-valero-dns-poc" `
+  --name "kv-kimvaddi-dns-poc" `
   --resource-group rg-dns-poc `
   --location southcentralus `
   --output table
@@ -323,22 +323,22 @@ az keyvault create `
 # openssl pkcs12 -export -out cert.pfx -inkey privkey.pem -in fullchain.pem
 
 az keyvault certificate import `
-  --vault-name "kv-valero-dns-poc" `
-  --name "poc-valero-com-cert" `
+  --vault-name "kv-kimvaddi-dns-poc" `
+  --name "poc-kimvaddi-com-cert" `
   --file cert.pfx `
   --password "" `
   --output table
 
 # View the certificate in Key Vault
 az keyvault certificate show `
-  --vault-name "kv-valero-dns-poc" `
-  --name "poc-valero-com-cert" `
+  --vault-name "kv-kimvaddi-dns-poc" `
+  --name "poc-kimvaddi-com-cert" `
   --output table
 
 # See expiration date
 az keyvault certificate show `
-  --vault-name "kv-valero-dns-poc" `
-  --name "poc-valero-com-cert" `
+  --vault-name "kv-kimvaddi-dns-poc" `
+  --name "poc-kimvaddi-com-cert" `
   --query "attributes.expires" `
   --output tsv
 ```
@@ -358,7 +358,7 @@ az keyvault certificate show `
 
   ┌──────────────┐                              ┌──────────────────────────────┐
   │  Bind Server  │                              │  Azure DNS Zone              │
-  │  (in DMZ)     │                              │  poc.valero.com              │
+  │  (in DMZ)     │                              │  poc.kimvaddi.com              │
   │               │                              │  - Managed by Azure          │
   │  Zone files   │  ──── Migrate ────────────▶  │  - 100% SLA                  │
   │  on disk      │                              │  - RBAC controlled           │
@@ -406,7 +406,7 @@ A: Yes — Azure Activity Log and Azure Monitor capture all management plane ope
 A: Set up automated renewal. Both certbot and acme.sh support cron jobs that run every 60-90 days, automatically performing DCV and renewing the cert. With Azure DNS as the backend, the DCV step is fully automated.
 
 **Q: What's the cost?**  
-A: Azure DNS: ~$0.50/zone/month + $0.40 per million queries. Key Vault: ~$0.03 per 10,000 operations. For Valero's use case, total cost will be minimal compared to running Bind servers.
+A: Azure DNS: ~$0.50/zone/month + $0.40 per million queries. Key Vault: ~$0.03 per 10,000 operations. For kimvaddi's use case, total cost will be minimal compared to running Bind servers.
 
 ---
 
@@ -431,4 +431,4 @@ Use this as a talking track when walking Jeremy and Matt through DCV:
 
 ---
 
-*This document is designed to be shared with Valero's team before or during the POC.*
+*This document is designed to be shared with kimvaddi's team before or during the POC.*
