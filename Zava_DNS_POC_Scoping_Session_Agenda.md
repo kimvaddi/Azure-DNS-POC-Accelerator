@@ -1,7 +1,7 @@
-# Valero — Azure DNS POC Scoping Session
+# Zava — Azure DNS POC Scoping Session
 
 **Meeting Type:** POC Scoping & Commitment Session  
-**Customer:** Valero Energy Corporation  
+**Customer:** Zava Energy Corporation  
 **Date:** March 25, 2026 (COMPLETED)  
 **Duration:** 60 minutes  
 **Format:** Teams / In-Person  
@@ -13,11 +13,11 @@
 
 | Name | Role | Organization |
 |---|---|---|
-| Jeremy | Primary Technical Contact | Valero |
-| Mike | Technical Stakeholder | Valero |
-| Matt Boulder | Technical Engineer | Valero |
-| Charles Mylak | Project Manager (requires project documentation) | Valero |
-| Noel | Coordination / Paperwork | Valero |
+| Jeremy | Primary Technical Contact | Zava |
+| Mike | Technical Stakeholder | Zava |
+| Matt Boulder | Technical Engineer | Zava |
+| Charles Mylak | Project Manager (requires project documentation) | Zava |
+| Noel | Coordination / Paperwork | Zava |
 | Kim Vaddi | Account Team | Microsoft |
 
 ---
@@ -78,7 +78,7 @@ Talking points:
 | 3 | RBAC & Delegation | Operator role (records only) vs Admin role (full zone control) |
 | 4 | Automated Record Creation | Scripted DNS record CRUD via CLI/API/Terraform |
 | 5 | DCV TXT Automation (Certs) | Automated _acme-challenge TXT record creation for certificate domain validation — single domain, subdomain, wildcard, and multi-domain SAN certs — with proven resolution and cleanup |
-| 6 | DNS Logging → SIEM | Query logs flow to Valero's SIEM via Event Hub |
+| 6 | DNS Logging → SIEM | Query logs flow to Zava's SIEM via Event Hub |
 | 7 | Propagation & Latency | Update latency and propagation timing acceptable |
 
 **SHOULD-TEST (Stretch — at least 1 should pass):**
@@ -173,10 +173,10 @@ NOW ──────────────────── POC START ─�
 
 | # | Task | Owner | Due |
 |---|---|---|---|
-| 1 | Confirm POC domain/subdomain (e.g., `poc.valero.com` or a test domain) | Jeremy | 1 week before start |
+| 1 | Confirm POC domain/subdomain (e.g., `poc.Zava.com` or a test domain) | Jeremy | 1 week before start |
 | 2 | Export 2–3 representative Bind zone files (RFC 1035 format) | Jeremy / Matt | 1 week before start |
-| 3 | Confirm SIEM type and Event Hub compatibility (Splunk? Sentinel? QRadar?) | Valero Security team | 1 week before start |
-| 4 | Provision resource group `rg-dns-poc` in the enterprise landing zone | Valero Platform team | 3 days before start |
+| 3 | Confirm SIEM type and Event Hub compatibility (Splunk? Sentinel? QRadar?) | Zava Security team | 1 week before start |
+| 4 | Provision resource group `rg-dns-poc` in the enterprise landing zone | Zava Platform team | 3 days before start |
 | 5 | Identify 2 Entra ID test accounts: 1 "Operator" + 1 "Admin" for RBAC | Jeremy | 3 days before start |
 | 6 | Share ACME/cert validation workflow details (provider, flow, expectations) | Jeremy / Matt | 1 week before start |
 | 7 | Confirm geo-routing test endpoints (UK IP, US IP) if testing geo | Jeremy | 1 week before start |
@@ -251,11 +251,11 @@ Key points (weave into conversation, don't present as a slide):
 
 | # | Action | Owner | Due |
 |---|---|---|---|
-| 1 | Send POC plan document to Valero team | Kim | Same day |
+| 1 | Send POC plan document to Zava team | Kim | Same day |
 | 2 | Send runbook with scripts to Jeremy & Matt | Kim | 2 days before Day 1 |
-| 3 | Complete all pre-POC tasks | Valero team | Per dates above |
+| 3 | Complete all pre-POC tasks | Zava team | Per dates above |
 | 4 | Send calendar invites for Kickoff, Mid-Check, Final Review | Kim / Charles | Within 2 days |
-| 5 | Confirm any additional Valero success criteria not covered | Jeremy / Charles | Within 1 week |
+| 5 | Confirm any additional Zava success criteria not covered | Jeremy / Charles | Within 1 week |
 
 **Closing line:**  
 _"We'll make this the fastest, cleanest POC you've run. The landing zone is ready, the scripts are ready — let's lock in the date and go."_
@@ -271,7 +271,7 @@ Before the meeting, confirm:
 - [ ] DNSSEC GA status confirmed for Azure DNS
 - [ ] Traffic Manager geographic routing capability confirmed (it is GA)
 - [ ] Azure DNS diagnostic settings → Event Hub flow confirmed
-- [ ] Know Valero's SIEM vendor (ask Noel/Jeremy before if possible)
+- [ ] Know Zava's SIEM vendor (ask Noel/Jeremy before if possible)
 - [ ] Know when the other vendor's POC ends (ask Charles/Noel)
 - [ ] Have pricing estimate ready ($0.50/zone/month, $0.40/M queries)
 - [ ] Calendar holds are placed for proposed kickoff, mid-check, final review
@@ -284,7 +284,7 @@ If you want to build a short slide deck from this agenda:
 
 | Slide # | Title | Content |
 |---|---|---|
-| 1 | **Title** | "Valero Azure DNS POC — Scoping Session" + date, attendees |
+| 1 | **Title** | "Zava Azure DNS POC — Scoping Session" + date, attendees |
 | 2 | **Objective** | "Walk out with: Scope, Success Criteria, Start Date" |
 | 3 | **Context** | One-liner: Bind replacement → Azure DNS POC. Landing zone ready. |
 | 4 | **Scope — Must-Test** | Table of 6 must-test workstreams |
