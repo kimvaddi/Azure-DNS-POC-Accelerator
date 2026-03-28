@@ -12,7 +12,7 @@ Built from a live customer engagement (Zava Energy Corporation), battle-tested w
 |---|---|
 | **Deployment Options** | Bicep (IaC), PowerShell (step-by-step), Bash (az CLI) |
 | **Time to Deploy** | ~15 minutes (Bicep) · ~45 minutes (manual step-by-step) |
-| **Estimated POC Cost** | < $25 for a 2-week evaluation |
+| **Estimated POC Cost** | ~$27 for a 2-week evaluation ([API-verified pricing](#cost-estimate)) |
 | **Target Region** | `southcentralus` (configurable) |
 | **Security Posture** | Least-privilege RBAC, HTTPS-only, TLS 1.2, CanNotDelete locks, SAS key rotation |
 
@@ -211,6 +211,23 @@ Edit Section 0 (PowerShell/Bash) or parameters file (Bicep):
 | `$ZONE_FILE_1` | ./zone-files/Zava-zone1.zone | ✅ |
 | `$ZONE_FILE_2` | ./zone-files/Zava-zone2.zone | ✅ |
 | `$SNAPSHOT_DIR` | ./zone-snapshots | ✅ |
+
+---
+
+## Cost Estimate
+
+**14-day POC — prices from [Azure Retail Prices API](https://prices.azure.com) (March 2026):**
+
+| Resource | Unit Price | 14-Day Cost |
+|----------|-----------|-------------|
+| Public DNS Zone (1) | $0.50/zone/mo | $0.23 |
+| Private DNS Zone (1) | $0.50/zone/mo | $0.23 |
+| Event Hub Standard (1 TU) | $0.03/hr | $10.08 |
+| App Service Plan B1 x 2 | $0.02/hr each | $13.44 |
+| Log Analytics (~0.5 GB) | $2.76/GB | $1.38 |
+| Traffic Manager (3 profiles, 6 endpoints) | $0.36/ep/mo | $1.01 |
+| DNS Queries, Storage, VNet, RBAC, Locks | — | $0.00 |
+| **TOTAL** | | **~$26.37** |
 
 ---
 

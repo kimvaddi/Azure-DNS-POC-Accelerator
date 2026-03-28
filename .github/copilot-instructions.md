@@ -71,5 +71,5 @@ This workspace contains customer-facing engagement materials for **Zava Energy C
 
 - **No production domains in POC** — use `poc.Zava.com` subdomain only.
 - **No registrar NS delegation changes** during POC.
-- **POC cost target:** Under $25 for the 2-week period.
+- **POC cost target:** ~$27 for the 2-week period (API-verified: App Service B1 x2 = $13.44, Event Hub Standard = $10.08, everything else < $3).
 - **Competitive sensitivity:** Don't disparage other vendors. Lead with Azure's strengths (100% SLA, native integration, zero maintenance, global anycast).

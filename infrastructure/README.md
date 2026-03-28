@@ -254,18 +254,26 @@ az monitor diagnostic-settings subscription delete `
 
 ## 💰 Cost Estimate
 
-**POC Period (2 weeks):**
-| Resource | SKU | Estimated Cost |
-|----------|-----|----------------|
-| DNS Zone (Public) | Standard | $1.00 |
-| Event Hub Namespace | Standard | $10.00 |
-| Log Analytics | PerGB2018 (~1GB) | $2.50 |
-| App Service Plans (2x B1) | Basic | $10.00 |
-| Storage Account | Standard LRS | $0.50 |
-| Traffic Manager (3 profiles) | Standard | $2.00 |
-| **TOTAL** | | **~$26.00** |
+**POC Period (14 days) — Prices from Azure Retail Prices API (March 2026):**
 
-⚠️ Actual costs may vary based on usage (Event Hub ingress, Log Analytics queries, outbound bandwidth).
+| Resource | SKU | API Unit Price | 14-Day Cost |
+|----------|-----|---------------|-------------|
+| Public DNS Zone (1) | Public | $0.50/zone/mo | $0.23 |
+| Private DNS Zone (1) | Private | $0.50/zone/mo | $0.23 |
+| DNS Queries (public + private) | — | $0.40/1M queries | $0.00 |
+| Event Hub Namespace (1 TU) | Standard | $0.03/hr | $10.08 |
+| Event Hub Ingress | Standard | $0.028/1M events | $0.00 |
+| Log Analytics (~0.5 GB ingested) | PerGB2018 | $2.76/GB | $1.38 |
+| Storage Account | Standard LRS | $0.018/GB/mo | $0.00 |
+| App Service Plan US | B1 | $0.02/hr | $6.72 |
+| App Service Plan UK | B1 | $0.02/hr | $6.72 |
+| Traffic Manager (3 profiles) | — | $0.36/endpoint/mo | $1.01 |
+| VNet, RBAC, Locks, Diagnostics | — | Free | $0.00 |
+| **TOTAL** | | | **~$26.37** |
+
+**Cost drivers:** App Service Plans (51%) + Event Hub Standard (38%) = 89% of total cost.
+
+⚠️ Prices sourced from `prices.azure.com` API. Actual costs may vary based on Event Hub ingress volume, Log Analytics query volume, and outbound bandwidth.
 
 ---
 
