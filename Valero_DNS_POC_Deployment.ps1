@@ -1366,24 +1366,79 @@ Write-Host "  DNS Zone:          NOT SUPPORTED (Azure limitation — management 
 # SECTION 8: ZONE SNAPSHOTS (Required #4)
 # Tests: On-demand zone export and re-import verification
 # Dependencies: Section 2 (DNS Zone with records)
+# Exports to: ./zone-snapshots/ directory (matching bash runbook convention)
 # ============================================================================
 
 Write-Host "`n=== STEP 8: ZONE SNAPSHOTS ===" -ForegroundColor Cyan
 
-# 8.1 Export zone snapshot
+$SNAPSHOT_DIR = ".\\zone-snapshots"
+
+# 8.1 Create snapshot directory if it doesn't exist
+if (-not (Test-Path $SNAPSHOT_DIR)) {
+    New-Item -ItemType Directory -Path $SNAPSHOT_DIR -Force | Out-Null
+    Write-Host "  Created directory: $SNAPSHOT_DIR"
+}
+
+# 8.2 Export primary zone snapshot
 $TIMESTAMP = Get-Date -Format "yyyyMMdd-HHmmss"
-$SNAPSHOT_FILE = ".\snapshot-$DOMAIN-$TIMESTAMP.zone"
-Write-Host "--- Exporting zone snapshot to $SNAPSHOT_FILE ---"
+$SNAPSHOT_FILE = "$SNAPSHOT_DIR\\snapshot-$DOMAIN-$TIMESTAMP.zone"
+Write-Host "--- Exporting zone snapshot: $DOMAIN ---"
 az network dns zone export -g $RG_NAME -n $DOMAIN -f $SNAPSHOT_FILE
 
-# 8.2 Verify snapshot file is valid (create temp zone and import)
-Write-Host "--- Verifying snapshot by importing to test zone ---"
-az network dns zone create -g $RG_NAME -n "snapshot-test.$DOMAIN" -o none
-az network dns zone import -g $RG_NAME -n "snapshot-test.$DOMAIN" -f $SNAPSHOT_FILE
+if (Test-Path $SNAPSHOT_FILE) {
+    $fileInfo = Get-Item $SNAPSHOT_FILE
+    $content = Get-Content $SNAPSHOT_FILE
+    $recordLines = ($content | Select-String -Pattern '\bIN\b' | Measure-Object).Count
+    Write-Host "  Snapshot saved: $($fileInfo.FullName)" -ForegroundColor Green
+    Write-Host "  Size: $([math]::Round($fileInfo.Length / 1KB, 1)) KB | Records: ~$recordLines"
+} else {
+    Write-Host "  WARNING: Snapshot file not created" -ForegroundColor Yellow
+}
 
-# 8.3 Cleanup test zone
-az network dns zone delete -g $RG_NAME -n "snapshot-test.$DOMAIN" --yes -o none
-Write-Host "Snapshot verified and test zone cleaned up."
+# 8.3 Export additional zones (if imported in Section 1.4)
+if (-not [string]::IsNullOrWhiteSpace($ZONE_NAME_2) -and ($ZONE_NAME_2 -ne $DOMAIN)) {
+    $zoneExists = az network dns zone show -g $RG_NAME -n $ZONE_NAME_2 --query "name" -o tsv 2>$null
+    if ($zoneExists) {
+        $SNAPSHOT_FILE_2 = "$SNAPSHOT_DIR\\snapshot-$ZONE_NAME_2-$TIMESTAMP.zone"
+        Write-Host "--- Exporting zone snapshot: $ZONE_NAME_2 ---"
+        az network dns zone export -g $RG_NAME -n $ZONE_NAME_2 -f $SNAPSHOT_FILE_2
+        Write-Host "  Saved: $SNAPSHOT_FILE_2"
+    }
+}
+
+# 8.4 Verify snapshot is valid (re-import to temp zone)
+Write-Host "--- Verifying primary snapshot by re-importing to test zone ---"
+az network dns zone create -g $RG_NAME -n "snapshot-test.$DOMAIN" -o none 2>$null
+az network dns zone import -g $RG_NAME -n "snapshot-test.$DOMAIN" -f $SNAPSHOT_FILE 2>$null
+
+$reimportCount = (az network dns zone show -g $RG_NAME -n "snapshot-test.$DOMAIN" --query "numberOfRecordSets" -o tsv 2>$null)
+$originalCount = (az network dns zone show -g $RG_NAME -n $DOMAIN --query "numberOfRecordSets" -o tsv 2>$null)
+Write-Host "  Original zone: $originalCount record sets"
+Write-Host "  Re-imported:   $reimportCount record sets"
+if ($reimportCount -gt 0) {
+    Write-Host "  PASS: Snapshot is valid — re-import successful" -ForegroundColor Green
+}
+
+# 8.5 Cleanup test zone
+az network dns zone delete -g $RG_NAME -n "snapshot-test.$DOMAIN" --yes -o none 2>$null
+
+# 8.6 List all snapshots
+Write-Host "`n--- All snapshots in $SNAPSHOT_DIR ---"
+if (Test-Path $SNAPSHOT_DIR) {
+    Get-ChildItem $SNAPSHOT_DIR -Filter "*.zone" | 
+      Select-Object Name, @{n='Size';e={"$([math]::Round($_.Length/1KB,1)) KB"}}, LastWriteTime |
+      Format-Table -AutoSize
+} else {
+    Write-Host "  No snapshots yet"
+}
+
+Write-Host @"
+
+  SCHEDULED SNAPSHOTS (for production):
+    Add to Windows Task Scheduler or Azure Automation:
+    az network dns zone export -g $RG_NAME -n $DOMAIN -f "$SNAPSHOT_DIR\snapshot-$DOMAIN-`$(Get-Date -Format yyyyMMdd).zone"
+    Retention: Keep last 30 daily snapshots
+"@
 
 
 # ============================================================================

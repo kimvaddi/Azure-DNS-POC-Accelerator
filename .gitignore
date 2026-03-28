@@ -10,6 +10,7 @@
 
 # Local zone snapshot exports
 snapshot-*.zone
+zone-snapshots/
 
 # Bind zone files (customer-provided — contain DNS data)
 zone-files/
