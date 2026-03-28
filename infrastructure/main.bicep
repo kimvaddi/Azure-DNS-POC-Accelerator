@@ -55,7 +55,7 @@ param tags object = {
   project: 'dns-poc'
   customer: 'Zava'
   environment: 'poc'
-  managed-by: 'bicep'
+  'managed-by': 'bicep'
 }
 
 // ============================================================================

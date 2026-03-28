@@ -340,7 +340,7 @@ function Import-BindZoneFile {
         return  # Skip empty entries
     }
     
-    Write-Host "`n--- Importing $Label: $ZoneName ---" -ForegroundColor Cyan
+    Write-Host "`n--- Importing ${Label}: ${ZoneName} ---" -ForegroundColor Cyan
     
     if (-not (Test-Path $ZoneFile)) {
         Write-Host "  WARNING: File not found at '$ZoneFile' — skipping" -ForegroundColor Yellow
