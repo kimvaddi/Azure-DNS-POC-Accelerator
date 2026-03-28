@@ -1,0 +1,46 @@
+$ORIGIN poc.valero.com.
+$TTL 3600
+
+; SOA record (Azure will overwrite this)
+@   IN  SOA ns1.poc.valero.com. admin.poc.valero.com. (
+            2024032501 ; Serial
+            3600       ; Refresh
+            900        ; Retry
+            604800     ; Expire
+            86400 )    ; Minimum TTL
+
+; NS records (Azure will overwrite these)
+@       IN  NS  ns1.poc.valero.com.
+@       IN  NS  ns2.poc.valero.com.
+
+; A records
+@       IN  A       10.0.1.1
+www     IN  A       10.0.1.2
+mail    IN  A       10.0.1.3
+ftp     IN  A       10.0.1.4
+api     IN  A       10.0.1.5
+vpn     IN  A       10.0.1.6
+portal  IN  A       10.0.1.7
+dev     IN  A       10.0.1.8
+
+; AAAA records
+www     IN  AAAA    2001:db8::1
+mail    IN  AAAA    2001:db8::2
+
+; CNAME records
+webmail     IN  CNAME   mail.poc.valero.com.
+autodiscover IN  CNAME  mail.poc.valero.com.
+cdn         IN  CNAME   cdn.azureedge.net.
+status      IN  CNAME   stats.uptimerobot.com.
+
+; MX records
+@       IN  MX  10  mail.poc.valero.com.
+@       IN  MX  20  mail2.poc.valero.com.
+
+; TXT records
+@       IN  TXT     "v=spf1 include:_spf.google.com ~all"
+_dmarc  IN  TXT     "v=DMARC1; p=quarantine; rua=mailto:dmarc@poc.valero.com"
+
+; SRV records
+_sip._tcp   IN  SRV 10 60 5060 sip.poc.valero.com.
+_http._tcp  IN  SRV 10 100 80 www.poc.valero.com.

@@ -1,0 +1,34 @@
+# Azure DNS POC Solution Accelerator — .gitignore
+
+# Sensitive files — NEVER commit
+*.key
+*.pem
+*.pfx
+*.cer
+*connection-string*
+*secrets*
+
+# Local zone snapshot exports
+snapshot-*.zone
+
+# Backup files
+*.bkp
+*.bak
+*.tmp
+~$*
+
+# OS files
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Editor files
+*.swp
+*.swo
+*~
+
+# PowerShell temp files
+*.log
+
+# Generated role definition (contains subscription ID)
+dns-operator-role.json

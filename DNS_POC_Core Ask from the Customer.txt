@@ -1,0 +1,63 @@
+Core Ask from the Customer
+Valero wants to replace their aging Bind-based DNS servers (running in their DMZ) with a cloud-hosted DNS service—Azure DNS is one of the options they are evaluating. Their goal is a POC of Azure DNS within the next couple of weeks to decide whether to migrate.
+💡 What They Need / Are Asking For
+1. Replicate existing Bind DNS functionality (minimum requirement)
+They want Azure DNS to support:
+      • Basic inbound DNS lookups (primary goal)
+      • Ability to import existing DNS zones from Bind
+      • Automate domain control validation for certificates (ACME-style flows)
+2. Improve security + operational posture
+      • Get DNS out of the DMZ to reduce risk exposure
+      • Enable DNS logging and send logs to their existing SIEM as they do today
+      • Explore RBAC delegation so more team members can manage records safely (today only 2–3 people know Bind)
+3. Evaluate “nice-to-have” features during POC
+Including:
+      • Geo-based DNS responses (e.g., UK users hitting UK resources)
+      • Lightweight DNS load balancing options (not full GSLB; just basic geographic routing)
+      • DNSSEC (not needed immediately but important long‑term)
+4. Understand internal and public DNS options
+They are exploring:
+      • Public authoritative DNS (primary use case)
+      • How Azure Public DNS and internal DNS workflows would coexist or evolve
+5. Timeline + engagement expectations
+      • Complete other vendor POC soon
+      • Begin Azure DNS POC within next couple of weeks
+      • They are open to a demo before the POC to accelerate familiarity
+6. Clear success criteria (they have a list internally):
+Minimum: Bind functionality
+Plus testing of:
+      • Geo
+      • Zone imports
+      • DNSSEC
+      • RBAC
+      • Automated record creation workflows
+7. Technical contacts + coordination
+      • Jeremy = Primary technical contact
+      • Matt Boulder = Additional technical engineer
+      • Noel = Main contact for paperwork/coordination
+      • Charles Mylak = Project manager
+🎯 In One Line
+Valero wants a fast, low-friction POC of Azure DNS to validate whether it can replace their aging Bind servers while meeting core DNS needs, security requirements, automation workflows, and future geo-capabilities.
+
+✅ Success Criteria (from the customer’s words)
+1. Must‑have: Replicate Bind functionality
+Minimum bar: Azure DNS must do what their existing Bind servers do today—basic authoritative DNS lookups.
+2. Zone import + manageability
+They want an easy way to import zones and maintain DNS without relying on the 2–3 Bind experts.
+3. RBAC & delegation
+Test Azure DNS RBAC so they can separate operators from admins (e.g., add records but not create zones).
+4. Automated record creation workflows
+Ability to automate DNS record creation—including certificate domain‑control validation workflows.
+5. DNSSEC (not immediate but part of evaluation)
+They want the ability to test DNSSEC; not needed day 1 but part of overall criteria.
+6. Geo‑based lookups / lightweight load distribution
+Optional but valuable: return different IPs based on client geography (e.g., UK vs US).
+7. Logging to their SIEM
+Azure DNS must support logging of DNS queries into their existing SIEM.
+8. Smooth, rapid POC
+They want a fast POC:
+      • Start within next couple of weeks
+      • Validate all technical criteria above
+9. Pre‑POC demo
+They are open to a demo before the POC so the team has familiarity before testing.
+
