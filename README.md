@@ -1,9 +1,20 @@
 # Azure DNS POC — Solution Accelerator
 
-**Repeatable, production-grade deployment kit for Azure DNS Proof of Concept engagements.**
+> **Ship an Azure DNS proof of concept in a single session — not a single sprint.**
 
-Built from the Zava Energy Corporation engagement. Parameterized for any customer.
-Three deployment options: **PowerShell**, **Bash (az CLI)**, and **Bicep (IaC)**.
+Production-grade, repeatable deployment kit that stands up a complete Azure DNS environment — public and private zones, DNSSEC, multi-region Traffic Manager (failover, geographic, weighted), Event Hub integration for IBM QRadar SIEM, RBAC with custom roles, DigiCert DCV certificate automation, zone snapshots, and Log Analytics dashboards — all in one command.
+
+**35 resources. 3 deployment paths. 12 Bicep modules. 0 guesswork.**
+
+Built from a live customer engagement (Zava Energy Corporation), battle-tested with 14 deployment findings fixed, and parameterized so any Microsoft account team can clone, customize, and deploy for their next Azure DNS competitive evaluation.
+
+| | |
+|---|---|
+| **Deployment Options** | Bicep (IaC), PowerShell (step-by-step), Bash (az CLI) |
+| **Time to Deploy** | ~15 minutes (Bicep) · ~45 minutes (manual step-by-step) |
+| **Estimated POC Cost** | < $25 for a 2-week evaluation |
+| **Target Region** | `southcentralus` (configurable) |
+| **Security Posture** | Least-privilege RBAC, HTTPS-only, TLS 1.2, CanNotDelete locks, SAS key rotation |
 
 ---
 
@@ -219,6 +230,12 @@ Edit Section 0 (PowerShell/Bash) or parameters file (Bicep):
 ## Git History
 
 ```
+1258395 Complete rebrand: rename Scoping Agenda + replace all Valero with Zava
+9fddb19 Remove pre-rebrand Valero_DNS_POC_Runbook.sh (deleted from disk)
+97695ec Rebrand: Valero -> Zava (all files, filenames, and content)
+b74d8a2 Add Bicep infrastructure (12 modules) + DCV walkthrough update
+d3ae222 Remove runbook.sh from git tracking
+00b4223 Update README: 3 deployment options, current file inventory, 14 findings
 f428937 Remove scoping session agenda from git tracking (customer-specific)
 8d60609 Zone snapshots: export to ./zone-snapshots/ directory
 4cd1a13 Zone import: multi-file local paths instead of user prompt
@@ -230,6 +247,12 @@ c842771 Azure DNS POC Solution Accelerator - Production-grade deployment kit
 ## Author
 
 **Kim Vaddi** — Microsoft Account Team  
-Built with GitHub Copilot, March 27, 2026  
+Built with GitHub Copilot, March 2026  
 Tested in subscription: MCAPS-Hybrid-REQ-118274-2025-kimvaddi  
 Reference architecture: kimvaddi.com (DNSdemo resource group)
+
+---
+
+## License
+
+This is an internal Microsoft engagement accelerator. Not intended for redistribution outside Microsoft account teams without approval.
