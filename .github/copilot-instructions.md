@@ -12,16 +12,68 @@ This workspace contains customer-facing engagement materials for **Zava Energy C
 **SIEM:** IBM QRadar (via Event Hub)  
 **Certificate Authority:** DigiCert CertCentral (DCV uses `_dnsauth` TXT records; ACME endpoint also available at `acme.digicert.com`)
 
+## Project Type & AI Agent Guidance
+
+**This is NOT a software development project.** It's a **deployment automation + documentation project** for a time-boxed POC. AI agents should:
+
+- **Prefer reading/analyzing over creating** — Most answers are already in existing docs/scripts
+- **When generating scripts:** Follow copy-paste execution pattern (section-by-section with verification)
+- **When editing deployment scripts:** Preserve section structure, verification steps, and extensive comments
+- **When asked about deployment:** Reference the appropriate method (Bicep vs PowerShell vs Bash) based on context
+- **When troubleshooting:** Check the "Known Issues" section in deployment script headers first (14+ findings already documented)
+
+## Three Deployment Options
+
+This POC supports three deployment paths — choose based on customer preference and environment:
+
+| Method | When to Use | Pros | Cons | Time |
+|--------|-------------|------|------|------|
+| **Bicep (IaC)** | Customer wants repeatable, declarative infrastructure | Fastest, idempotent, version-controlled | Requires Bicep knowledge, less visibility into individual steps | ~15 min |
+| **PowerShell** | Customer is Windows-based, wants step-by-step control | Battle-tested (14 issues fixed), extensive inline docs, can pause/resume | Manual execution, requires copy-paste discipline | ~45 min |
+| **Bash** | Customer is Linux/Mac-based, wants shell scripting | Includes 9-test DCV proof suite, full-cycle timing | Manual execution, longer than Bicep | ~60 min |
+
+**AI Agent Rule:** When asked "how do I deploy?", recommend Bicep for speed, PowerShell for Windows teams wanting visibility, Bash for Linux teams. See `infrastructure/README.md` (Bicep guide) and `README.md` (all three methods).
+
 ## Workspace Structure
 
+### Core Documentation
 | File | Purpose |
 |------|---------|
+| `README.md` | Solution accelerator overview — deployment options, cost estimate, what gets deployed |
 | `DNS_POC_Core Ask from the Customer.txt` | Raw customer requirements and success criteria (source of truth for what Zava needs) |
 | `Zava DNS POC Scope _3_25_2026.txt` | Workstream catalog, pre-POC task matrix with owners/dates, and prep checklist (output of March 25 scoping session) |
 | `Zava_Azure_DNS_POC_Plan.md` | Full POC scope, architecture, 3-phase timeline, success scorecard, risks, and competitive positioning |
-| `Zava_DNS_POC_Runbook.sh` | Copy-paste bash scripts for every POC workstream (13 sections: setup → zone import → RBAC → DigiCert DCV → QRadar logging → snapshots → reporting → failover → geo → cleanup) |
 | `Zava_DCV_Walkthrough_Guide.md` | Beginner-friendly guide explaining DCV (Domain Control Validation), certificate workflows, and step-by-step instructions for Jeremy & Matt |
 | `Zava_DNS_POC_Scoping_Session_Agenda.md` | 60-minute scoping session agenda with talking points, questions to ask, and decision templates |
+| `DCV_Gap_Analysis.md` | Gap analysis and automation opportunities for DigiCert DCV workflows |
+| `DNS_POC_Solution_Accelerator_Discovery.md` | Discovery document — kimvaddi.com reference analysis + gap mapping |
+
+### Deployment Scripts
+| File | Lines | Status |
+|------|-------|--------|
+| `Zava_DNS_POC_Deployment.ps1` | 1,639 | ✅ **Battle-tested (14 findings fixed)** — PowerShell end-to-end (16 sections) |
+| `Zava_DNS_POC_Runbook.sh` | 1,800+ | ✅ Bash/az CLI runbook (13 sections, 9-test DCV suite) |
+| `Zava_DCV_Automation.ps1` | — | 🔧 DigiCert DCV automation (Key Vault + cert lifecycle) |
+| `Zava_DNS_POC_Cleanup.ps1` | 182 | 🔧 Dependency-ordered cleanup script |
+
+### Infrastructure-as-Code (Bicep)
+| Path | Purpose |
+|------|---------|
+| `infrastructure/main.bicep` | Subscription-scope template — deploys all 35 resources declaratively |
+| `infrastructure/main.bicepparam` | Parameters file (Bicep native format — **preferred**) |
+| `infrastructure/main.parameters.json` | Parameters file (JSON alternative) |
+| `infrastructure/deploy.ps1` | Automated Bicep deployment script (validate / what-if / deploy) |
+| `infrastructure/modules/` | 12 reusable Bicep modules (DNS, Event Hub, TM, Web Apps, RBAC, etc.) |
+| `infrastructure/README.md` | Bicep deployment guide — see this for IaC approach |
+| `infrastructure/QUICK_REFERENCE.md` | Operator command cheat sheet |
+| `infrastructure/PROJECT_STRUCTURE.md` | Detailed IaC file descriptions |
+
+### Reference Files
+| File | Purpose |
+|------|---------|
+| `sample-bind-zone.txt` | Sample Bind zone file (RFC 1035) with all record types |
+| `dns-operator-role.json` | Custom RBAC role definition for DNS record operators |
+| `DNS_POC_Architecture.drawio` | Architecture diagram (open in draw.io or VS Code extension) |
 
 ## Conventions
 

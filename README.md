@@ -8,13 +8,15 @@ Production-grade, repeatable deployment kit that stands up a complete Azure DNS 
 
 Built from a live customer engagement (Zava Energy Corporation), battle-tested with 14 deployment findings fixed, and parameterized so any Microsoft account team can clone, customize, and deploy for their next Azure DNS competitive evaluation.
 
+**Latest Update (March 29, 2026):** Security hardening pass — all connection string outputs now include prominent warnings, Bicep code follows latest linting standards with `@secure()` decorators, and deprecated Azure CLI flags updated.
+
 | | |
 |---|---|
 | **Deployment Options** | Bicep (IaC), PowerShell (step-by-step), Bash (az CLI) |
 | **Time to Deploy** | ~15 minutes (Bicep) · ~45 minutes (manual step-by-step) |
 | **Estimated POC Cost** | ~$27 for a 2-week evaluation ([API-verified pricing](#cost-estimate)) |
 | **Target Region** | `southcentralus` (configurable) |
-| **Security Posture** | Least-privilege RBAC, HTTPS-only, TLS 1.2, CanNotDelete locks, SAS key rotation |
+| **Security Posture** | Least-privilege RBAC, HTTPS-only, TLS 1.2, CanNotDelete locks, SAS key rotation, **secure outputs** |
 
 ---
 
@@ -22,21 +24,21 @@ Built from a live customer engagement (Zava Energy Corporation), battle-tested w
 
 ### Deployment Scripts
 
-| File | Lines | Purpose |
-|------|-------|---------|
-| **Zava_DNS_POC_Deployment.ps1** | 1,639 | PowerShell end-to-end deployment (16 sections). Tested live with 14 findings fixed. |
-| **Zava_DNS_POC_Runbook.sh** | 1,800+ | Bash/az CLI runbook (13 sections). Includes 9-test DCV proof suite with PASS/FAIL verdicts. |
-| **Zava_DNS_POC_Cleanup.ps1** | 182 | Tear-down script. Dependency-ordered cleanup (locks → DNSSEC → RBAC → RG). |
+| File | Lines | Purpose | Last Updated |
+|------|-------|---------|-------------|
+| **Zava_DNS_POC_Deployment.ps1** | 1,639 | PowerShell end-to-end deployment (16 sections). Tested live with 14 findings fixed. | ✅ Mar 29: Security warnings |
+| **Zava_DNS_POC_Runbook.sh** | 1,800+ | Bash/az CLI runbook (13 sections). Includes 9-test DCV proof suite with PASS/FAIL verdicts. | ✅ Mar 29: Deprecated flags |
+| **Zava_DNS_POC_Cleanup.ps1** | 182 | Tear-down script. Dependency-ordered cleanup (locks → DNSSEC → RBAC → RG). | Stable |
 
 ### Bicep Infrastructure-as-Code
 
 | Path | Purpose |
 |------|---------|
-| **infrastructure/main.bicep** | Subscription-scope Bicep template — deploys all 35 resources declaratively |
-| **infrastructure/main.bicepparam** | Parameters file (Bicep native format) |
-| **infrastructure/main.parameters.json** | Parameters file (JSON alternative) |
-| **infrastructure/deploy.ps1** | Automated Bicep deployment script (validate / what-if / deploy) |
-| **infrastructure/modules/** | 12 reusable Bicep modules (DNS, Event Hub, TM, Web Apps, etc.) |
+| **infrastructure/main.bicep** | Subscription-scope Bicep template — deploys all 35 resources declaratively | ✅ Secure outputs |
+| **infrastructure/main.bicepparam** | Parameters file (Bicep native format) | ✅ Fixed syntax |
+| **infrastructure/main.parameters.json** | Parameters file (JSON alternative) | ✅ Schema updated |
+| **infrastructure/deploy.ps1** | Automated Bicep deployment script (validate / what-if / deploy) | |
+| **infrastructure/modules/** | 12 reusable Bicep modules (DNS, Event Hub, TM, Web Apps, etc.) | ✅ Linting clean |
 | **infrastructure/README.md** | Bicep deployment guide |
 | **infrastructure/QUICK_REFERENCE.md** | Operator command cheat sheet |
 
@@ -269,6 +271,34 @@ The POC includes automated Domain Control Validation testing (9 proof tests) plu
 - Root SAS key rotated post-deployment
 - 10-item production hardening checklist in script
 - Managed Identity path documented for Azure-native consumers
+
+---
+
+## Changelog
+
+### March 29, 2026 — Security & Code Quality Improvements
+
+**Bicep Infrastructure**
+- ✅ Added `@secure()` decorator to all connection string outputs (event-hub.bicep, main.bicep)
+- ✅ Modernized Traffic Manager endpoint properties with safe access operator `.?` (traffic-manager.bicep)
+- ✅ Removed unused `resourceType` parameter from resource lock module
+- ✅ Fixed `.bicepparam` syntax errors (removed invalid `subscription()` calls)
+- ✅ Updated JSON schema to 2019-04-01 standard (main.parameters.json)
+- ✅ All Bicep linting warnings resolved — production-ready
+
+**PowerShell Deployment Script**
+- ⚠️ Added prominent security warnings before connection string output
+- 🔐 Documented Key Vault storage recommendations for secrets
+- 📖 Enhanced SAS vs Managed Identity guidance with security best practices
+- 🚫 Added warnings about never logging secrets in CI/CD pipelines
+
+**Bash Deployment Script**
+- ✅ Fixed deprecated `--message-retention` flag → `--retention-time-in-hours 24 --cleanup-policy Delete`
+- ⚠️ Added security warnings before outputting sensitive credentials
+- 🔐 Documented Key Vault integration patterns
+- 📖 Improved SIEM configuration instructions with security context
+
+**Impact:** All deployment methods now follow Azure security best practices with proper secret handling, modern Bicep syntax, and comprehensive inline security documentation.
 
 ---
 

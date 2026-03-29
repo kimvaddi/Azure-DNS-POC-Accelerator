@@ -115,9 +115,11 @@ output sendAuthRuleId string = sendAuthRule.id
 output listenAuthRuleId string = listenAuthRule.id
 
 @description('Connection string for sending events (diagnostic settings)')
+@secure()
 output sendConnectionString string = sendAuthRule.listKeys().primaryConnectionString
 
 @description('Connection string for QRadar consumer')
+@secure()
 output listenConnectionString string = listenAuthRule.listKeys().primaryConnectionString
 
 output consumerGroupName string = consumerGroup.name

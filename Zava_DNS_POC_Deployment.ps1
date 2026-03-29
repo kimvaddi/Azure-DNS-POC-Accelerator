@@ -881,8 +881,12 @@ Write-Host @"
 "@
 
 # Output connection strings
+# ⚠️ SECURITY NOTE: Connection strings contain sensitive credentials.
+#    In production, retrieve these securely using Key Vault or Azure Portal.
+#    This console output is for POC convenience only - never log secrets to CI/CD logs.
 Write-Host "`n--- Connection Strings (copy these for QRadar team) ---" -ForegroundColor Yellow
-Write-Host "Listen Policy Connection String (for QRadar):"
+Write-Host "⚠️  WARNING: These contain sensitive credentials. Handle securely." -ForegroundColor Red
+Write-Host "`nListen Policy Connection String (for QRadar):"
 az eventhubs eventhub authorization-rule keys list `
   -g $RG_NAME --namespace-name $EH_NAMESPACE --eventhub-name $EH_NAME `
   --name QRadarListenPolicy `
@@ -892,6 +896,9 @@ Write-Host "`nStorage Account Connection String (for QRadar checkpoints):"
 az storage account show-connection-string `
   -g $RG_NAME -n $STORAGE_NAME `
   --query "connectionString" -o tsv
+
+Write-Host "`n💡 PRODUCTION RECOMMENDATION: Store in Azure Key Vault" -ForegroundColor Cyan
+Write-Host "   az keyvault secret set --vault-name <vault> --name QRadarEventHubConn --value '<connection-string>'"
 
 
 # ============================================================================
@@ -1551,18 +1558,21 @@ Write-Host @"
     • Diagnostic Settings → Event Hub (Azure platform requires auth rule)
     • QRadar/Splunk → Event Hub (external SIEM can't use Azure AD)
     • Script uses: SendPolicy (write) + QRadarListenPolicy (read)
+    ⚠️  SECURITY: Never commit SAS keys to Git. Use Key Vault or secure CI/CD variables.
 
   Managed Identity + RBAC (use for these cases):
     • Azure Functions consuming Event Hub events
     • Logic Apps processing DNS change alerts
     • Any Azure-hosted service reading/writing to Event Hub
     • Roles: 'Azure Event Hubs Data Sender' / 'Azure Event Hubs Data Receiver'
+    ✅ PREFERRED: Managed Identity eliminates secrets in application code
 
   Root Key (RootManageSharedAccessKey):
     • Cannot be deleted — Azure default
     • Rotated by this script (old key invalidated)
     • NEVER use this key in application code
     • Rotate quarterly in production
+    • NEVER log to stdout/files in production pipelines
 
 "@
 

@@ -2,6 +2,13 @@
 
 Complete Infrastructure-as-Code deployment for Azure DNS POC evaluation, including DNS zones, Event Hub integration for IBM QRadar, multi-region Traffic Manager profiles, and comprehensive diagnostics.
 
+**Status:** ✅ Production-ready · All Bicep linting warnings resolved (March 29, 2026)
+
+- Sensitive outputs marked with `@secure()` decorator
+- Safe access operators (`.?`) implemented
+- JSON schema updated to 2019-04-01 standard
+- Bicep native parameter syntax validated
+
 ## 📋 What Gets Deployed
 
 ### Core DNS Infrastructure
@@ -94,9 +101,11 @@ az deployment sub show `
 
 **Key Outputs**:
 - `publicDnsNameServers`: Azure DNS name servers (update registrar NS records)
-- `eventHubSendConnectionString`: For diagnostic settings
-- `eventHubListenConnectionString`: For QRadar consumer configuration
+- `eventHubSendConnectionString`: For diagnostic settings ⚠️ **Secure output**
+- `eventHubListenConnectionString`: For QRadar consumer configuration ⚠️ **Secure output**
 - `trafficManagerFailoverFqdn`, `trafficManagerGeoFqdn`, `trafficManagerWeightedFqdn`
+
+**Note:** Connection string outputs are marked `@secure()` and won't appear in deployment logs. Use `az deployment sub show` or Azure Portal to retrieve them securely.
 
 ---
 

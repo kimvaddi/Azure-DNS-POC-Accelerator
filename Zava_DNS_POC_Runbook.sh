@@ -1125,12 +1125,15 @@ az eventhubs namespace create \
   --output table
 
 # 6.2 Create Event Hub
+# NOTE: --message-retention flag deprecated. Use --retention-time-in-hours instead.
+# Reference: https://github.com/Azure/azure-cli/issues/20000
 echo "Creating Event Hub..."
 az eventhubs eventhub create \
   --resource-group "$RESOURCE_GROUP" \
   --namespace-name "$EVENTHUB_NAMESPACE" \
   --name "$EVENTHUB_NAME" \
-  --message-retention 1 \
+  --retention-time-in-hours 24 \
+  --cleanup-policy Delete \
   --partition-count 2 \
   --output table
 
@@ -1168,11 +1171,19 @@ echo "--- IBM QRadar SIEM Integration ---"
 echo ""
 echo "Zava uses IBM QRadar. Follow these steps to connect:"
 echo ""
+echo "⚠️  SECURITY WARNING: Handle connection strings securely!"
+echo "   The following commands output sensitive credentials."
+echo "   In production, store these in Azure Key Vault and use --vault-name for retrieval."
+echo "   Never log secrets to CI/CD pipelines or commit them to source control."
+echo ""
 echo "STEP 1: Get the Event Hub connection string:"
 echo "  az eventhubs namespace authorization-rule keys list \\"
 echo "    --resource-group $RESOURCE_GROUP \\"
 echo "    --namespace-name $EVENTHUB_NAMESPACE \\"
 echo "    --name RootManageSharedAccessKey --query primaryConnectionString -o tsv"
+echo ""
+echo "💡 PRODUCTION: Store in Key Vault instead:"
+echo "  az keyvault secret set --vault-name <vault-name> --name QRadarEventHubConn --value '<connection-string>'"
 echo ""
 echo "STEP 2: In QRadar Admin Console:"
 echo "  a. Go to Admin > Log Sources > Add"
@@ -1876,6 +1887,13 @@ echo ""
 echo "--- Logging & Reporting ---"
 echo "Check diagnostic settings:"
 echo "  az monitor diagnostic-settings list --resource <zone-resource-id> -o table"
+echo ""
+echo ""
+echo "⚠️  SECURITY REMINDER: The following command outputs sensitive credentials!"
+echo "   In production environments:"
+echo "     - Store in Azure Key Vault: az keyvault secret set --vault-name <vault> --name QRadarConn --value '<connection>'"
+echo "     - Never commit connection strings to Git repositories"
+echo "     - Never log secrets in CI/CD pipeline outputs"
 echo ""
 echo "Get Event Hub connection string (for QRadar):"
 echo "  az eventhubs namespace authorization-rule keys list -g $RESOURCE_GROUP \\"

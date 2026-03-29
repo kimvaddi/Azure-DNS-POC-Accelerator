@@ -426,7 +426,6 @@ module dnsZoneLock 'modules/resource-lock.bicep' = {
   name: 'deploy-dns-zone-lock'
   params: {
     resourceName: domain
-    resourceType: 'Microsoft.Network/dnsZones'
     lockName: 'lock-dns-zone'
     lockLevel: 'CanNotDelete'
     lockNotes: 'Prevent accidental deletion of POC DNS zone'
@@ -448,7 +447,13 @@ output logAnalyticsWorkspaceName string = logAnalytics.outputs.workspaceName
 
 output eventHubNamespaceId string = eventHub.outputs.namespaceId
 output eventHubName string = eventHub.outputs.eventHubName
+
+@description('Event Hub Send connection string (contains secrets)')
+@secure()
 output eventHubSendConnectionString string = eventHub.outputs.sendConnectionString
+
+@description('Event Hub Listen connection string for QRadar (contains secrets)')
+@secure()
 output eventHubListenConnectionString string = eventHub.outputs.listenConnectionString
 
 output storageAccountId string = storage.outputs.storageAccountId

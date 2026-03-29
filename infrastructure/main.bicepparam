@@ -27,17 +27,17 @@ param domain = 'poc.Zava.com'
 param privateDomain = 'poc-internal.Zava.local'
 
 // ============================================================================
-// WEB APP NAMES
+// WEB APP NAMES (must be globally unique - update these values)
 // ============================================================================
 
-param webAppNameUS = 'webapp-poc-us-${uniqueString(subscription().subscriptionId)}'
-param webAppNameUK = 'webapp-poc-uk-${uniqueString(subscription().subscriptionId)}'
+param webAppNameUS = 'webapp-poc-us-zava2026'
+param webAppNameUK = 'webapp-poc-uk-zava2026'
 
 // ============================================================================
-// INFRASTRUCTURE NAMES
+// INFRASTRUCTURE NAMES (storage account must be globally unique)
 // ============================================================================
 
-param storageAccountName = 'stqradarpoc${uniqueString(subscription().subscriptionId)}'
+param storageAccountName = 'stqradarpoczava2026'
 param eventHubNamespaceName = 'ehns-dns-poc'
 param lawName = 'law-dns-poc'
 
