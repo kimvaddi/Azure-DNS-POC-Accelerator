@@ -1,8 +1,8 @@
-$ORIGIN poc.Zava.com.
+$ORIGIN zava-dnspoc-001.com.
 $TTL 3600
 
 ; SOA record (Azure will overwrite this)
-@   IN  SOA ns1.poc.Zava.com. admin.poc.Zava.com. (
+@   IN  SOA ns1.zava-dnspoc-001.com. admin.zava-dnspoc-001.com. (
             2024032501 ; Serial
             3600       ; Refresh
             900        ; Retry
@@ -10,8 +10,8 @@ $TTL 3600
             86400 )    ; Minimum TTL
 
 ; NS records (Azure will overwrite these)
-@       IN  NS  ns1.poc.Zava.com.
-@       IN  NS  ns2.poc.Zava.com.
+@       IN  NS  ns1.zava-dnspoc-001.com.
+@       IN  NS  ns2.zava-dnspoc-001.com.
 
 ; A records
 @       IN  A       10.0.1.1
@@ -28,19 +28,19 @@ www     IN  AAAA    2001:db8::1
 mail    IN  AAAA    2001:db8::2
 
 ; CNAME records
-webmail     IN  CNAME   mail.poc.Zava.com.
-autodiscover IN  CNAME  mail.poc.Zava.com.
+webmail     IN  CNAME   mail.zava-dnspoc-001.com.
+autodiscover IN  CNAME  mail.zava-dnspoc-001.com.
 cdn         IN  CNAME   cdn.azureedge.net.
 status      IN  CNAME   stats.uptimerobot.com.
 
 ; MX records
-@       IN  MX  10  mail.poc.Zava.com.
-@       IN  MX  20  mail2.poc.Zava.com.
+@       IN  MX  10  mail.zava-dnspoc-001.com.
+@       IN  MX  20  mail2.zava-dnspoc-001.com.
 
 ; TXT records
 @       IN  TXT     "v=spf1 include:_spf.google.com ~all"
-_dmarc  IN  TXT     "v=DMARC1; p=quarantine; rua=mailto:dmarc@poc.Zava.com"
+_dmarc  IN  TXT     "v=DMARC1; p=quarantine; rua=mailto:dmarc@zava-dnspoc-001.com"
 
 ; SRV records
-_sip._tcp   IN  SRV 10 60 5060 sip.poc.Zava.com.
-_http._tcp  IN  SRV 10 100 80 www.poc.Zava.com.
+_sip._tcp   IN  SRV 10 60 5060 sip.zava-dnspoc-001.com.
+_http._tcp  IN  SRV 10 100 80 www.zava-dnspoc-001.com.

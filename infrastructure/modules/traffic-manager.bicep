@@ -66,10 +66,10 @@ resource endpoint 'Microsoft.Network/trafficManagerProfiles/azureEndpoints@2022-
   properties: {
     targetResourceId: ep.targetResourceId
     endpointStatus: 'Enabled'
-    priority: contains(ep, 'priority') ? ep.priority : null
-    weight: contains(ep, 'weight') ? ep.weight : null
+    priority: ep.?priority
+    weight: ep.?weight
     endpointLocation: ep.endpointLocation
-    geoMapping: contains(ep, 'geoMapping') ? ep.geoMapping : null
+    geoMapping: ep.?geoMapping
   }
 }]
 

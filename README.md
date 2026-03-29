@@ -88,17 +88,93 @@ vim Zava_DNS_POC_Runbook.sh
 
 ### Option 3: Bicep (Infrastructure-as-Code)
 
-```powershell
-# 1. Edit parameters
-code infrastructure/main.bicepparam
+Deploys all 35 resources declaratively in ~15 minutes via a single subscription-scope deployment.
 
-# 2. Validate
+#### Prerequisites
+
+```powershell
+# Install/update Azure CLI
+winget install Microsoft.AzureCLI   # or: az upgrade
+
+# Install Bicep (auto-installed by deploy.ps1 if missing)
+az bicep install
+
+# Log in and set subscription
+az login
+az account set --subscription "<your-subscription-id>"
+az account show   # confirm correct subscription
+```
+
+#### Step 1 — Customize Parameters
+
+Open [infrastructure/main.bicepparam](infrastructure/main.bicepparam) and update the values for your environment:
+
+| Parameter | Default | What to change |
+|-----------|---------|----------------|
+| `location` | `southcentralus` | Resource group region |
+| `locationPrimary` | `westus3` | Primary web app region |
+| `locationSecondary` | `eastasia` | Secondary web app region |
+| `domain` | auto-discovered (`zava-dnspoc-NNN.com`) | Public DNS domain — set by `deploy.ps1` availability check |
+| `privateDomain` | `poc-internal.Zava.local` | Your POC private DNS domain |
+| `eventHubNamespaceName` | `ehns-dns-poc` | **Must be globally unique** — append a suffix (e.g. `ehns-dns-poc-<initials>`) |
+| `webAppNameUS` / `webAppNameUK` | auto-generated | Web app names (globally unique; defaults use `uniqueString()`) |
+
+> **Note:** `storageAccountName` and web app names already use `uniqueString(subscription().subscriptionId)` so they are unique by default. Only `eventHubNamespaceName` needs manual disambiguation.
+
+#### Step 2 — Validate (Template Only)
+
+Catches syntax errors and type mismatches without touching Azure resources:
+
+```powershell
 cd infrastructure
 .\deploy.ps1 -ValidateOnly
+```
 
-# 3. Deploy
+#### Step 3 — Preview Changes (What-If)
+
+Shows every resource that will be created/modified before committing:
+
+```powershell
+.\deploy.ps1 -WhatIf
+```
+
+Review the output — you should see ~35 resources listed with `+ Create` status.
+
+#### Step 4 — Deploy
+
+```powershell
 .\deploy.ps1
 ```
+
+The script runs pre-flight checks (CLI version, login, Bicep), deploys the subscription-scope template, and prints all resource outputs (DNS nameservers, Event Hub connection string endpoint, Traffic Manager FQDNs, web app URLs) when complete.
+
+Typical runtime: **10–15 minutes**.
+
+#### Step 5 — Verify Key Resources
+
+```powershell
+# Confirm DNS zone and its nameservers
+az network dns zone show -g rg-dns-poc -n zava-dnspoc-NNN.com --query nameServers -o table
+
+# Confirm Event Hub namespace is running
+az eventhubs namespace show -g rg-dns-poc -n ehns-dns-poc-<suffix> --query provisioningState -o tsv
+
+# List all deployed resources
+az resource list -g rg-dns-poc -o table
+```
+
+#### Step 6 — Post-Deployment Manual Steps
+
+The following workstreams **cannot be automated via Bicep** and require manual action after deployment:
+
+| Step | What to do | Where |
+|------|-----------|-------|
+| DNS delegation | Add Azure NS records at your registrar | Registrar portal |
+| Zone import | Run `Zava_DNS_POC_Deployment.ps1` Section 1.4 | PowerShell |
+| RBAC assignment | Assign `DNS Zone Contributor` / custom role to test users | Portal or PS Section 4 |
+| QRadar wiring | Add Event Hub DSM connector in QRadar with Listen SAS key | QRadar console |
+| DCV tests | Run PS Section 5 (9-test suite) | PowerShell |
+| DNSSEC | Run PS Section 9 (`az network dns dnssec-config create`) | PowerShell |
 
 ### Clean Up (any option)
 
@@ -176,7 +252,7 @@ See the PowerShell script header for the complete list. Key findings:
 ```mermaid
 graph TD
     CLIENTS(("Internet Clients"))
-    DNS["Azure DNS<br/>poc.Zava.com"]
+    DNS["Azure DNS<br/>zava-dnspoc-NNN.com"]
     TM_F["TM Failover"]
     TM_G["TM Geographic"]
     TM_W["TM Weighted"]
@@ -201,11 +277,11 @@ Edit Section 0 (PowerShell/Bash) or parameters file (Bicep):
 
 | Parameter | Default | Customer Sets |
 |-----------|---------|--------------|
-| `$DOMAIN` / `domain` | poc.Zava.com | ✅ |
+| `$DOMAIN` / `domain` | zava-dnspoc-NNN.com (auto) | ✅ |
 | `$RG_NAME` / `rgName` | rg-dns-poc | ✅ |
 | `$LOCATION_PRIMARY` / `locationPrimary` | westus3 | ✅ |
 | `$LOCATION_SECONDARY` / `locationSecondary` | eastasia | ✅ |
-| `$EH_NAMESPACE` | ehns-dns-poc | ✅ |
+| `$EH_NAMESPACE` | ehns-dns-poc-`<last4-of-sub-id>` (auto-derived) | ✅ |
 | `$WEBAPP_US` / `webAppNameUS` | webapp-poc-us | ✅ |
 | `$WEBAPP_UK` / `webAppNameUK` | webapp-poc-uk | ✅ |
 | `$ZONE_FILE_1` | ./zone-files/Zava-zone1.zone | ✅ |

@@ -6,9 +6,6 @@
 @description('Name of the DNS zone to lock')
 param resourceName string
 
-@description('Type of the resource (e.g., Microsoft.Network/dnsZones)')
-param resourceType string
-
 @description('Lock name')
 param lockName string
 

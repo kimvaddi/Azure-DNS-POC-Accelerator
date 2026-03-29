@@ -286,7 +286,7 @@ az monitor app-insights component create  →  Application Insights (per region)
 
 ```
 az appservice plan create (Region A: southcentralus)  →  App Service Plan A
-az appservice plan create (Region B: uksouth)          →  App Service Plan B
+az appservice plan create (Region B: westeurope)       →  App Service Plan B
 az webapp create (Region A)  →  Web App A (US endpoint)
 az webapp create (Region B)  →  Web App B (UK endpoint)
 az functionapp create (multi-region)  →  Function Apps for geo DNS testing
@@ -369,7 +369,7 @@ The solution accelerator uses the kimvaddi.com pattern but makes everything conf
 | `DOMAIN` | kimvaddi.com | poc.Zava.com | ✅ |
 | `RG_NAME` | DNSdemo | rg-dns-poc | ✅ |
 | `LOCATION_PRIMARY` | westus3 | southcentralus | ✅ |
-| `LOCATION_SECONDARY` | eastasia | uksouth | ✅ |
+| `LOCATION_SECONDARY` | eastasia | westeurope | ✅ |
 | `WEBAPP_NAME_A` | westus3webapp | webapp-poc-us | ✅ |
 | `WEBAPP_NAME_B` | eastasiawebapp | webapp-poc-uk | ✅ |
 | `TM_PROFILE_NAME` | tm-kimvaddi-perf | tm-poc-Zava | ✅ |

@@ -28,27 +28,86 @@ param locationSecondary string = 'eastasia'
 @description('Resource group name')
 param rgName string = 'rg-dns-poc'
 
-@description('Public DNS domain for the POC')
-param domain string = 'poc.Zava.com'
+@description('Public DNS domain for the POC — auto-discovered by deploy.ps1 via App Service Domain availability check (zava-dnspoc-001.com, 002, …). Always override via deploy.ps1 or --parameters domain=<value>.')
+param domain string = 'zava-dnspoc-001.com'
 
 @description('Private DNS domain for internal resources')
-param privateDomain string = 'poc-internal.Zava.local'
+param privateDomain string = 'poc-internal.zava.local'
 
-@description('Web app name for US region')
-param webAppNameUS string = 'webapp-poc-us'
+@description('Purchase and register the public domain via Azure App Service Domain. Set to false if the domain is already registered or if skipping registration for validation runs.')
+param deployAppServiceDomain bool = true
 
-@description('Web app name for UK/Asia region')
-param webAppNameUK string = 'webapp-poc-uk'
+@description('Contact information for App Service Domain registration (WHOIS record). Override email, phone, and address in main.bicepparam.')
+param domainContactInfo object = {
+  nameFirst: 'DNS'
+  nameLast: 'Admin'
+  email: 'dnsadmin@zava.com'
+  phone: '+1.2105550100'
+  organization: 'Zava Energy Corporation'
+  address1: '100 Energy Way'
+  city: 'San Antonio'
+  state: 'TX'
+  postalCode: '78201'
+  country: 'US'
+}
 
-@description('Storage account name for QRadar checkpoint tracking (must be globally unique)')
+@description('ISO 8601 UTC timestamp when the operator accepted the domain registration terms. Auto-set to deployment time; overridden by deploy.ps1.')
+param domainConsentAgreedAt string = utcNow()
+
+@description('Public IP address of the deployment operator for domain registration consent. Overridden by deploy.ps1 at runtime.')
+param domainConsentAgreedBy string = '127.0.0.1'
+
+@description('Web app name for US region (globally unique — suffix auto-derived from subscription ID)')
+param webAppNameUS string = 'webapp-poc-us-${uniqueString(subscription().subscriptionId)}'
+
+@description('Web app name for UK/Asia region (globally unique — suffix auto-derived from subscription ID)')
+param webAppNameUK string = 'webapp-poc-uk-${uniqueString(subscription().subscriptionId)}'
+
+@description('Storage account name for QRadar checkpoint tracking (globally unique)')
 @maxLength(24)
 param storageAccountName string = 'stqradarpoc${uniqueString(subscription().subscriptionId)}'
 
-@description('Event Hub namespace name')
-param eventHubNamespaceName string = 'ehns-dns-poc'
+@description('Event Hub namespace name (globally unique — suffix auto-derived from subscription ID)')
+param eventHubNamespaceName string = 'ehns-dns-poc-${uniqueString(subscription().subscriptionId)}'
 
 @description('Log Analytics workspace name')
 param lawName string = 'law-dns-poc'
+
+@description('Deploy App Service + Web Apps + Traffic Manager components (disable if subscription has zero App Service worker quota)')
+param deployWebApps bool = false
+
+@description('Deploy DNS aliases for existing Traffic Manager profiles even when web apps are not being deployed in this run')
+param deployTrafficManagerDnsAliases bool = false
+
+@description('App Service Plan SKU for both web regions (B1, S1, P1v2, etc.)')
+param appServicePlanSku string = 'B1'
+
+var regionDisplayNames = {
+  eastasia: 'East Asia'
+  northeurope: 'North Europe'
+  southcentralus: 'South Central US'
+  uksouth: 'UK South'
+  westus3: 'West US 3'
+  westeurope: 'West Europe'
+}
+
+// Shared unique suffix derived from subscription ID — same value every deployment on the same sub
+var uniqueSuffix = uniqueString(subscription().subscriptionId)
+var locationPrimaryDisplayName = regionDisplayNames[?locationPrimary] ?? locationPrimary
+var locationSecondaryDisplayName = regionDisplayNames[?locationSecondary] ?? locationSecondary
+var trafficManagerFailoverProfileName = 'tm-poc-failover'
+var trafficManagerGeoProfileName = 'tm-poc-geo'
+var trafficManagerWeightedProfileName = 'tm-poc-weighted'
+var customerCnameLabels = [
+  'webfailover'
+  'webgeo'
+  'webweighted'
+]
+var customerSubdomainHostNames = [for label in customerCnameLabels: '${label}.${domain}']
+var customerVerificationSubdomainTxtNames = [for label in customerCnameLabels: 'asuid.${label}']
+var customerHostNames = customerSubdomainHostNames
+var customerVerificationTxtNames = customerVerificationSubdomainTxtNames
+var customDomainVerificationValue = deployWebApps ? (webAppUS.?outputs.?customDomainVerificationId ?? '') : ''
 
 @description('Tags to apply to all resources')
 param tags object = {
@@ -143,7 +202,7 @@ module vnet 'modules/vnet.bicep' = {
 // ============================================================================
 // PUBLIC DNS ZONE
 // ============================================================================
-// Primary POC DNS zone (poc.Zava.com)
+// Primary POC DNS zone — name is auto-discovered by deploy.ps1
 
 module publicDnsZone 'modules/public-dns-zone.bicep' = {
   scope: rg
@@ -152,6 +211,54 @@ module publicDnsZone 'modules/public-dns-zone.bicep' = {
     zoneName: domain
     tags: tags
   }
+}
+
+// ============================================================================
+// APP SERVICE DOMAIN REGISTRATION
+// ============================================================================
+// Purchases the domain and binds it to the Azure DNS Zone above.
+// NS records are automatically updated at the GoDaddy registrar — no manual
+// delegation required. Cost: ~$11–15/year for .com.
+
+module appServiceDomain 'modules/app-service-domain.bicep' = if (deployAppServiceDomain) {
+  scope: rg
+  name: 'deploy-app-service-domain'
+  params: {
+    domainName: domain
+    dnsZoneId: publicDnsZone.outputs.zoneId
+    contactInfo: domainContactInfo
+    consentAgreedAt: domainConsentAgreedAt
+    consentAgreedBy: domainConsentAgreedBy
+    autoRenew: false
+    privacy: true
+    tags: tags
+  }
+}
+
+module publicDnsObservability 'modules/public-dns-observability.bicep' = {
+  scope: rg
+  name: 'deploy-public-dns-observability'
+  params: {
+    zoneName: domain
+    location: location
+    workspaceId: logAnalytics.outputs.workspaceId
+    tags: tags
+  }
+}
+
+resource existingTrafficManagerFailover 'Microsoft.Network/trafficmanagerprofiles@2022-04-01' existing = if (deployTrafficManagerDnsAliases && !deployWebApps) {
+  scope: rg
+  name: trafficManagerFailoverProfileName
+}
+
+resource existingTrafficManagerGeo 'Microsoft.Network/trafficmanagerprofiles@2022-04-01' existing = if (deployTrafficManagerDnsAliases && !deployWebApps) {
+  scope: rg
+  name: trafficManagerGeoProfileName
+}
+
+resource existingTrafficManagerWeighted 'Microsoft.Network/trafficmanagerprofiles@2022-04-01' existing = if (deployTrafficManagerDnsAliases && !deployWebApps) {
+  scope: rg
+  name: trafficManagerWeightedProfileName
 }
 
 // ============================================================================
@@ -178,28 +285,30 @@ module privateDnsZone 'modules/private-dns-zone.bicep' = {
 // ============================================================================
 // APP SERVICE PLANS (MULTI-REGION)
 // ============================================================================
-// B1 tier for cost-effective POC testing
+// App Service plan tier for web workload
 
-module appServicePlanUS 'modules/app-service-plan.bicep' = {
+module appServicePlanUS 'modules/app-service-plan.bicep' = if (deployWebApps) {
   scope: rg
   name: 'deploy-asp-us'
   params: {
     planName: 'asp-poc-us'
     location: locationPrimary
-    skuName: 'B1'
+    skuName: appServicePlanSku
     skuCapacity: 1
+    osType: 'Windows'
     tags: tags
   }
 }
 
-module appServicePlanUK 'modules/app-service-plan.bicep' = {
+module appServicePlanUK 'modules/app-service-plan.bicep' = if (deployWebApps) {
   scope: rg
   name: 'deploy-asp-uk'
   params: {
     planName: 'asp-poc-uk'
     location: locationSecondary
-    skuName: 'B1'
+    skuName: appServicePlanSku
     skuCapacity: 1
+    osType: 'Windows'
     tags: tags
   }
 }
@@ -209,28 +318,48 @@ module appServicePlanUK 'modules/app-service-plan.bicep' = {
 // ============================================================================
 // .NET 8 web apps with security hardening
 
-module webAppUS 'modules/web-app.bicep' = {
+module webAppUS 'modules/web-app.bicep' = if (deployWebApps) {
   scope: rg
   name: 'deploy-webapp-us'
   params: {
     appName: webAppNameUS
     location: locationPrimary
-    appServicePlanId: appServicePlanUS.outputs.planId
+    appServicePlanId: appServicePlanUS.?outputs.?planId ?? ''
     logAnalyticsWorkspaceId: logAnalytics.outputs.workspaceId
     netFrameworkVersion: 'v8.0'
+    appSettings: {
+      POC_METADATA_ENDPOINT: '/metadata.json'
+      POC_PRIVATE_DNS_ZONE: privateDomain
+      POC_PUBLIC_DNS_ZONE: domain
+      POC_REGION_DISPLAY_NAME: locationPrimaryDisplayName
+      POC_REGION_ENDPOINT: '/region.txt'
+      POC_REGION_NAME: locationPrimary
+      POC_REGION_ROLE: 'primary'
+      POC_SITE_TITLE: 'Zava Azure DNS POC'
+    }
     tags: tags
   }
 }
 
-module webAppUK 'modules/web-app.bicep' = {
+module webAppUK 'modules/web-app.bicep' = if (deployWebApps) {
   scope: rg
   name: 'deploy-webapp-uk'
   params: {
     appName: webAppNameUK
     location: locationSecondary
-    appServicePlanId: appServicePlanUK.outputs.planId
+    appServicePlanId: appServicePlanUK.?outputs.?planId ?? ''
     logAnalyticsWorkspaceId: logAnalytics.outputs.workspaceId
     netFrameworkVersion: 'v8.0'
+    appSettings: {
+      POC_METADATA_ENDPOINT: '/metadata.json'
+      POC_PRIVATE_DNS_ZONE: privateDomain
+      POC_PUBLIC_DNS_ZONE: domain
+      POC_REGION_DISPLAY_NAME: locationSecondaryDisplayName
+      POC_REGION_ENDPOINT: '/region.txt'
+      POC_REGION_NAME: locationSecondary
+      POC_REGION_ROLE: 'secondary'
+      POC_SITE_TITLE: 'Zava Azure DNS POC'
+    }
     tags: tags
   }
 }
@@ -240,14 +369,14 @@ module webAppUK 'modules/web-app.bicep' = {
 // ============================================================================
 // Three profiles: Priority (failover), Geographic, Weighted
 
-module trafficManagerFailover 'modules/traffic-manager.bicep' = {
+module trafficManagerFailover 'modules/traffic-manager.bicep' = if (deployWebApps) {
   scope: rg
   name: 'deploy-tm-failover'
   params: {
-    profileName: 'tm-poc-failover'
+    profileName: trafficManagerFailoverProfileName
     routingMethod: 'Priority'
     dnsConfig: {
-      relativeName: 'tm-poc-failover'
+      relativeName: 'tm-poc-failover-${uniqueSuffix}'
       ttl: 30
     }
     monitorConfig: {
@@ -261,13 +390,13 @@ module trafficManagerFailover 'modules/traffic-manager.bicep' = {
     endpoints: [
       {
         name: 'us-primary'
-        targetResourceId: webAppUS.outputs.appId
+        targetResourceId: webAppUS.?outputs.?appId ?? ''
         priority: 1
         endpointLocation: locationPrimary
       }
       {
         name: 'uk-secondary'
-        targetResourceId: webAppUK.outputs.appId
+        targetResourceId: webAppUK.?outputs.?appId ?? ''
         priority: 2
         endpointLocation: locationSecondary
       }
@@ -277,14 +406,14 @@ module trafficManagerFailover 'modules/traffic-manager.bicep' = {
   }
 }
 
-module trafficManagerGeo 'modules/traffic-manager.bicep' = {
+module trafficManagerGeo 'modules/traffic-manager.bicep' = if (deployWebApps) {
   scope: rg
   name: 'deploy-tm-geo'
   params: {
-    profileName: 'tm-poc-geo'
+    profileName: trafficManagerGeoProfileName
     routingMethod: 'Geographic'
     dnsConfig: {
-      relativeName: 'tm-poc-geo'
+      relativeName: 'tm-poc-geo-${uniqueSuffix}'
       ttl: 30
     }
     monitorConfig: {
@@ -298,13 +427,13 @@ module trafficManagerGeo 'modules/traffic-manager.bicep' = {
     endpoints: [
       {
         name: 'us-endpoint'
-        targetResourceId: webAppUS.outputs.appId
+        targetResourceId: webAppUS.?outputs.?appId ?? ''
         geoMapping: [ 'US', 'CA', 'MX' ]
         endpointLocation: locationPrimary
       }
       {
         name: 'uk-endpoint'
-        targetResourceId: webAppUK.outputs.appId
+        targetResourceId: webAppUK.?outputs.?appId ?? ''
         geoMapping: [ 'GB', 'WORLD' ]
         endpointLocation: locationSecondary
       }
@@ -314,14 +443,14 @@ module trafficManagerGeo 'modules/traffic-manager.bicep' = {
   }
 }
 
-module trafficManagerWeighted 'modules/traffic-manager.bicep' = {
+module trafficManagerWeighted 'modules/traffic-manager.bicep' = if (deployWebApps) {
   scope: rg
   name: 'deploy-tm-weighted'
   params: {
-    profileName: 'tm-poc-weighted'
+    profileName: trafficManagerWeightedProfileName
     routingMethod: 'Weighted'
     dnsConfig: {
-      relativeName: 'tm-poc-weighted'
+      relativeName: 'tm-poc-weighted-${uniqueSuffix}'
       ttl: 30
     }
     monitorConfig: {
@@ -335,13 +464,13 @@ module trafficManagerWeighted 'modules/traffic-manager.bicep' = {
     endpoints: [
       {
         name: 'us-70pct'
-        targetResourceId: webAppUS.outputs.appId
+        targetResourceId: webAppUS.?outputs.?appId ?? ''
         weight: 70
         endpointLocation: locationPrimary
       }
       {
         name: 'uk-30pct'
-        targetResourceId: webAppUK.outputs.appId
+        targetResourceId: webAppUK.?outputs.?appId ?? ''
         weight: 30
         endpointLocation: locationSecondary
       }
@@ -356,31 +485,85 @@ module trafficManagerWeighted 'modules/traffic-manager.bicep' = {
 // ============================================================================
 // Wire up DNS to Traffic Manager endpoints (TTL=30 for fast failover)
 
-module dnsRecords 'modules/dns-cname-records.bicep' = {
+var trafficManagerFailoverFqdnValue = deployWebApps
+  ? (trafficManagerFailover.?outputs.?tmFqdn ?? '')
+  : (existingTrafficManagerFailover.?properties.?dnsConfig.?fqdn ?? '')
+var trafficManagerGeoFqdnValue = deployWebApps
+  ? (trafficManagerGeo.?outputs.?tmFqdn ?? '')
+  : (existingTrafficManagerGeo.?properties.?dnsConfig.?fqdn ?? '')
+var trafficManagerWeightedFqdnValue = deployWebApps
+  ? (trafficManagerWeighted.?outputs.?tmFqdn ?? '')
+  : (existingTrafficManagerWeighted.?properties.?dnsConfig.?fqdn ?? '')
+
+module dnsRecords 'modules/dns-cname-records.bicep' = if (deployWebApps || deployTrafficManagerDnsAliases) {
   scope: rg
   name: 'deploy-dns-cnames'
   params: {
     zoneName: domain
     cnameRecords: [
       {
-        name: 'failover'
-        targetFqdn: trafficManagerFailover.outputs.tmFqdn
+        name: 'webfailover'
+        targetFqdn: trafficManagerFailoverFqdnValue
         ttl: 30
       }
       {
-        name: 'geo'
-        targetFqdn: trafficManagerGeo.outputs.tmFqdn
+        name: 'webgeo'
+        targetFqdn: trafficManagerGeoFqdnValue
         ttl: 30
       }
       {
-        name: 'weighted'
-        targetFqdn: trafficManagerWeighted.outputs.tmFqdn
+        name: 'webweighted'
+        targetFqdn: trafficManagerWeightedFqdnValue
         ttl: 30
       }
     ]
   }
   dependsOn: [
     publicDnsZone
+  ]
+}
+
+module dnsVerificationTxtRecords 'modules/dns-txt-records.bicep' = if (deployWebApps) {
+  scope: rg
+  name: 'deploy-dns-txt-asuid'
+  params: {
+    zoneName: domain
+    txtRecords: [for txtName in customerVerificationTxtNames: {
+      name: txtName
+      ttl: 300
+      values: [customDomainVerificationValue]
+    }]
+  }
+  dependsOn: [
+    publicDnsZone
+  ]
+}
+
+module webAppUSCustomerDomainBindings 'modules/web-app-hostname-bindings.bicep' = if (deployWebApps) {
+  scope: rg
+  name: 'deploy-webapp-us-hostname-bindings'
+  params: {
+    appName: webAppNameUS
+    hostNames: customerHostNames
+  }
+  dependsOn: [
+    webAppUS
+    dnsRecords
+    dnsVerificationTxtRecords
+  ]
+}
+
+module webAppUKCustomerDomainBindings 'modules/web-app-hostname-bindings.bicep' = if (deployWebApps) {
+  scope: rg
+  name: 'deploy-webapp-uk-hostname-bindings'
+  params: {
+    appName: webAppNameUK
+    hostNames: customerHostNames
+  }
+  dependsOn: [
+    webAppUK
+    dnsRecords
+    dnsVerificationTxtRecords
   ]
 }
 
@@ -410,7 +593,6 @@ module dnsZoneLock 'modules/resource-lock.bicep' = {
   name: 'deploy-dns-zone-lock'
   params: {
     resourceName: domain
-    resourceType: 'Microsoft.Network/dnsZones'
     lockName: 'lock-dns-zone'
     lockLevel: 'CanNotDelete'
     lockNotes: 'Prevent accidental deletion of POC DNS zone'
@@ -432,7 +614,9 @@ output logAnalyticsWorkspaceName string = logAnalytics.outputs.workspaceName
 
 output eventHubNamespaceId string = eventHub.outputs.namespaceId
 output eventHubName string = eventHub.outputs.eventHubName
+@secure()
 output eventHubSendConnectionString string = eventHub.outputs.sendConnectionString
+@secure()
 output eventHubListenConnectionString string = eventHub.outputs.listenConnectionString
 
 output storageAccountId string = storage.outputs.storageAccountId
@@ -444,24 +628,37 @@ output vnetName string = vnet.outputs.vnetName
 output publicDnsZoneId string = publicDnsZone.outputs.zoneId
 output publicDnsZoneName string = publicDnsZone.outputs.zoneName
 output publicDnsNameServers array = publicDnsZone.outputs.nameServers
+output publicDnsWorkbookId string = publicDnsObservability.outputs.workbookId
+output publicDnsWorkbookName string = publicDnsObservability.outputs.workbookDisplayName
+output publicDnsWorkbookUrl string = publicDnsObservability.outputs.workbookUrl
+
+output appServiceDomainId string = deployAppServiceDomain ? (appServiceDomain.?outputs.?domainId ?? '') : ''
+output appServiceDomainName string = deployAppServiceDomain ? (appServiceDomain.?outputs.?domainName ?? '') : ''
+output appServiceDomainStatus string = deployAppServiceDomain ? (appServiceDomain.?outputs.?registrationStatus ?? '') : ''
 
 output privateDnsZoneId string = privateDnsZone.outputs.zoneId
 output privateDnsZoneName string = privateDnsZone.outputs.zoneName
 
-output webAppUSId string = webAppUS.outputs.appId
-output webAppUSHostName string = webAppUS.outputs.defaultHostName
-output webAppUSUrl string = 'https://${webAppUS.outputs.defaultHostName}'
+output webAppUSName string = webAppUS.?outputs.?appName ?? ''
+output webAppUSId string = webAppUS.?outputs.?appId ?? ''
+output webAppUSHostName string = webAppUS.?outputs.?defaultHostName ?? ''
+output webAppUSUrl string = webAppUS.?outputs.?defaultHostName != null ? 'https://${webAppUS.?outputs.?defaultHostName}' : ''
+output webAppUSRegionUrl string = webAppUS.?outputs.?defaultHostName != null ? 'https://${webAppUS.?outputs.?defaultHostName}/region.txt' : ''
 
-output webAppUKId string = webAppUK.outputs.appId
-output webAppUKHostName string = webAppUK.outputs.defaultHostName
-output webAppUKUrl string = 'https://${webAppUK.outputs.defaultHostName}'
+output webAppUKName string = webAppUK.?outputs.?appName ?? ''
+output webAppUKId string = webAppUK.?outputs.?appId ?? ''
+output webAppUKHostName string = webAppUK.?outputs.?defaultHostName ?? ''
+output webAppUKUrl string = webAppUK.?outputs.?defaultHostName != null ? 'https://${webAppUK.?outputs.?defaultHostName}' : ''
+output webAppUKRegionUrl string = webAppUK.?outputs.?defaultHostName != null ? 'https://${webAppUK.?outputs.?defaultHostName}/region.txt' : ''
 
-output trafficManagerFailoverFqdn string = trafficManagerFailover.outputs.tmFqdn
-output trafficManagerGeoFqdn string = trafficManagerGeo.outputs.tmFqdn
-output trafficManagerWeightedFqdn string = trafficManagerWeighted.outputs.tmFqdn
+output trafficManagerFailoverFqdn string = trafficManagerFailoverFqdnValue
+output trafficManagerGeoFqdn string = trafficManagerGeoFqdnValue
+output trafficManagerWeightedFqdn string = trafficManagerWeightedFqdnValue
 
-output dnsTestUrls object = {
-  failover: 'https://failover.${domain}'
-  geo: 'https://geo.${domain}'
-  weighted: 'https://weighted.${domain}'
+output dnsTestUrls object = (deployWebApps || deployTrafficManagerDnsAliases) ? {
+  webfailover: 'https://webfailover.${domain}'
+  webgeo: 'https://webgeo.${domain}'
+  webweighted: 'https://webweighted.${domain}'
+} : {
+  status: 'traffic-manager-dns-aliases-disabled'
 }

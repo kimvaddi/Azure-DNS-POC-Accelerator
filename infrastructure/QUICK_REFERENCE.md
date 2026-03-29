@@ -28,7 +28,8 @@ az deployment sub create `
 | Resource Type | Name | Purpose |
 |---------------|------|---------|
 | **Resource Group** | `rg-dns-poc` | Container for all POC resources |
-| **Public DNS Zone** | `poc.Zava.com` | Main POC DNS zone |
+| **App Service Domain** | `zava-dnspoc-NNN.com` | Auto-discovered, purchased via Azure |
+| **Public DNS Zone** | `zava-dnspoc-NNN.com` | Main POC DNS zone (auto-bound to domain) |
 | **Private DNS Zone** | `poc-internal.Zava.local` | Internal DNS testing |
 | **Log Analytics** | `law-dns-poc` | Central logging (30-day retention) |
 | **Event Hub Namespace** | `ehns-dns-poc` | QRadar integration |
@@ -49,12 +50,12 @@ az deployment sub create `
 
 | Record | Type | Target | TTL |
 |--------|------|--------|-----|
-| `failover.poc.Zava.com` | CNAME | `tm-poc-failover.trafficmanager.net` | 30 |
-| `geo.poc.Zava.com` | CNAME | `tm-poc-geo.trafficmanager.net` | 30 |
-| `weighted.poc.Zava.com` | CNAME | `tm-poc-weighted.trafficmanager.net` | 30 |
-| `db.poc-internal.Zava.local` | A | `10.0.1.100` | 300 |
-| `app.poc-internal.Zava.local` | A | `10.0.1.101` | 300 |
-| `cache.poc-internal.Zava.local` | A | `10.0.1.102` | 300 |
+| `webfailover.zava-dnspoc-NNN.com` | CNAME | `tm-poc-failover.trafficmanager.net` | 30 |
+| `webgeo.zava-dnspoc-NNN.com` | CNAME | `tm-poc-geo.trafficmanager.net` | 30 |
+| `webweighted.zava-dnspoc-NNN.com` | CNAME | `tm-poc-weighted.trafficmanager.net` | 30 |
+| `db.poc-internal.zava.local` | A | `10.0.1.100` | 300 |
+| `app.poc-internal.zava.local` | A | `10.0.1.101` | 300 |
+| `cache.poc-internal.zava.local` | A | `10.0.1.102` | 300 |
 
 ---
 
@@ -72,7 +73,7 @@ az deployment sub show --name Zava-dns-poc --query properties.outputs
 
 ### Verify DNS Zone
 ```powershell
-az network dns zone show --name poc.Zava.com --resource-group rg-dns-poc
+az network dns zone show --name zava-dnspoc-NNN.com --resource-group rg-dns-poc
 ```
 
 ### Check Traffic Manager Health
@@ -85,9 +86,9 @@ az network traffic-manager endpoint list `
 
 ### Test DNS Resolution
 ```powershell
-nslookup failover.poc.Zava.com
-nslookup geo.poc.Zava.com
-nslookup weighted.poc.Zava.com
+nslookup webfailover.zava-dnspoc-NNN.com
+nslookup webgeo.zava-dnspoc-NNN.com
+nslookup webweighted.zava-dnspoc-NNN.com
 ```
 
 ### Verify Event Hub
@@ -149,15 +150,14 @@ AzureDiagnostics
 ### Scenario 1: DNS Failover
 ```powershell
 # 1. Baseline
-curl https://failover.poc.Zava.com
-
+curl https://webfailover.zava-dnspoc-NNN.com
 # 2. Stop US web app
 az webapp stop --name webapp-poc-us --resource-group rg-dns-poc
 
 # 3. Wait 60 seconds for health probe
 
 # 4. Test failover
-curl https://failover.poc.Zava.com  # Should return UK app
+curl https://webfailover.zava-dnspoc-NNN.com  # Should return UK app
 
 # 5. Restart US web app
 az webapp start --name webapp-poc-us --resource-group rg-dns-poc
@@ -166,15 +166,15 @@ az webapp start --name webapp-poc-us --resource-group rg-dns-poc
 ### Scenario 2: Geographic Routing
 ```powershell
 # Test from different geographic locations
-curl -H "X-Forwarded-For: 1.1.1.1" https://geo.poc.Zava.com  # US IP
-curl -H "X-Forwarded-For: 194.0.0.1" https://geo.poc.Zava.com  # UK IP
+curl -H "X-Forwarded-For: 1.1.1.1" https://webgeo.zava-dnspoc-NNN.com  # US IP
+curl -H "X-Forwarded-For: 194.0.0.1" https://webgeo.zava-dnspoc-NNN.com  # UK IP
 ```
 
 ### Scenario 3: Weighted Distribution
 ```powershell
 # Run 100 requests and check distribution
 1..100 | ForEach-Object {
-    $response = curl -s https://weighted.poc.Zava.com
+    $response = curl -s https://webweighted.zava-dnspoc-NNN.com
     if ($response -match "webapp-poc-us") { "US" } else { "UK" }
 } | Group-Object | Select-Object Name, Count
 ```

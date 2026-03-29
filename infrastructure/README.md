@@ -28,14 +28,21 @@ Complete Infrastructure-as-Code deployment for Azure DNS POC evaluation, includi
 - Security hardening: `httpsOnly=true`, `ftpsState=Disabled`, `minTlsVersion=1.2`
 
 ### DNS Records (TTL=30)
-- `failover.poc.Zava.com` → Traffic Manager failover FQDN
-- `geo.poc.Zava.com` → Traffic Manager geographic FQDN
-- `weighted.poc.Zava.com` → Traffic Manager weighted FQDN
+- `webfailover.poc.zava.com` → `tm-poc-failover` Traffic Manager FQDN
+- `webgeo.poc.zava.com` → `tm-poc-geo` Traffic Manager FQDN
+- `webweighted.poc.zava.com` → `tm-poc-weighted` Traffic Manager FQDN
 
 ### Diagnostic Settings
 - **Subscription Activity Log**: All 8 categories → Event Hub + Log Analytics
 - **Web Apps**: 7 log categories + AllMetrics → Log Analytics
 - **Traffic Manager**: ProbeHealthStatusEvents + AllMetrics → Log Analytics
+
+### Azure Monitor Workbook
+- **Public DNS Monitoring Workbook**: Shared workbook scoped to the public DNS zone
+- Shows recent zone and record changes from `AzureActivity`
+- Adds record-set drilldowns for per-record activity, top changed records, and failed changes
+- Shows public Azure DNS metrics directly from Azure Monitor metrics (`QueryVolume`, `RecordSetCount`, `RecordSetCapacityUtilization`)
+- Deployment outputs include a direct portal URL for the workbook
 
 ### Networking
 - **VNet**: `vnet-dns-poc` (10.0.0.0/16, subnet 10.0.0.0/24)
@@ -55,11 +62,13 @@ Edit `main.bicepparam` to customize:
 - Domain names (`domain`, `privateDomain`)
 - Resource naming (web app names must be globally unique)
 - Regions (default: `southcentralus`, `westus3`, `eastasia`)
+- Whether to manage Traffic Manager DNS aliases separately from web app deployment
 
 ```bicep
 param domain = 'poc.Zava.com'
 param privateDomain = 'poc-internal.Zava.local'
 param location = 'southcentralus'
+param deployTrafficManagerDnsAliases = true
 ```
 
 ### Step 2: Validate Template
@@ -137,9 +146,9 @@ Expected: All endpoints show `Online` within 2 minutes of deployment.
 ### 4. Test DNS Resolution
 ```powershell
 # Test public DNS records
-nslookup failover.poc.Zava.com
-nslookup geo.poc.Zava.com
-nslookup weighted.poc.Zava.com
+nslookup webfailover.poc.zava.com
+nslookup webgeo.poc.zava.com
+nslookup webweighted.poc.zava.com
 
 # Test private DNS (requires VNet VM)
 nslookup db.poc-internal.Zava.local 10.0.0.4
@@ -147,9 +156,9 @@ nslookup db.poc-internal.Zava.local 10.0.0.4
 
 ### 5. Test Web Apps
 ```powershell
-curl https://failover.poc.Zava.com
-curl https://geo.poc.Zava.com
-curl https://weighted.poc.Zava.com
+curl https://webfailover.poc.zava.com
+curl https://webgeo.poc.zava.com
+curl https://webweighted.poc.zava.com
 ```
 
 ---
@@ -187,15 +196,15 @@ AzureMetrics
 ## 🧪 POC Test Scenarios
 
 ### Scenario 1: DNS Failover Test
-1. **Baseline**: `curl https://failover.poc.Zava.com` → returns US web app
+1. **Baseline**: `curl https://webfailover.poc.zava.com` → returns US web app
 2. **Simulate failure**: Stop US web app
 3. **Wait 60 seconds**: Traffic Manager health probe detects failure
-4. **Verify**: `curl https://failover.poc.Zava.com` → returns UK web app
+4. **Verify**: `curl https://webfailover.poc.zava.com` → returns UK web app
 
 ### Scenario 2: Geographic Routing
 ```powershell
 # From US IP: Should route to US web app
-curl https://geo.poc.Zava.com
+curl https://webgeo.poc.zava.com
 
 # From UK IP (use VPN/proxy): Should route to UK web app
 ```
@@ -204,7 +213,7 @@ curl https://geo.poc.Zava.com
 Run 100 requests and verify ~70% hit US, ~30% hit UK:
 ```powershell
 1..100 | ForEach-Object {
-    curl -s https://weighted.poc.Zava.com | Select-String "webapp-poc"
+  curl -s https://webweighted.poc.zava.com | Select-String "webapp-poc"
 } | Group-Object
 ```
 

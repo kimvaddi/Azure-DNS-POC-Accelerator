@@ -101,7 +101,7 @@
 #     - All flowing to Log Analytics Workspace
 #
 #  6. Compute quota failures in multiple regions
-#     - southcentralus, eastus, uksouth: Basic VM quota = 0 (Linux)
+#     - southcentralus, eastus, westeurope: Basic VM quota = 0 (Linux)
 #     - Fix: use regions with existing quota or request increase
 #     - Windows plans work without Linux quota (used dotnet:8 runtime)
 #
@@ -169,15 +169,16 @@
 # SECTION 0: CONFIGURATION — EDIT THESE BEFORE RUNNING ANYTHING
 # ============================================================================
 
-$SUBSCRIPTION_ID   = "<your-subscription-id>"
+$SUBSCRIPTION_ID   = "78216abe-8139-4b45-8715-6bab2010101e"
 $RG_NAME           = "rg-dns-poc"
 $LOCATION_PRIMARY  = "westus3"           # Primary region (web apps)
-$LOCATION_SECONDARY = "eastasia"          # Secondary region (web apps)
+$LOCATION_SECONDARY = "westeurope"       # Secondary region (web apps)
 $LOCATION_RG       = "southcentralus"     # Resource group location
-$DOMAIN            = "poc.Zava.com"     # Public DNS zone
-$PRIVATE_ZONE      = "poc-internal.Zava.local"  # Private DNS zone
+$DOMAIN            = "zava-dnspoc-001.com"  # Public DNS zone (auto-purchased via App Service Domain)
+$PRIVATE_ZONE      = "poc-internal.zava.local"  # Private DNS zone
 $LAW_NAME          = "law-dns-poc"
-$EH_NAMESPACE      = "ehns-dns-poc"       # Must be globally unique
+$_UNIQUE_SUFFIX    = $SUBSCRIPTION_ID.Substring($SUBSCRIPTION_ID.Length - 4)
+$EH_NAMESPACE      = "ehns-dns-poc-$_UNIQUE_SUFFIX"  # Globally unique (subscription-derived suffix)
 $EH_NAME           = "dns-logs"
 $VNET_NAME         = "vnet-dns-poc"
 $TM_FAILOVER       = "tm-poc-failover"    # Must be globally unique
@@ -195,8 +196,8 @@ $ZONE_FILES_DIR    = ".\zone-files"                    # Directory containing zo
 $ZONE_FILE_1       = ".\zone-files\Zava-zone1.zone"   # First Bind zone file
 $ZONE_FILE_2       = ".\zone-files\Zava-zone2.zone"   # Second Bind zone file  (leave empty if only 1)
 $ZONE_FILE_3       = ""                                 # Third Bind zone file   (leave empty if not needed)
-$ZONE_NAME_1       = "poc.Zava.com"                   # Azure zone name for file 1 (primary zone)
-$ZONE_NAME_2       = "zone2.poc.Zava.com"             # Azure zone name for file 2
+$ZONE_NAME_1       = "zava-dnspoc-001.com"                # Azure zone name for file 1 (primary zone)
+$ZONE_NAME_2       = "zone2.zava-dnspoc-001.com"          # Azure zone name for file 2
 $ZONE_NAME_3       = ""                                 # Azure zone name for file 3 (leave empty if not needed)
 
 # ============================================================================

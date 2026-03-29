@@ -40,10 +40,11 @@
 # ============================================================================
 
 $RG_NAME           = "rg-dns-poc"
-$DOMAIN            = "poc.Zava.com"
-$PRIVATE_ZONE      = "poc-internal.Zava.local"
-$EH_NAMESPACE      = "ehns-dns-poc"
-$SUBSCRIPTION_ID   = "<your-subscription-id>"  # Set this or use current
+$DOMAIN            = "zava-dnspoc-001.com"  # Set to the domain purchased by deploy.ps1
+$PRIVATE_ZONE      = "poc-internal.zava.local"  # Private DNS zone
+$SUBSCRIPTION_ID   = "<your-subscription-id>"  # Must match the subscription used during deployment
+$_UNIQUE_SUFFIX    = $SUBSCRIPTION_ID.Substring($SUBSCRIPTION_ID.Length - 4)
+$EH_NAMESPACE      = "ehns-dns-poc-$_UNIQUE_SUFFIX"  # Must match deployment
 
 # ============================================================================
 # STEP 1: CONFIRM BEFORE PROCEEDING
