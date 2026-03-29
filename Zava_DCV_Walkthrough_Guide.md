@@ -431,4 +431,104 @@ Use this as a talking track when walking Jeremy and Matt through DCV:
 
 ---
 
-*This document is designed to be shared with kimvaddi's team before or during the POC.*
+## 7. Automated DCV Script — Production-Ready Pattern (NEW)
+
+**File:** `Zava_DCV_Automation.ps1` — closes 5 identified gaps with **zero-secret deployment**.
+
+### What It Does
+
+This script implements the production pattern for certificate automation:
+
+| Gap | What Gets Created | Security Model |
+|-----|-------------------|----------------|
+| **Gap 1: Service Identity** | Service Principal with DNS Record Operator role (least-privilege) | Credentials stored in Key Vault (sp-certbot-client-id, sp-certbot-client-secret, sp-certbot-tenant-id) — never displayed in console |
+| **Gap 3: Key Vault** | Azure Key Vault with RBAC authorization, 60-second RBAC propagation delay | Roles: Key Vault Administrator (you), Key Vault Certificates Officer + Secrets User (SP) |
+| **Gap 4: Renewal Automation** | cert-renewal-runbook.ps1 template with secure Key Vault retrieval | Retrieves DigiCert API key + SP credentials from Key Vault at runtime (no hardcoded secrets) |
+| **Gap 2: DigiCert Issuance** | Framework ready (requires customer's DigiCert API key) | Customer stores API key in Key Vault: `az keyvault secret set --name digicert-api-key --value <key>` |
+| **Gap 5: DigiCert Integration** | Framework ready (requires real domain delegation) | Automated when customer provides DigiCert credentials |
+
+### How to Run
+
+```powershell
+# Run all implementable gaps (1, 3, 4) — skips customer-dependent gaps (2, 5)
+.\Zava_DCV_Automation.ps1 -RunGap All -SkipCustomerDependentGaps
+
+# Or run gaps individually:
+.\Zava_DCV_Automation.ps1 -RunGap Gap1  # Create service principal + store in Key Vault
+.\Zava_DCV_Automation.ps1 -RunGap Gap3  # Deploy Key Vault with RBAC
+.\Zava_DCV_Automation.ps1 -RunGap Gap4  # Generate cert-renewal-runbook.ps1
+```
+
+### Security Features (Zero-Secret Pattern)
+
+✅ **No plaintext files:** `azure-certbot.ini` file is NOT created (credentials retrieved from Key Vault at runtime)  
+✅ **No console output of secrets:** Service principal credentials automatically stored in Key Vault (never displayed)  
+✅ **Variable cleanup:** All sensitive variables cleared from memory after Key Vault storage  
+✅ **RBAC-based access:** Key Vault uses RBAC authorization (no access policies)  
+✅ **Automatic propagation delay:** 60-second wait after RBAC role assignment  
+
+### Retrieving Credentials for certbot
+
+When you need to use the credentials (e.g., for certbot or manual testing):
+
+```powershell
+# Retrieve SP credentials from Key Vault
+$clientId = az keyvault secret show --vault-name <kv-name> --name sp-certbot-client-id --query value -o tsv
+$clientSecret = az keyvault secret show --vault-name <kv-name> --name sp-certbot-client-secret --query value -o tsv
+$tenantId = az keyvault secret show --vault-name <kv-name> --name sp-certbot-tenant-id --query value -o tsv
+
+# Use for certbot authentication
+az login --service-principal --username $clientId --password $clientSecret --tenant $tenantId
+
+# Clear from memory when done
+$clientId = $null
+$clientSecret = $null
+$tenantId = $null
+```
+
+### Generated Runbook Template
+
+The script creates `cert-renewal-runbook.ps1` with secure Key Vault retrieval patterns:
+
+```powershell
+# Secure pattern — retrieves DigiCert API key from Key Vault
+$DigiCertApiKey = az keyvault secret show --vault-name $KeyVaultName --name "digicert-api-key" --query "value" -o tsv
+$DigiCertOrgId = az keyvault secret show --vault-name $KeyVaultName --name "digicert-org-id" --query "value" -o tsv
+
+# Use the credentials for DigiCert API calls
+# ... (cert issuance logic)
+
+# Clear from memory after use
+$DigiCertApiKey = $null
+$DigiCertOrgId = $null
+```
+
+### Customer Action Required
+
+To complete Gaps 2+5 (DigiCert integration), the customer must:
+
+1. **Store DigiCert API key in Key Vault:**
+   ```powershell
+   az keyvault secret set --vault-name <kv-name> --name "digicert-api-key" --value "<your-api-key>"
+   az keyvault secret set --vault-name <kv-name> --name "digicert-org-id" --value "<your-org-id>"
+   ```
+
+2. **Delegate NS records** for test domain (`poc.Zava.com`) to Azure DNS
+
+3. **Choose DigiCert path:** CertCentral API (Option A) or ACME endpoint (Option B)
+
+4. **Test end-to-end:**
+   ```powershell
+   .\Zava_DCV_Automation.ps1 -RunGap Gap2  # Full integration test
+   ```
+
+### Files Created
+
+| File | Purpose | Security |
+|------|---------|----------|
+| `cert-renewal-runbook.ps1` | Azure Automation runbook template with secure Key Vault retrieval patterns | ✅ No secrets in parameters, all retrieved from Key Vault |
+| *(no azure-certbot.ini)* | **Not created** — credentials stored in Key Vault instead | ✅ No plaintext credential files |
+
+---
+
+*This document is designed to be shared with Zava's team before or during the POC.*
