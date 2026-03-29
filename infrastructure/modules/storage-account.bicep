@@ -74,3 +74,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
 output storageAccountId string = storageAccount.id
 output storageAccountName string = storageAccount.name
 output primaryEndpoints object = storageAccount.properties.primaryEndpoints
+
+@description('Storage account primary connection string')
+@secure()
+output connectionString string = 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}'

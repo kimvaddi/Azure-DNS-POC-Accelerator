@@ -70,6 +70,7 @@ EVENTHUB_NAMESPACE="ehns-dns-poc"                    # Event Hub namespace name
 EVENTHUB_NAME="dns-logs"                     # Event Hub name
 EVENTHUB_SKU="Standard"                               # Standard required for consumer groups + SAS policies
 LOG_ANALYTICS_WORKSPACE="law-dns-poc"               # Log Analytics workspace for reporting
+KEYVAULT_NAME="kv-dns-poc-$RANDOM"                  # Key Vault name (must be globally unique)
 
 # -- Zone Snapshots --
 SNAPSHOT_DIR="./zone-snapshots"                    # Directory to store zone export files
@@ -106,14 +107,36 @@ az group show --name "$RESOURCE_GROUP" --output table
 # If it doesn't exist, create it:
 # az group create --name "$RESOURCE_GROUP" --location "$LOCATION"
 
-# 1.3 Create the public DNS zone
+# 1.3 Create Key Vault for secure secret storage
+echo "Creating Key Vault: $KEYVAULT_NAME"
+az keyvault create \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$KEYVAULT_NAME" \
+  --location "$LOCATION" \
+  --enable-rbac-authorization true \
+  --retention-days 7 \
+  --output table
+
+# 1.4 Grant current user Key Vault Secrets Officer role
+CURRENT_USER_ID=$(az ad signed-in-user show --query "id" -o tsv)
+KV_ID=$(az keyvault show -g "$RESOURCE_GROUP" -n "$KEYVAULT_NAME" --query "id" -o tsv)
+echo "Granting Key Vault Secrets Officer role to current user..."
+az role assignment create \
+  --assignee "$CURRENT_USER_ID" \
+  --role "Key Vault Secrets Officer" \
+  --scope "$KV_ID" \
+  --output none
+echo "✅ Role assignment complete (waiting 60 seconds for propagation)"
+sleep 60
+
+# 1.5 Create the public DNS zone
 echo "Creating public DNS zone: $PUBLIC_ZONE"
 az network dns zone create \
   --resource-group "$RESOURCE_GROUP" \
   --name "$PUBLIC_ZONE" \
   --output table
 
-# 1.4 Verify the zone was created — note the nameservers
+# 1.6 Verify the zone was created — note the nameservers
 echo "Zone nameservers (you'll need these for testing):"
 az network dns zone show \
   --resource-group "$RESOURCE_GROUP" \
@@ -1169,30 +1192,96 @@ echo "Diagnostic settings configured."
 echo ""
 echo "--- IBM QRadar SIEM Integration ---"
 echo ""
-echo "Zava uses IBM QRadar. Follow these steps to connect:"
+echo "Zava uses IBM QRadar. Storing connection strings securely in Key Vault..."
 echo ""
-echo "⚠️  SECURITY WARNING: Handle connection strings securely!"
-echo "   The following commands output sensitive credentials."
-echo "   In production, store these in Azure Key Vault and use --vault-name for retrieval."
-echo "   Never log secrets to CI/CD pipelines or commit them to source control."
+
+# ============================================================================
+# 🔒 SECURE SECRET STORAGE — Store Connection Strings in Key Vault
+# ============================================================================
+# SECURITY BEST PRACTICE: Never output secrets to console or logs
+# All connection strings are automatically stored in Azure Key Vault
+
+echo "📥 Retrieving connection strings..."
+
+# Get Event Hub Listen connection string
+EH_LISTEN_CONN=$(az eventhubs eventhub authorization-rule keys list \
+  --resource-group "$RESOURCE_GROUP" \
+  --namespace-name "$EVENTHUB_NAMESPACE" \
+  --eventhub-name "$EVENTHUB_NAME" \
+  --name RootManageSharedAccessKey \
+  --query "primaryConnectionString" -o tsv)
+
+# Get Storage Account connection string (assumes storage account exists - created in Section 6)
+STORAGE_CONN=$(az storage account show-connection-string \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "stqradarpoc$(echo $KEYVAULT_NAME | tail -c 5)" \
+  --query "connectionString" -o tsv 2>/dev/null || echo "STORAGE_NOT_CREATED_YET")
+
 echo ""
-echo "STEP 1: Get the Event Hub connection string:"
-echo "  az eventhubs namespace authorization-rule keys list \\"
-echo "    --resource-group $RESOURCE_GROUP \\"
-echo "    --namespace-name $EVENTHUB_NAMESPACE \\"
-echo "    --name RootManageSharedAccessKey --query primaryConnectionString -o tsv"
+echo "🔒 Storing secrets in Key Vault: $KEYVAULT_NAME"
+
+# Store Event Hub Listen Connection String
+echo "  Storing EventHubListenConnectionString..."
+az keyvault secret set \
+  --vault-name "$KEYVAULT_NAME" \
+  --name "EventHubListenConnectionString" \
+  --value "$EH_LISTEN_CONN" \
+  --content-type "text/plain" \
+  --output none
+echo "  ✅ EventHubListenConnectionString stored"
+
+# Store Storage Account  Connection String (if it exists)
+if [ "$STORAGE_CONN" != "STORAGE_NOT_CREATED_YET" ]; then
+  echo "  Storing StorageAccountConnectionString..."
+  az keyvault secret set \
+    --vault-name "$KEYVAULT_NAME" \
+    --name "StorageAccountConnectionString" \
+    --value "$STORAGE_CONN" \
+    --content-type "text/plain" \
+    --output none
+  echo "  ✅ StorageAccountConnectionString stored"
+else
+  echo "  ⚠️  Storage account not yet created - will store connection string later"
+fi
+
+# Clear sensitive variables
+unset EH_LISTEN_CONN
+unset STORAGE_CONN
+
 echo ""
-echo "💡 PRODUCTION: Store in Key Vault instead:"
-echo "  az keyvault secret set --vault-name <vault-name> --name QRadarEventHubConn --value '<connection-string>'"
+echo "╔══════════════════════════════════════════════════════════════════════════╗"
+echo "║                 🔒 SECURE SECRET RETRIEVAL INSTRUCTIONS                  ║"
+echo "╠══════════════════════════════════════════════════════════════════════════╣"
+echo "║                                                                          ║"
+echo "║  Connection strings are stored securely in Azure Key Vault.             ║"
+echo "║  Share these retrieval commands with the QRadar/SIEM team:              ║"
+echo "║                                                                          ║"
+echo "║  📍 Key Vault Name: $KEYVAULT_NAME"
+echo "║                                                                          ║"
+echo "║  🔑 Retrieve Event Hub Listen Connection (for QRadar):                  ║"
+echo "║     az keyvault secret show --vault-name $KEYVAULT_NAME \\"
+echo "║       --name EventHubListenConnectionString --query value -o tsv        ║"
+echo "║                                                                          ║"
+echo "║  🔑 Retrieve Storage Account Connection (for checkpoints):              ║"
+echo "║     az keyvault secret show --vault-name $KEYVAULT_NAME \\"
+echo "║       --name StorageAccountConnectionString --query value -o tsv        ║"
+echo "║                                                                          ║"
+echo "║  📖 Azure Portal Access:                                                 ║"
+echo "║     https://portal.azure.com → Key Vaults → $KEYVAULT_NAME → Secrets"
+echo "║                                                                          ║"
+echo "║  ⚠️  RBAC REQUIRED: QRadar service principal needs role:                ║"
+echo "║     Key Vault Secrets User (read-only access to secrets)                ║"
+echo "║                                                                          ║"
+echo "╚══════════════════════════════════════════════════════════════════════════╝"
 echo ""
 echo "STEP 2: In QRadar Admin Console:"
 echo "  a. Go to Admin > Log Sources > Add"
 echo "  b. Log Source Type: Microsoft Azure Event Hub"
 echo "  c. Protocol: Microsoft Azure Event Hub"
-echo "  d. Paste the connection string from Step 1"
+echo "  d. Get connection string from Key Vault (command above)"
 echo "  e. Event Hub Name: $EVENTHUB_NAME"
 echo "  f. Consumer Group: \$Default"
-echo "  g. Storage Account: (create one for checkpoint tracking)"
+echo "  g. Storage Account: (retrieve from Key Vault)"
 echo ""
 echo "STEP 3: QRadar will auto-detect the DSM (Device Support Module)"
 echo "  for Azure DNS diagnostic events."
@@ -1889,15 +1978,15 @@ echo "Check diagnostic settings:"
 echo "  az monitor diagnostic-settings list --resource <zone-resource-id> -o table"
 echo ""
 echo ""
-echo "⚠️  SECURITY REMINDER: The following command outputs sensitive credentials!"
-echo "   In production environments:"
-echo "     - Store in Azure Key Vault: az keyvault secret set --vault-name <vault> --name QRadarConn --value '<connection>'"
-echo "     - Never commit connection strings to Git repositories"
-echo "     - Never log secrets in CI/CD pipeline outputs"
+echo "🔒 SECURE SECRET RETRIEVAL: Connection strings stored in Key Vault"
 echo ""
-echo "Get Event Hub connection string (for QRadar):"
-echo "  az eventhubs namespace authorization-rule keys list -g $RESOURCE_GROUP \\"
-echo "    --namespace-name $EVENTHUB_NAMESPACE -n RootManageSharedAccessKey --query primaryConnectionString -o tsv"
+echo "Get Event Hub connection string (for QRadar) from Key Vault:"
+echo "  az keyvault secret show --vault-name $KEYVAULT_NAME \\"
+echo "    --name EventHubListenConnectionString --query value -o tsv"
+echo ""
+echo "Get Storage Account connection string from Key Vault:"
+echo "  az keyvault secret show --vault-name $KEYVAULT_NAME \\"
+echo "    --name StorageAccountConnectionString --query value -o tsv"
 echo ""
 echo "View Activity Log (audit trail):"
 echo "  az monitor activity-log list -g $RESOURCE_GROUP --offset 1h \\"

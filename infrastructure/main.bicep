@@ -50,6 +50,9 @@ param eventHubNamespaceName string = 'ehns-dns-poc'
 @description('Log Analytics workspace name')
 param lawName string = 'law-dns-poc'
 
+@description('Key Vault name for storing secrets')
+param keyVaultName string = 'kv-dns-poc-${uniqueString(subscription().subscriptionId)}'
+
 @description('Tags to apply to all resources')
 param tags object = {
   project: 'dns-poc'
@@ -132,7 +135,7 @@ module keyVault 'modules/key-vault.bicep' = {
   scope: rg
   name: 'deploy-key-vault'
   params: {
-    kvName: 'kv-dns-poc-${uniqueString(subscription().subscriptionId)}'
+    kvName: keyVaultName
     location: location
     tags: tags
   }
@@ -436,6 +439,27 @@ module dnsZoneLock 'modules/resource-lock.bicep' = {
 }
 
 // ============================================================================
+// KEY VAULT SECRETS — Store Connection Strings Securely
+// ============================================================================
+// Best Practice: Store all sensitive connection strings in Key Vault
+// No secrets exposed as deployment outputs
+
+module keyVaultSecrets 'modules/key-vault-secrets.bicep' = {
+  scope: rg
+  name: 'deploy-key-vault-secrets'
+  params: {
+    keyVaultName: keyVaultName
+    eventHubSendConnectionString: eventHub.outputs.sendConnectionString
+    eventHubListenConnectionString: eventHub.outputs.listenConnectionString
+    storageAccountConnectionString: storage.outputs.connectionString
+    tags: tags
+  }
+  dependsOn: [
+    keyVault
+  ]
+}
+
+// ============================================================================
 // OUTPUTS
 // ============================================================================
 
@@ -448,13 +472,24 @@ output logAnalyticsWorkspaceName string = logAnalytics.outputs.workspaceName
 output eventHubNamespaceId string = eventHub.outputs.namespaceId
 output eventHubName string = eventHub.outputs.eventHubName
 
-@description('Event Hub Send connection string (contains secrets)')
-@secure()
-output eventHubSendConnectionString string = eventHub.outputs.sendConnectionString
+// ============================================================================
+// 🔒 SECURITY: Connection strings stored in Key Vault (not exposed as outputs)
+// Retrieve securely using: az keyvault secret show --vault-name <vault> --name <secret>
+// ============================================================================
 
-@description('Event Hub Listen connection string for QRadar (contains secrets)')
-@secure()
-output eventHubListenConnectionString string = eventHub.outputs.listenConnectionString
+output keyVaultName string = keyVault.outputs.keyVaultName
+output keyVaultId string = keyVault.outputs.keyVaultId
+output keyVaultUri string = keyVault.outputs.keyVaultUri
+
+@description('Key Vault secret names for retrieving connection strings')
+output secretNames object = {
+  eventHubSend: keyVaultSecrets.outputs.eventHubSendSecretName
+  eventHubListen: keyVaultSecrets.outputs.eventHubListenSecretName
+  storageAccount: keyVaultSecrets.outputs.storageAccountSecretName
+}
+
+@description('Instructions for retrieving secrets securely')
+output secretRetrievalInstructions string = 'az keyvault secret show --vault-name ${keyVault.outputs.keyVaultName} --name <secret-name> --query value -o tsv'
 
 output storageAccountId string = storage.outputs.storageAccountId
 output storageAccountName string = storage.outputs.storageAccountName

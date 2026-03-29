@@ -180,6 +180,7 @@ $LAW_NAME          = "law-dns-poc"
 $EH_NAMESPACE      = "ehns-dns-poc"       # Must be globally unique
 $EH_NAME           = "dns-logs"
 $VNET_NAME         = "vnet-dns-poc"
+$KV_NAME           = "kv-dns-poc-$(Get-Random -Minimum 1000 -Maximum 9999)"  # Key Vault name (must be globally unique)
 $TM_FAILOVER       = "tm-poc-failover"    # Must be globally unique
 $TM_GEO            = "tm-poc-geo"         # Must be globally unique
 $TM_WEIGHTED       = "tm-poc-weighted"    # Must be globally unique
@@ -258,6 +259,28 @@ az network vnet create `
   --subnet-name default `
   --subnet-prefix 10.0.0.0/24 `
   --query "{name:newVNet.name, state:newVNet.provisioningState}" -o table
+
+# 0.7 Create Key Vault (for secure secret storage)
+Write-Host "--- Creating Key Vault: $KV_NAME ---"
+az keyvault create `
+  --resource-group $RG_NAME `
+  --name $KV_NAME `
+  --location $LOCATION_RG `
+  --enable-rbac-authorization true `
+  --retention-days 7 `
+  --query "{name:name, provisioningState:properties.provisioningState}" -o table
+
+# 0.8 Grant current user Key Vault Secrets Officer role
+$CURRENT_USER_ID = (az ad signed-in-user show --query "id" -o tsv)
+$KV_ID = (az keyvault show -g $RG_NAME -n $KV_NAME --query "id" -o tsv)
+Write-Host "--- Granting Key Vault Secrets Officer role to current user ---"
+az role assignment create `
+  --assignee $CURRENT_USER_ID `
+  --role "Key Vault Secrets Officer" `
+  --scope $KV_ID `
+  -o none
+Write-Host "  ✅ Role assignment complete (allow 60 seconds for propagation)"
+Start-Sleep -Seconds 60
 
 # VERIFY Step 0
 Write-Host "`n--- VERIFY: All foundation resources ---" -ForegroundColor Green
@@ -880,25 +903,100 @@ Write-Host @"
 ╚══════════════════════════════════════════════════════════════════════════╝
 "@
 
-# Output connection strings
-# ⚠️ SECURITY NOTE: Connection strings contain sensitive credentials.
-#    In production, retrieve these securely using Key Vault or Azure Portal.
-#    This console output is for POC convenience only - never log secrets to CI/CD logs.
-Write-Host "`n--- Connection Strings (copy these for QRadar team) ---" -ForegroundColor Yellow
-Write-Host "⚠️  WARNING: These contain sensitive credentials. Handle securely." -ForegroundColor Red
-Write-Host "`nListen Policy Connection String (for QRadar):"
-az eventhubs eventhub authorization-rule keys list `
+# ============================================================================
+# SECURE SECRET STORAGE — Store Connection Strings in Key Vault
+# ============================================================================
+# 🔒 SECURITY BEST PRACTICE: Never output secrets to console or logs
+# All connection strings are automatically stored in Azure Key Vault
+
+Write-Host "`n--- 🔒 Storing Connection Strings in Key Vault ---" -ForegroundColor Cyan
+
+# 3.7.1 Get Event Hub Listen connection string
+$EH_LISTEN_CONN = (az eventhubs eventhub authorization-rule keys list `
   -g $RG_NAME --namespace-name $EH_NAMESPACE --eventhub-name $EH_NAME `
   --name QRadarListenPolicy `
-  --query "primaryConnectionString" -o tsv
+  --query "primaryConnectionString" -o tsv)
 
-Write-Host "`nStorage Account Connection String (for QRadar checkpoints):"
-az storage account show-connection-string `
+# 3.7.2 Get Event Hub Send connection string  
+$EH_SEND_CONN = (az eventhubs namespace authorization-rule keys list `
+  -g $RG_NAME --namespace-name $EH_NAMESPACE `
+  --name SendPolicy `
+  --query "primaryConnectionString" -o tsv)
+
+# 3.7.3 Get Storage Account connection string
+$STORAGE_CONN = (az storage account show-connection-string `
   -g $RG_NAME -n $STORAGE_NAME `
-  --query "connectionString" -o tsv
+  --query "connectionString" -o tsv)
 
-Write-Host "`n💡 PRODUCTION RECOMMENDATION: Store in Azure Key Vault" -ForegroundColor Cyan
-Write-Host "   az keyvault secret set --vault-name <vault> --name QRadarEventHubConn --value '<connection-string>'"
+# 3.7.4 Store in Key Vault (RBAC-based access)
+Write-Host "  Storing EventHubListenConnectionString..." -NoNewline
+az keyvault secret set `
+  --vault-name $KV_NAME `
+  --name "EventHubListenConnectionString" `
+  --value $EH_LISTEN_CONN `
+  --content-type "text/plain" `
+  -o none
+Write-Host " ✅" -ForegroundColor Green
+
+Write-Host "  Storing EventHubSendConnectionString..." -NoNewline
+az keyvault secret set `
+  --vault-name $KV_NAME `
+  --name "EventHubSendConnectionString" `
+  --value $EH_SEND_CONN `
+  --content-type "text/plain" `
+  -o none
+Write-Host " ✅" -ForegroundColor Green
+
+Write-Host "  Storing StorageAccountConnectionString..." -NoNewline
+az keyvault secret set `
+  --vault-name $KV_NAME `
+  --name "StorageAccountConnectionString" `
+  --value $STORAGE_CONN `
+  --content-type "text/plain" `
+  -o none
+Write-Host " ✅" -ForegroundColor Green
+
+# Clear sensitive variables from memory
+$EH_LISTEN_CONN = $null
+$EH_SEND_CONN = $null
+$STORAGE_CONN = $null
+
+Write-Host "`n✅ All connection strings securely stored in Key Vault: $KV_NAME" -ForegroundColor Green
+
+# 3.7.5 Provide QRadar team with secure retrieval instructions
+Write-Host @"
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                 🔒 SECURE SECRET RETRIEVAL INSTRUCTIONS                  ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║                                                                          ║
+║  Connection strings are stored securely in Azure Key Vault.             ║
+║  Share these retrieval commands with the QRadar/SIEM team:              ║
+║                                                                          ║
+║  📍 Key Vault Name: $KV_NAME
+║                                                                          ║
+║  🔑 Retrieve Event Hub Listen Connection (for QRadar):                  ║
+║     az keyvault secret show --vault-name $KV_NAME \
+║       --name EventHubListenConnectionString --query value -o tsv        ║
+║                                                                          ║
+║  🔑 Retrieve Storage Account Connection (for checkpoints):              ║
+║     az keyvault secret show --vault-name $KV_NAME \
+║       --name StorageAccountConnectionString --query value -o tsv        ║
+║                                                                          ║
+║  📖 Azure Portal Access:                                                 ║
+║     https://portal.azure.com → Key Vaults → $KV_NAME → Secrets
+║                                                                          ║
+║  ⚠️  RBAC REQUIRED: QRadar service principal needs role:                ║
+║     Key Vault Secrets User (read-only access to secrets)                ║
+║                                                                          ║
+║  💡 Grant access to QRadar service principal:                            ║
+║     az role assignment create \                                          ║
+║       --assignee <qradar-sp-object-id> \                                 ║
+║       --role "Key Vault Secrets User" \                                  ║
+║       --scope $(az keyvault show -g $RG_NAME -n $KV_NAME --query id -o tsv)
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+"@
 
 
 # ============================================================================

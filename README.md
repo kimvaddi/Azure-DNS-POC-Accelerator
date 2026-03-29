@@ -16,7 +16,7 @@ Built from a live customer engagement (Zava Energy Corporation), battle-tested w
 | **Time to Deploy** | ~15 minutes (Bicep) · ~45 minutes (manual step-by-step) |
 | **Estimated POC Cost** | ~$27 for a 2-week evaluation ([API-verified pricing](#cost-estimate)) |
 | **Target Region** | `southcentralus` (configurable) |
-| **Security Posture** | Least-privilege RBAC, HTTPS-only, TLS 1.2, CanNotDelete locks, SAS key rotation, **secure outputs** |
+| **Security Posture** | Least-privilege RBAC, HTTPS-only, TLS 1.2, CanNotDelete locks, **Zero-secret deployments**, **Key Vault integration** |
 
 ---
 
@@ -26,19 +26,20 @@ Built from a live customer engagement (Zava Energy Corporation), battle-tested w
 
 | File | Lines | Purpose | Last Updated |
 |------|-------|---------|-------------|
-| **Zava_DNS_POC_Deployment.ps1** | 1,639 | PowerShell end-to-end deployment (16 sections). Tested live with 14 findings fixed. | ✅ Mar 29: Security warnings |
-| **Zava_DNS_POC_Runbook.sh** | 1,800+ | Bash/az CLI runbook (13 sections). Includes 9-test DCV proof suite with PASS/FAIL verdicts. | ✅ Mar 29: Deprecated flags |
+| **Zava_DNS_POC_Deployment.ps1** | 1,700+ | PowerShell end-to-end deployment (16 sections). Tested live with 14 findings fixed. | ✅ Mar 29: **Key Vault Integration** |
+| **Zava_DNS_POC_Runbook.sh** | 1,900+ | Bash/az CLI runbook (13 sections). Includes 9-test DCV proof suite with PASS/FAIL verdicts. | ✅ Mar 29: **Key Vault Integration** |
 | **Zava_DNS_POC_Cleanup.ps1** | 182 | Tear-down script. Dependency-ordered cleanup (locks → DNSSEC → RBAC → RG). | Stable |
 
 ### Bicep Infrastructure-as-Code
 
 | Path | Purpose |
 |------|---------|
-| **infrastructure/main.bicep** | Subscription-scope Bicep template — deploys all 35 resources declaratively | ✅ Secure outputs |
+| **infrastructure/main.bicep** | Subscription-scope Bicep template — deploys all 35 resources declaratively | ✅ **Key Vault secrets** |
+| **infrastructure/modules/key-vault-secrets.bicep** | Key Vault secrets module (NEW) | ✅ **Auto-stores connection strings** |
 | **infrastructure/main.bicepparam** | Parameters file (Bicep native format) | ✅ Fixed syntax |
 | **infrastructure/main.parameters.json** | Parameters file (JSON alternative) | ✅ Schema updated |
 | **infrastructure/deploy.ps1** | Automated Bicep deployment script (validate / what-if / deploy) | |
-| **infrastructure/modules/** | 12 reusable Bicep modules (DNS, Event Hub, TM, Web Apps, etc.) | ✅ Linting clean |
+| **infrastructure/modules/** | 13 reusable Bicep modules (DNS, Event Hub, TM, Web Apps, Key Vault, Secrets) | ✅ Linting clean |
 | **infrastructure/README.md** | Bicep deployment guide |
 | **infrastructure/QUICK_REFERENCE.md** | Operator command cheat sheet |
 
@@ -275,6 +276,39 @@ The POC includes automated Domain Control Validation testing (9 proof tests) plu
 ---
 
 ## Changelog
+
+### March 29, 2026 — Key Vault Integration & Secret Management
+
+**🔒 MAJOR SECURITY ENHANCEMENT: Zero-Secret Deployments**
+- ✅ All connection strings now stored in Azure Key Vault (Bicep, PowerShell, Bash)
+- ✅ No secrets exposed in deployment outputs or console logs
+- ✅ Automatic RBAC-based Key Vault access configuration
+- ✅ Secrets Officer role granted to deployer automatically
+- ✅ Secure retrieval instructions provided for SIEM teams
+- ✅ Sensitive variables cleared from memory after storage
+
+**Bicep Infrastructure**
+- ✅ Created key-vault-secrets.bicep module for automatic secret storage
+- ✅ Event Hub Send/Listen connection strings stored in Key Vault
+- ✅ Storage Account connection string stored in Key Vault
+- ✅ Removed connection string outputs (replaced with Key Vault references)
+- ✅ Output secret names and Key Vault URI (not secret values)
+
+**PowerShell Deployment Script**
+- 🔑 Key Vault created automatically in Section 0 (Foundation)
+- 🔑 Connection strings retrieved and stored in Key Vault (never displayed)
+- 🔑 Secure retrieval instructions with RBAC guidance
+- 🔑 Variables cleared from memory after storage
+
+**Bash Deployment Script**
+- 🔑 Key Vault created in Section 1 (Environment Setup)
+- 🔑 Connection strings stored in Key Vault with error handling
+- 🔑 Summary section updated with Key Vault retrieval commands
+- 🔑 `unset` used to clear sensitive variables
+
+**Impact:** **PRODUCTION-READY SECRET MANAGEMENT** — All deployment methods now follow zero-trust security principles with centralized secret storage and RBAC-based access control.
+
+---
 
 ### March 29, 2026 — Security & Code Quality Improvements
 

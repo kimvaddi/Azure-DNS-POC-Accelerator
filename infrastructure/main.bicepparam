@@ -40,6 +40,7 @@ param webAppNameUK = 'webapp-poc-uk-zava2026'
 param storageAccountName = 'stqradarpoczava2026'
 param eventHubNamespaceName = 'ehns-dns-poc'
 param lawName = 'law-dns-poc'
+param keyVaultName = 'kv-dns-poc-zava2026'
 
 // ============================================================================
 // TAGS

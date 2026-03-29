@@ -4,6 +4,13 @@ Complete Infrastructure-as-Code deployment for Azure DNS POC evaluation, includi
 
 **Status:** ✅ Production-ready · All Bicep linting warnings resolved (March 29, 2026)
 
+**🔒 Key Vault Integration (March 29, 2026):**
+- Connection strings automatically stored in Key Vault
+- No secrets exposed in deployment outputs
+- RBAC-based secret access with Secrets Officer role
+- Secure retrieval via `az keyvault secret show` commands
+
+**Code Quality:**
 - Sensitive outputs marked with `@secure()` decorator
 - Safe access operators (`.?`) implemented
 - JSON schema updated to 2019-04-01 standard
@@ -100,12 +107,20 @@ az deployment sub show `
 ```
 
 **Key Outputs**:
+- `keyVaultName`: Name of Key Vault containing all secrets
+- `keyVaultUri`: Key Vault URI for Azure SDK/CLI access
+- `secretNames`: Object containing secret names for retrieval
+- `secretRetrievalInstructions`: Command template for retrieving secrets
 - `publicDnsNameServers`: Azure DNS name servers (update registrar NS records)
-- `eventHubSendConnectionString`: For diagnostic settings ⚠️ **Secure output**
-- `eventHubListenConnectionString`: For QRadar consumer configuration ⚠️ **Secure output**
 - `trafficManagerFailoverFqdn`, `trafficManagerGeoFqdn`, `trafficManagerWeightedFqdn`
 
-**Note:** Connection string outputs are marked `@secure()` and won't appear in deployment logs. Use `az deployment sub show` or Azure Portal to retrieve them securely.
+**🔒 Secure Secret Retrieval:**
+```bash
+# Connection strings are stored in Key Vault - NOT exposed as outputs
+az keyvault secret show --vault-name <keyVaultName> --name EventHubSendConnectionString --query value -o tsv
+az keyvault secret show --vault-name <keyVaultName> --name EventHubListenConnectionString --query value -o tsv
+az keyvault secret show --vault-name <keyVaultName> --name StorageAccountConnectionString --query value -o tsv
+```
 
 ---
 
