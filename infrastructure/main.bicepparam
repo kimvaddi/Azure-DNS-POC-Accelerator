@@ -33,6 +33,16 @@ param privateDomain = 'poc-internal.zava.local'
 // Keep disabled for core DNS/Event Hub deployment success.
 param deployWebApps = true
 
+// Preserve current ACME/Let's Encrypt custom-domain TLS bindings during redeployments.
+param enableCustomDomainTls = true
+param customDomainCertificateThumbprint = '8652E6320D9C23BD85AB6FC2450C918A1AA5DCA6'
+
+// End-to-end Let's Encrypt automation (issue + import to Key Vault + bind to both web apps).
+param enableLetsEncryptAutomation = true
+param letsEncryptContactEmail = 'dmauser@hotmail.com'
+param keyVaultName = 'kv-dcv-poc'
+param letsEncryptCertificateName = 'le-wildcard-zava'
+
 // After a fresh deployment (deployWebApps=false) there are no Traffic Manager
 // profiles yet, so aliases cannot be created. Set to true only after web apps
 // are deployed and TM profiles exist.

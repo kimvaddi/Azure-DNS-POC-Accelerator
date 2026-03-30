@@ -20,7 +20,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "AzureActivity\n| where TimeGenerated > ago(24h)\n| where ResourceProviderValue =~ 'MICROSOFT.NETWORK'\n| where ResourceId startswith '__ZONE_ID__'\n| project TimeGenerated, Caller, OperationName=OperationNameValue, Status=ActivityStatusValue, ResourceGroup, ResourceId, CorrelationId\n| order by TimeGenerated desc",
+              "query": "AzureActivity\n| where TimeGenerated > ago(24h)\n| where ResourceProviderValue =~ 'MICROSOFT.NETWORK'\n| where _ResourceId startswith '__ZONE_ID__'\n| project TimeGenerated, Caller, OperationName=OperationNameValue, Status=ActivityStatusValue, ResourceGroup, ResourceId=_ResourceId, CorrelationId\n| order by TimeGenerated desc",
               "size": 0,
               "title": "Recent public DNS changes (24h)",
               "showRefreshButton": true,
@@ -38,7 +38,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "AzureActivity\n| where TimeGenerated > ago(7d)\n| where ResourceProviderValue =~ 'MICROSOFT.NETWORK'\n| where ResourceId startswith '__ZONE_ID__'\n| summarize ChangeCount=count(), LastChange=max(TimeGenerated) by Caller\n| order by ChangeCount desc",
+              "query": "AzureActivity\n| where TimeGenerated > ago(7d)\n| where ResourceProviderValue =~ 'MICROSOFT.NETWORK'\n| where _ResourceId startswith '__ZONE_ID__'\n| summarize ChangeCount=count(), LastChange=max(TimeGenerated) by Caller\n| order by ChangeCount desc",
               "size": 0,
               "title": "Changes by caller (7d)",
               "showRefreshButton": true,
@@ -58,7 +58,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "AzureActivity\n| where TimeGenerated > ago(7d)\n| where ResourceProviderValue =~ 'MICROSOFT.NETWORK'\n| where ResourceId startswith '__ZONE_ID__'\n| extend Segments = split(ResourceId, '/')\n| extend RecordType = iff(array_length(Segments) > 9, toupper(tostring(Segments[9])), 'ZONE')\n| extend RecordSetName = iff(array_length(Segments) > 10, tostring(Segments[10]), '@')\n| where RecordType != 'ZONE'\n| project TimeGenerated, Caller, OperationName=OperationNameValue, Status=ActivityStatusValue, RecordType, RecordSetName, CorrelationId\n| order by TimeGenerated desc",
+              "query": "AzureActivity\n| where TimeGenerated > ago(7d)\n| where ResourceProviderValue =~ 'MICROSOFT.NETWORK'\n| where _ResourceId startswith '__ZONE_ID__'\n| extend Segments = split(_ResourceId, '/')\n| extend RecordType = iff(array_length(Segments) > 9, toupper(tostring(Segments[9])), 'ZONE')\n| extend RecordSetName = iff(array_length(Segments) > 10, tostring(Segments[10]), '@')\n| where RecordType != 'ZONE'\n| project TimeGenerated, Caller, OperationName=OperationNameValue, Status=ActivityStatusValue, RecordType, RecordSetName, CorrelationId\n| order by TimeGenerated desc",
               "size": 0,
               "title": "Record set write activity (7d)",
               "showRefreshButton": true,
@@ -79,7 +79,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "AzureActivity\n| where TimeGenerated > ago(7d)\n| where ResourceProviderValue =~ 'MICROSOFT.NETWORK'\n| where ResourceId startswith '__ZONE_ID__'\n| extend Segments = split(ResourceId, '/')\n| extend RecordType = iff(array_length(Segments) > 9, toupper(tostring(Segments[9])), 'ZONE')\n| extend RecordSetName = iff(array_length(Segments) > 10, tostring(Segments[10]), '@')\n| where RecordType != 'ZONE'\n| summarize ChangeCount=count(), LastChange=max(TimeGenerated) by RecordType, RecordSetName\n| top 15 by ChangeCount desc",
+              "query": "AzureActivity\n| where TimeGenerated > ago(7d)\n| where ResourceProviderValue =~ 'MICROSOFT.NETWORK'\n| where _ResourceId startswith '__ZONE_ID__'\n| extend Segments = split(_ResourceId, '/')\n| extend RecordType = iff(array_length(Segments) > 9, toupper(tostring(Segments[9])), 'ZONE')\n| extend RecordSetName = iff(array_length(Segments) > 10, tostring(Segments[10]), '@')\n| where RecordType != 'ZONE'\n| summarize ChangeCount=count(), LastChange=max(TimeGenerated) by RecordType, RecordSetName\n| top 15 by ChangeCount desc",
               "size": 0,
               "title": "Most changed record sets (7d)",
               "showRefreshButton": true,
@@ -99,7 +99,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "AzureActivity\n| where TimeGenerated > ago(30d)\n| where ResourceProviderValue =~ 'MICROSOFT.NETWORK'\n| where ResourceId startswith '__ZONE_ID__'\n| where ActivityStatusValue !~ 'Succeeded'\n| extend Segments = split(ResourceId, '/')\n| extend RecordType = iff(array_length(Segments) > 9, toupper(tostring(Segments[9])), 'ZONE')\n| extend RecordSetName = iff(array_length(Segments) > 10, tostring(Segments[10]), '@')\n| project TimeGenerated, Caller, OperationName=OperationNameValue, Status=ActivityStatusValue, RecordType, RecordSetName, CorrelationId\n| order by TimeGenerated desc",
+              "query": "AzureActivity\n| where TimeGenerated > ago(30d)\n| where ResourceProviderValue =~ 'MICROSOFT.NETWORK'\n| where _ResourceId startswith '__ZONE_ID__'\n| where ActivityStatusValue !~ 'Succeeded'\n| extend Segments = split(_ResourceId, '/')\n| extend RecordType = iff(array_length(Segments) > 9, toupper(tostring(Segments[9])), 'ZONE')\n| extend RecordSetName = iff(array_length(Segments) > 10, tostring(Segments[10]), '@')\n| project TimeGenerated, Caller, OperationName=OperationNameValue, Status=ActivityStatusValue, RecordType, RecordSetName, CorrelationId\n| order by TimeGenerated desc",
               "size": 0,
               "title": "Failed DNS changes (30d)",
               "showRefreshButton": true,

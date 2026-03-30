@@ -82,6 +82,30 @@ param deployTrafficManagerDnsAliases bool = false
 @description('App Service Plan SKU for both web regions (B1, S1, P1v2, etc.)')
 param appServicePlanSku string = 'B1'
 
+@description('Enable SNI TLS binding on custom hostnames during deployment')
+param enableCustomDomainTls bool = false
+
+@description('Certificate thumbprint used when enableCustomDomainTls=true')
+param customDomainCertificateThumbprint string = ''
+
+@description('Enable full Let\'s Encrypt automation (issue/import/bind) during deployment')
+param enableLetsEncryptAutomation bool = false
+
+@description('Contact email used for Let\'s Encrypt account registration')
+param letsEncryptContactEmail string = 'dnsadmin@zava.com'
+
+@description('Key Vault name for TLS certificate storage (must be globally unique)')
+param keyVaultName string = 'kvdns${take(uniqueString(subscription().subscriptionId, rgName), 18)}'
+
+@description('Certificate name in Key Vault for Let\'s Encrypt wildcard cert')
+param letsEncryptCertificateName string = 'le-wildcard-zava'
+
+@description('Force-run token for Let\'s Encrypt deployment script')
+param letsEncryptRunTag string = newGuid()
+
+@description('Apply CanNotDelete lock to public DNS zone')
+param enableDnsZoneLock bool = true
+
 var regionDisplayNames = {
   eastasia: 'East Asia'
   northeurope: 'North Europe'
@@ -545,6 +569,8 @@ module webAppUSCustomerDomainBindings 'modules/web-app-hostname-bindings.bicep' 
   params: {
     appName: webAppNameUS
     hostNames: customerHostNames
+    enableSslBinding: enableCustomDomainTls
+    certificateThumbprint: customDomainCertificateThumbprint
   }
   dependsOn: [
     webAppUS
@@ -559,11 +585,37 @@ module webAppUKCustomerDomainBindings 'modules/web-app-hostname-bindings.bicep' 
   params: {
     appName: webAppNameUK
     hostNames: customerHostNames
+    enableSslBinding: enableCustomDomainTls
+    certificateThumbprint: customDomainCertificateThumbprint
   }
   dependsOn: [
     webAppUK
     dnsRecords
     dnsVerificationTxtRecords
+  ]
+}
+
+module letsEncryptAutomation 'modules/lets-encrypt-automation.bicep' = if (deployWebApps && enableLetsEncryptAutomation) {
+  scope: rg
+  name: 'deploy-letsencrypt-automation'
+  params: {
+    location: location
+    dnsZoneName: domain
+    keyVaultName: keyVaultName
+    webAppNames: [
+      webAppNameUS
+      webAppNameUK
+    ]
+    customDomains: customerHostNames
+    letsEncryptContactEmail: letsEncryptContactEmail
+    certificateName: letsEncryptCertificateName
+    wildcardDomain: '*.${domain}'
+    forceUpdateTag: letsEncryptRunTag
+    tags: tags
+  }
+  dependsOn: [
+    webAppUSCustomerDomainBindings
+    webAppUKCustomerDomainBindings
   ]
 }
 
@@ -588,7 +640,7 @@ module activityLogDiagnostics 'modules/activity-log-diagnostics.bicep' = {
 // ============================================================================
 // CanNotDelete lock on public DNS zone (prevent accidental deletion)
 
-module dnsZoneLock 'modules/resource-lock.bicep' = {
+module dnsZoneLockNoAcme 'modules/resource-lock.bicep' = if (enableDnsZoneLock && !enableLetsEncryptAutomation) {
   scope: rg
   name: 'deploy-dns-zone-lock'
   params: {
@@ -599,6 +651,21 @@ module dnsZoneLock 'modules/resource-lock.bicep' = {
   }
   dependsOn: [
     publicDnsZone
+  ]
+}
+
+module dnsZoneLockAfterAcme 'modules/resource-lock.bicep' = if (enableDnsZoneLock && enableLetsEncryptAutomation) {
+  scope: rg
+  name: 'deploy-dns-zone-lock-after-acme'
+  params: {
+    resourceName: domain
+    lockName: 'lock-dns-zone'
+    lockLevel: 'CanNotDelete'
+    lockNotes: 'Prevent accidental deletion of POC DNS zone'
+  }
+  dependsOn: [
+    publicDnsZone
+    letsEncryptAutomation
   ]
 }
 
@@ -654,6 +721,9 @@ output webAppUKRegionUrl string = webAppUK.?outputs.?defaultHostName != null ? '
 output trafficManagerFailoverFqdn string = trafficManagerFailoverFqdnValue
 output trafficManagerGeoFqdn string = trafficManagerGeoFqdnValue
 output trafficManagerWeightedFqdn string = trafficManagerWeightedFqdnValue
+
+output letsEncryptCertificateThumbprint string = (deployWebApps && enableLetsEncryptAutomation) ? (letsEncryptAutomation.?outputs.?certificateThumbprint ?? '') : ''
+output tlsKeyVaultName string = keyVaultName
 
 output dnsTestUrls object = (deployWebApps || deployTrafficManagerDnsAliases) ? {
   webfailover: 'https://webfailover.${domain}'

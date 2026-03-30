@@ -1,0 +1,85 @@
+WARNING: C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\service-principal-dns.bicep(35,26) : Warning BCP081: Resource type "Microsoft.AAD/applications@2022-12-01" does not have types available. Bicep is unable to validate resource properties prior to deployment, but this will not block the resource from being deployed. [https://aka.ms/bicep/core-diagnostics#BCP081]
+WARNING: C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\service-principal-dns.bicep(40,5) : Warning prefer-unquoted-property-names: Property names that are valid identifiers should be declared without quotation marks and accessed using dot notation. [https://aka.ms/bicep/linter-diagnostics#prefer-unquoted-property-names]
+WARNING: C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\service-principal-dns.bicep(42,5) : Warning prefer-unquoted-property-names: Property names that are valid identifiers should be declared without quotation marks and accessed using dot notation. [https://aka.ms/bicep/linter-diagnostics#prefer-unquoted-property-names]
+WARNING: C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\service-principal-dns.bicep(52,5) : Warning prefer-unquoted-property-names: Property names that are valid identifiers should be declared without quotation marks and accessed using dot notation. [https://aka.ms/bicep/linter-diagnostics#prefer-unquoted-property-names]
+ERROR: C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\service-principal-dns.bicep(42,16) : Error BCP065: Function "utcNow" is not valid at this location. It can only be used as a parameter default value. [https://aka.ms/bicep/core-diagnostics#BCP065]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\service-principal-dns.bicep(47,27) : Error BCP029: The resource type is not valid. Specify a valid resource type of format "<type-name>@<apiVersion>". [https://aka.ms/bicep/core-diagnostics#BCP029]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\service-principal-dns.bicep(59,23) : Error BCP071: Expected 1 to 2 arguments, but got 0. [https://aka.ms/bicep/core-diagnostics#BCP071]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\service-principal-dns.bicep(60,27) : Error BCP071: Expected 1 to 2 arguments, but got 0. [https://aka.ms/bicep/core-diagnostics#BCP071]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\service-principal-dns.bicep(60,34) : Error BCP062: The referenced declaration with name "servicePrincipal" is not valid. [https://aka.ms/bicep/core-diagnostics#BCP062]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\service-principal-dns.bicep(63,18) : Error BCP062: The referenced declaration with name "servicePrincipal" is not valid. [https://aka.ms/bicep/core-diagnostics#BCP062]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\service-principal-dns.bicep(72,36) : Error BCP062: The referenced declaration with name "servicePrincipal" is not valid. [https://aka.ms/bicep/core-diagnostics#BCP062]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\service-principal-dns.bicep(73,38) : Error BCP062: The referenced declaration with name "servicePrincipal" is not valid. [https://aka.ms/bicep/core-diagnostics#BCP062]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\service-principal-dns.bicep(75,39) : Error BCP053: The type "Microsoft.AAD/applications@2022-12-01" does not contain property "appId". Available properties include "apiVersion", "asserts", "eTag", "extendedLocation", "id", "identity", "kind", "location", "managedBy", "managedByExtended", "name", "plan", "properties", "scale", "sku", "tags", "type", "zones". [https://aka.ms/bicep/core-diagnostics#BCP053]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\deploy-service-principal.bicep(1,1) : Error BCP130: Decorators are not allowed here. [https://aka.ms/bicep/core-diagnostics#BCP130]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\deploy-service-principal.bicep(28,19) : Error BCP104: The referenced module has errors. [https://aka.ms/bicep/core-diagnostics#BCP104]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\deploy-service-principal.bicep(34,25) : Error BCP104: The referenced module has errors. [https://aka.ms/bicep/core-diagnostics#BCP104]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\deploy-service-principal.bicep(37,3) : Error BCP035: The specified "object" declaration is missing the following required properties: "dnsZoneResourceId". [https://aka.ms/bicep/core-diagnostics#BCP035]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\deploy-service-principal.bicep(38,5) : Error BCP037: The property "tenantId" is not allowed on objects of type "params". Permissible properties include "dnsZoneResourceId", "tags". [https://aka.ms/bicep/core-diagnostics#BCP037]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\deploy-service-principal.bicep(40,5) : Error BCP037: The property "dnsZoneId" is not allowed on objects of type "params". Permissible properties include "dnsZoneResourceId", "tags". [https://aka.ms/bicep/core-diagnostics#BCP037]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\deploy-service-principal.bicep(47,56) : Error BCP053: The type "outputs" does not contain property "applicationId". Available properties include "appId", "appRegistrationId", "roleName", "servicePrincipalId", "servicePrincipalName". [https://aka.ms/bicep/core-diagnostics#BCP053]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(33,45) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(34,56) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(35,58) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(36,61) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(37,62) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(38,59) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(39,59) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(40,60) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(41,60) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(42,60) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(43,60) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(44,60) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(45,11) : Error BCP009: Expected a literal value, an array, an object, a parenthesized expression, or a function call at this location. [https://aka.ms/bicep/core-diagnostics#BCP009]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(47,59) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(48,62) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(49,63) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(50,60) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(51,60) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(52,61) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(53,61) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(54,61) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(55,61) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(56,11) : Error BCP009: Expected a literal value, an array, an object, a parenthesized expression, or a function call at this location. [https://aka.ms/bicep/core-diagnostics#BCP009]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(58,47) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]
+
+C:\Users\dmauser\OneDrive - Microsoft\Documents\GitHub\Azure-DNS-POC-Accelerator\infrastructure\modules\custom-role-dns-writer.bicep(63,58) : Error BCP238: Unexpected new line character after a comma. [https://aka.ms/bicep/core-diagnostics#BCP238]

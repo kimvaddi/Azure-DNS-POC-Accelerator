@@ -992,10 +992,14 @@ echo " 5.3 Certificate Storage — Azure Key Vault Setup"
 echo "============================================================"
 echo ""
 
+# Use a deterministic unique Key Vault name per subscription to avoid global name collisions.
+KV_SUFFIX=$(echo "$SUBSCRIPTION_ID" | tr -d '-' | cut -c1-6 | tr '[:upper:]' '[:lower:]')
+KEY_VAULT_NAME="kv-zava-dns-poc-${KV_SUFFIX}"
+
 # 5.3.1 Create a Key Vault for certificate storage
 echo "Creating Key Vault for cert storage..."
 az keyvault create \
-  --name "kv-Zava-dns-poc" \
+  --name "$KEY_VAULT_NAME" \
   --resource-group "$RESOURCE_GROUP" \
   --location "$LOCATION" \
   --enable-rbac-authorization true \
@@ -1012,7 +1016,7 @@ if [ -n "$CURRENT_USER" ]; then
   az role assignment create \
     --assignee "$CURRENT_USER" \
     --role "Key Vault Certificates Officer" \
-    --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.KeyVault/vaults/kv-Zava-dns-poc" \
+    --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.KeyVault/vaults/$KEY_VAULT_NAME" \
     --output none 2>/dev/null
   echo "  Role assigned."
 fi
@@ -1031,19 +1035,19 @@ echo "     -passout pass:"
 echo ""
 echo " Step 2: Import into Key Vault:"
 echo "   az keyvault certificate import \\"
-echo "     --vault-name kv-Zava-dns-poc \\"
+echo "     --vault-name $KEY_VAULT_NAME \\" 
 echo "     --name poc-Zava-com \\"
 echo "     --file cert.pfx"
 echo ""
 echo " Step 3: Verify in Key Vault:"
 echo "   az keyvault certificate show \\"
-echo "     --vault-name kv-Zava-dns-poc \\"
+echo "     --vault-name $KEY_VAULT_NAME \\" 
 echo "     --name poc-Zava-com \\"
 echo "     --query '{name:name, expires:attributes.expires, thumbprint:x509ThumbprintHex}' \\"
 echo "     --output table"
 echo ""
 echo " Step 4: View in portal:"
-echo "   portal.azure.com → Key vaults → kv-Zava-dns-poc → Certificates"
+echo "   portal.azure.com → Key vaults → $KEY_VAULT_NAME → Certificates"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo " CERT STORAGE SUMMARY"
@@ -1807,7 +1811,7 @@ echo "    - All DNS zones (public and private)"
 echo "    - Traffic Manager profiles (failover, geo, weighted)"
 echo "    - Event Hub namespace ($EVENTHUB_NAMESPACE)"
 echo "    - Log Analytics workspace ($LOG_ANALYTICS_WORKSPACE)"
-echo "    - Key Vault (kv-Zava-dns-poc)"
+echo "    - Key Vault ($KEY_VAULT_NAME)"
 echo "    - Diagnostic settings"
 echo "    - All RBAC assignments scoped to this resource group"
 echo ""
