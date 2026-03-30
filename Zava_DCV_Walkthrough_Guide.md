@@ -1,9 +1,9 @@
-# kimvaddi — DCV & Certificate Management Walkthrough
+# Zava DNS POC — DCV and Certificate Management Walkthrough
 
 **Audience:** Jeremy, Mike, Matt, and anyone new to Azure DNS + certificate workflows  
-**Purpose:** Explain where certs live, how DCV works end-to-end with DigiCert CertCentral, and how to test it step by step  
+**Purpose:** Explain where certs live, how ACME DNS-01 DCV works with Let's Encrypt, and how to validate end to end behavior  
 **Prerequisite:** Azure enterprise landing zone is set up, `rg-dns-poc` resource group exists  
-**Certificate Authority:** DigiCert CertCentral (kimvaddi's current CA)  
+**Certificate Authority:** Let's Encrypt (ACME DNS-01 via Azure DNS plugin)  
 
 ---
 
