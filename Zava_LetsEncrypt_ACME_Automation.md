@@ -171,13 +171,31 @@ These parameters in `infrastructure/main.bicepparam` control the automation:
 | Parameter | Type | Example Value | Description |
 |---|---|---|---|
 | `enableLetsEncryptAutomation` | bool | `true` | Enables the full ACME flow |
-| `letsEncryptContactEmail` | string | `'dmauser@hotmail.com'` | Email for ACME account registration |
+| `letsEncryptContactEmail` | string | `dnsadmin@zava-dnspoc-001.com` | Email for ACME account registration. Defaults to `dnsadmin@<domain>` — derived automatically from the `domain` parameter. Override only if a different contact is needed. |
 | `keyVaultName` | string | `'kv-dcv-poc'` | Key Vault name to create/use |
 | `letsEncryptCertificateName` | string | `'le-wildcard-zava'` | Certificate name inside Key Vault |
 | `letsEncryptRunTag` | string | `'run-1'` | Change this value to force re-execution |
 | `enableCustomDomainTls` | bool | `true` | Preserves SNI bindings on redeploy |
 | `customDomainCertificateThumbprint` | string | `'8652E63...'` | Thumbprint of current bound cert |
 | `enableDnsZoneLock` | bool | `true` | Applies delete lock after ACME completes |
+
+### Auto-Detection via deploy.ps1
+
+When deploying through `deploy.ps1`, the contact email is derived from the discovered deployment domain:
+
+```powershell
+# deploy.ps1 derives the email from the discovered domain:
+$acmeContactEmail = "dnsadmin@$discoveredDomain"   # e.g. dnsadmin@zava-dnspoc-001.com
+$AdditionalParameters += "letsEncryptContactEmail=$acmeContactEmail"
+```
+
+The `domain` param in `main.bicep` is always the source of truth. The ACME contact email follows it automatically — if the domain changes (e.g. `zava-dnspoc-002.com`), the email becomes `dnsadmin@zava-dnspoc-002.com` with no manual changes needed.
+
+**Manual deployment only:** If you run `az deployment sub create` directly without `deploy.ps1`, the email defaults to `dnsadmin@<domain>` automatically via the Bicep param default (`param letsEncryptContactEmail string = 'dnsadmin@${domain}'`). Override in `infrastructure/main.bicepparam` only if a different contact address is required:
+
+```bicep
+param letsEncryptContactEmail = 'security@zava.com'
+```
 
 ### Key Vault Unique Naming
 

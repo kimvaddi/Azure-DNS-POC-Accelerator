@@ -39,7 +39,9 @@ param customDomainCertificateThumbprint = '8652E6320D9C23BD85AB6FC2450C918A1AA5D
 
 // End-to-end Let's Encrypt automation (issue + import to Key Vault + bind to both web apps).
 param enableLetsEncryptAutomation = true
-param letsEncryptContactEmail = 'dmauser@hotmail.com'
+// letsEncryptContactEmail defaults to dnsadmin@<domain> (derived automatically from the domain param).
+// Override here only if a different contact address is needed.
+// param letsEncryptContactEmail = 'dnsadmin@zava-dnspoc-001.com'
 param keyVaultName = 'kv-dcv-poc'
 param letsEncryptCertificateName = 'le-wildcard-zava'
 

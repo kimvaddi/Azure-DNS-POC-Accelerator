@@ -183,6 +183,10 @@ resource letsEncryptScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = 
       # Allow role assignments to propagate before data-plane and DNS operations.
       Start-Sleep -Seconds 30
 
+      if (-not $env:LE_CONTACT -or $env:LE_CONTACT.Trim() -eq '') {
+        throw 'LE_CONTACT is empty. It defaults to dnsadmin@<domain> via main.bicep; set letsEncryptContactEmail explicitly in main.bicepparam if a different address is needed.'
+      }
+
       Install-Module Posh-ACME -Scope CurrentUser -Force -AllowClobber
       Import-Module Posh-ACME
       Set-PAServer LE_PROD

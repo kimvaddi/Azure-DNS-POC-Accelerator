@@ -91,8 +91,8 @@ param customDomainCertificateThumbprint string = ''
 @description('Enable full Let\'s Encrypt automation (issue/import/bind) during deployment')
 param enableLetsEncryptAutomation bool = false
 
-@description('Contact email used for Let\'s Encrypt account registration')
-param letsEncryptContactEmail string = 'dnsadmin@zava.com'
+@description('Contact email used for Let\'s Encrypt account registration. Defaults to dnsadmin@<domain>. deploy.ps1 derives this from the discovered domain automatically; override only if a different contact is needed.')
+param letsEncryptContactEmail string = 'dnsadmin@${domain}'
 
 @description('Key Vault name for TLS certificate storage (must be globally unique)')
 param keyVaultName string = 'kvdns${take(uniqueString(subscription().subscriptionId, rgName), 18)}'
@@ -105,6 +105,14 @@ param letsEncryptRunTag string = newGuid()
 
 @description('Apply CanNotDelete lock to public DNS zone')
 param enableDnsZoneLock bool = true
+
+@description('TTL in seconds for Traffic Manager profiles and DNS CNAME records. Default 10 for fast POC testing; increase to 60+ for production.')
+@minValue(10)
+param trafficManagerTtl int = 10
+
+@description('Traffic Manager endpoint health probe interval in seconds. 10 is the minimum (Fast Endpoint Monitoring) and best for POC testing.')
+@allowed([10, 30])
+param trafficManagerMonitorIntervalSeconds int = 10
 
 var regionDisplayNames = {
   eastasia: 'East Asia'
@@ -360,6 +368,7 @@ module webAppUS 'modules/web-app.bicep' = if (deployWebApps) {
       POC_REGION_NAME: locationPrimary
       POC_REGION_ROLE: 'primary'
       POC_SITE_TITLE: 'Zava Azure DNS POC'
+      POC_APP_NAME: webAppNameUS
     }
     tags: tags
   }
@@ -383,6 +392,7 @@ module webAppUK 'modules/web-app.bicep' = if (deployWebApps) {
       POC_REGION_NAME: locationSecondary
       POC_REGION_ROLE: 'secondary'
       POC_SITE_TITLE: 'Zava Azure DNS POC'
+      POC_APP_NAME: webAppNameUK
     }
     tags: tags
   }
@@ -401,13 +411,13 @@ module trafficManagerFailover 'modules/traffic-manager.bicep' = if (deployWebApp
     routingMethod: 'Priority'
     dnsConfig: {
       relativeName: 'tm-poc-failover-${uniqueSuffix}'
-      ttl: 30
+      ttl: trafficManagerTtl
     }
     monitorConfig: {
       protocol: 'HTTPS'
       port: 443
-      path: '/'
-      intervalInSeconds: 30
+      path: '/health.json'
+      intervalInSeconds: trafficManagerMonitorIntervalSeconds
       toleratedNumberOfFailures: 3
       timeoutInSeconds: 10
     }
@@ -438,13 +448,13 @@ module trafficManagerGeo 'modules/traffic-manager.bicep' = if (deployWebApps) {
     routingMethod: 'Geographic'
     dnsConfig: {
       relativeName: 'tm-poc-geo-${uniqueSuffix}'
-      ttl: 30
+      ttl: trafficManagerTtl
     }
     monitorConfig: {
       protocol: 'HTTPS'
       port: 443
-      path: '/'
-      intervalInSeconds: 30
+      path: '/health.json'
+      intervalInSeconds: trafficManagerMonitorIntervalSeconds
       toleratedNumberOfFailures: 3
       timeoutInSeconds: 10
     }
@@ -475,13 +485,13 @@ module trafficManagerWeighted 'modules/traffic-manager.bicep' = if (deployWebApp
     routingMethod: 'Weighted'
     dnsConfig: {
       relativeName: 'tm-poc-weighted-${uniqueSuffix}'
-      ttl: 30
+      ttl: trafficManagerTtl
     }
     monitorConfig: {
       protocol: 'HTTPS'
       port: 443
-      path: '/'
-      intervalInSeconds: 30
+      path: '/health.json'
+      intervalInSeconds: trafficManagerMonitorIntervalSeconds
       toleratedNumberOfFailures: 3
       timeoutInSeconds: 10
     }
@@ -528,17 +538,17 @@ module dnsRecords 'modules/dns-cname-records.bicep' = if (deployWebApps || deplo
       {
         name: 'webfailover'
         targetFqdn: trafficManagerFailoverFqdnValue
-        ttl: 30
+        ttl: trafficManagerTtl
       }
       {
         name: 'webgeo'
         targetFqdn: trafficManagerGeoFqdnValue
-        ttl: 30
+        ttl: trafficManagerTtl
       }
       {
         name: 'webweighted'
         targetFqdn: trafficManagerWeightedFqdnValue
-        ttl: 30
+        ttl: trafficManagerTtl
       }
     ]
   }

@@ -102,12 +102,21 @@ function Publish-FriendlyPage {
         $privateDomain = Get-AppSettingValue -Settings $settings -Name 'POC_PRIVATE_DNS_ZONE' -Default ''
         $regionEndpoint = Get-AppSettingValue -Settings $settings -Name 'POC_REGION_ENDPOINT' -Default '/region.txt'
         $metadataEndpoint = Get-AppSettingValue -Settings $settings -Name 'POC_METADATA_ENDPOINT' -Default '/metadata.json'
+        $pocAppName = Get-AppSettingValue -Settings $settings -Name 'POC_APP_NAME' -Default $AppName
 
         $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("dns-poc-" + [System.Guid]::NewGuid().ToString('N'))
         $siteRoot = Join-Path $tempRoot 'site'
         $packagePath = Join-Path $tempRoot ($AppName + '.zip')
 
         New-Item -ItemType Directory -Path $siteRoot -Force | Out-Null
+
+        # Region-specific visual theme
+        $accentColor  = if ($regionRole -eq 'primary') { '#0078d4' } else { '#107c10' }
+        $accentBgTop  = if ($regionRole -eq 'primary') { '#e8f4fd' } else { '#e8f5e9' }
+        $accentBgBot  = if ($regionRole -eq 'primary') { '#cce7f6' } else { '#c8e6c9' }
+        $regionFlag   = if ($regionRole -eq 'primary') { '&#127482;&#127480;' } else { '&#127468;&#127463;' }
+        $roleLabel    = if ($regionRole -eq 'primary') { 'PRIMARY &mdash; US REGION' } else { 'SECONDARY &mdash; UK REGION' }
+        $deployedAt   = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm UTC')
 
         $html = @"
 <!DOCTYPE html>
@@ -119,12 +128,12 @@ function Publish-FriendlyPage {
     <style>
         :root {
             color-scheme: light;
-            --bg-top: #f4efe2;
-            --bg-bottom: #d9e7f2;
-            --panel: rgba(255, 255, 255, 0.92);
+            --bg-top: $accentBgTop;
+            --bg-bottom: $accentBgBot;
+            --panel: rgba(255, 255, 255, 0.94);
             --text: #163047;
             --muted: #4b6478;
-            --accent: #0078d4;
+            --accent: $accentColor;
             --border: rgba(22, 48, 71, 0.12);
         }
         * { box-sizing: border-box; }
@@ -201,9 +210,9 @@ function Publish-FriendlyPage {
 </head>
 <body>
     <main>
-        <div class="eyebrow">Azure DNS POC</div>
-        <h1>$regionDisplayName web app</h1>
-        <p>This App Service instance is serving the Zava DNS POC landing page from the <strong>$regionDisplayName</strong> region. Use the plain-text endpoint below for quick curl-based checks.</p>
+        <div class="eyebrow">$regionFlag $roleLabel</div>
+        <h1>$regionDisplayName</h1>
+        <p>You are connected to the <strong>$regionDisplayName</strong> App Service instance (<code>$pocAppName</code>). This identifies which Traffic Manager endpoint routed this request. Use <code>/metadata.json</code> or <code>/health.json</code> for automated test probes.</p>
         <div class="grid">
             <section class="card">
                 <div class="label">Region</div>
@@ -219,12 +228,12 @@ function Publish-FriendlyPage {
             </section>
             <section class="card">
                 <div class="label">App Service name</div>
-                <div class="value">$AppName</div>
+                <div class="value">$pocAppName</div>
             </section>
         </div>
-        <p>curl endpoint: <code>$regionEndpoint</code></p>
-        <p>Metadata endpoint: <code>$metadataEndpoint</code></p>
-        <p>Public zone: <code>$publicDomain</code><br>Private zone: <code>$privateDomain</code></p>
+        <p>Health check: <code>/health.json</code> &nbsp;|&nbsp; Metadata: <code>$metadataEndpoint</code> &nbsp;|&nbsp; Plain text: <code>$regionEndpoint</code></p>
+        <p>Public zone: <code>$publicDomain</code>&nbsp;&nbsp;Private zone: <code>$privateDomain</code></p>
+        <p style="font-size:12px;color:var(--muted)">Page deployed: $deployedAt</p>
     </main>
 </body>
 </html>
@@ -269,6 +278,19 @@ privateZone=$privateDomain
         Set-Content -Path (Join-Path $siteRoot 'index.html') -Value $html -Encoding UTF8
         Set-Content -Path (Join-Path $siteRoot 'region.txt') -Value $regionText.Trim() -Encoding UTF8
         Set-Content -Path (Join-Path $siteRoot 'metadata.json') -Value $metadata -Encoding UTF8
+
+        # /health.json — lightweight endpoint used by Traffic Manager probes and test scripts
+        $healthJson = [ordered]@{
+            status           = 'ok'
+            appName          = $pocAppName
+            region           = $regionName
+            regionDisplayName = $regionDisplayName
+            role             = $regionRole
+            publicDnsZone    = $publicDomain
+            deployedAtUtc    = (Get-Date).ToUniversalTime().ToString('o')
+        } | ConvertTo-Json -Depth 3
+        Set-Content -Path (Join-Path $siteRoot 'health.json') -Value $healthJson -Encoding UTF8
+
         Set-Content -Path (Join-Path $siteRoot 'web.config') -Value $webConfig -Encoding UTF8
 
         Compress-Archive -Path (Join-Path $siteRoot '*') -DestinationPath $packagePath -Force
@@ -396,6 +418,13 @@ $AdditionalParameters += @(
     "domainConsentAgreedBy=$publicIp",
     "domainConsentAgreedAt=$consentTimestamp"
 )
+
+# Derive the Let's Encrypt ACME contact email from the discovered domain.
+# Using dnsadmin@<domain> keeps the contact tied to the deployment domain
+# rather than any individual engineer's personal account.
+$acmeContactEmail = "dnsadmin@$discoveredDomain"
+$AdditionalParameters += "letsEncryptContactEmail=$acmeContactEmail"
+Write-Success "ACME contact email (auto-derived): $acmeContactEmail"
 
 Write-Host "`nUsing domain   : $discoveredDomain" -ForegroundColor Cyan
 Write-Host "Consent IP     : $publicIp"
@@ -664,6 +693,11 @@ Write-Host "   Run: nslookup failover.$($outputs.publicDnsZoneName.value)`n"
 $outputFile = "deployment-outputs-$(Get-Date -Format 'yyyyMMdd-HHmmss').json"
 $outputs | ConvertTo-Json -Depth 10 | Out-File $outputFile
 Write-Success "Outputs saved to: $outputFile"
+
+# Also save a fixed-name copy so Zava_TrafficManager_Test.ps1 can find it without a timestamp
+$fixedOutputFile = Join-Path $PSScriptRoot 'deployment-output.json'
+$outputs | ConvertTo-Json -Depth 10 | Out-File $fixedOutputFile -Force
+Write-Success "Outputs also saved to: $fixedOutputFile"
 
 # ============================================================================
 # COMPLETE
