@@ -235,7 +235,7 @@ Edit Section 0 (PowerShell/Bash) or parameters file (Bicep):
 | `$DOMAIN` / `domain` | poc.zava-dnspoc.com | ✅ |
 | `$RG_NAME` / `rgName` | rg-dns-poc | ✅ |
 | `$LOCATION_PRIMARY` / `locationPrimary` | westus3 | ✅ |
-| `$LOCATION_SECONDARY` / `locationSecondary` | eastasia | ✅ |
+| `$LOCATION_SECONDARY` / `locationSecondary` | uknorth | ✅ |
 | `$EH_NAMESPACE` | ehns-dns-poc | ✅ |
 | `$WEBAPP_US` / `webAppNameUS` | webapp-poc-us | ✅ |
 | `$WEBAPP_UK` / `webAppNameUK` | webapp-poc-uk | ✅ |

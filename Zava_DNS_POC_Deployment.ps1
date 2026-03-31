@@ -101,7 +101,7 @@
 #     - All flowing to Log Analytics Workspace
 #
 #  6. Compute quota failures in multiple regions
-#     - southcentralus, eastus, uksouth: Basic VM quota = 0 (Linux)
+#     - southcentralus, eastus, uknorth: Basic VM quota = 0 (Linux)
 #     - Fix: use regions with existing quota or request increase
 #     - Windows plans work without Linux quota (used dotnet:8 runtime)
 #
@@ -172,7 +172,7 @@
 $SUBSCRIPTION_ID   = "<your-subscription-id>"
 $RG_NAME           = "rg-dns-poc"
 $LOCATION_PRIMARY  = "westus3"           # Primary region (web apps)
-$LOCATION_SECONDARY = "uksouth"           # Secondary region (web apps)
+$LOCATION_SECONDARY = "uknorth"           # Secondary region (web apps)
 $LOCATION_RG       = "southcentralus"     # Resource group location
 $DOMAIN            = "poc.zava-dnspoc.com"     # Public DNS zone
 $PRIVATE_ZONE      = "poc-internal.zava-dnspoc.local"  # Private DNS zone
@@ -199,7 +199,7 @@ $LAW_NAME          = "law-dns-poc"
 $EH_NAMESPACE      = "ehns-dns-poc"       # Must be globally unique
 $EH_NAME           = "dns-logs"
 $VNET_NAME         = "vnet-dns-poc"
-$KV_NAME           = "kv-dns-poc-$(Get-Random -Minimum 1000 -Maximum 9999)"  # Key Vault name (must be globally unique)
+$KV_NAME           = "kv-dns-poc-zava2026"   # Default (matches Bicep)`n$_existingKV = az keyvault list -g $RG_NAME --query "[?starts_with(name, 'kv-')].name | [0]" -o tsv 2>$null`nif ($_existingKV) { $KV_NAME = $_existingKV }
 $TM_FAILOVER       = "tm-poc-failover"    # Must be globally unique
 $TM_GEO            = "tm-poc-geo"         # Must be globally unique
 $TM_WEIGHTED       = "tm-poc-weighted"    # Must be globally unique

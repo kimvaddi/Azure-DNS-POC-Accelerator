@@ -89,7 +89,9 @@ EVENTHUB_NAMESPACE="ehns-dns-poc"                    # Event Hub namespace name
 EVENTHUB_NAME="dns-logs"                     # Event Hub name
 EVENTHUB_SKU="Standard"                               # Standard required for consumer groups + SAS policies
 LOG_ANALYTICS_WORKSPACE="law-dns-poc"               # Log Analytics workspace for reporting
-KEYVAULT_NAME="kv-dns-poc-$RANDOM"                  # Key Vault name (must be globally unique)
+KEYVAULT_NAME="kv-dns-poc-zava2026"
+_EXISTING_KV=$(az keyvault list -g "$RESOURCE_GROUP" --query "[?starts_with(name, 'kv-')].name | [0]" -o tsv 2>/dev/null)
+if [ -n "$_EXISTING_KV" ]; then KEYVAULT_NAME="$_EXISTING_KV"; fi                  # Key Vault name (must be globally unique)
 
 # -- Zone Snapshots --
 SNAPSHOT_DIR="./zone-snapshots"                    # Directory to store zone export files

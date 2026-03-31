@@ -37,7 +37,7 @@ $RG_NAME        = "rg-dns-poc"
 $LOCATION       = "southcentralus"
 $DOMAIN         = "poc.zava-dnspoc.com"
 $SUBSCRIPTION   = (az account show --query id -o tsv)
-$KV_NAME        = "kv-dns-poc-$(Get-Random -Maximum 9999)"  # Must be globally unique
+$KV_NAME        = "kv-dns-poc-zava2026"   # Default (matches Bicep)`n$_existingKV = az keyvault list -g $RG_NAME --query "[?starts_with(name, 'kv-')].name | [0]" -o tsv 2>$null`nif ($_existingKV) { $KV_NAME = $_existingKV }
 $SP_NAME        = "sp-certbot-dns-poc"
 $SP_DISPLAY     = "Certbot DNS Automation - Zava POC"
 

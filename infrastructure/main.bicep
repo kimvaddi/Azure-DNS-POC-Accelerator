@@ -23,7 +23,7 @@ param location string = 'southcentralus'
 param locationPrimary string = 'westus3'
 
 @description('Secondary web app region (UK for geographic routing test)')
-param locationSecondary string = 'uksouth'
+param locationSecondary string = 'uknorth'
 
 @description('Resource group name')
 param rgName string = 'rg-dns-poc'
@@ -54,7 +54,7 @@ param eventHubNamespaceName string = 'ehns-dns-poc'
 param lawName string = 'law-dns-poc'
 
 @description('Key Vault name for storing secrets')
-param keyVaultName string = 'kv-dns-poc-${uniqueString(subscription().subscriptionId)}'
+param keyVaultName string = 'kv-dns-poc-zava2026'
 
 @description('Tags to apply to all resources')
 param tags object = {

@@ -108,7 +108,7 @@ echo "  ✅ openssl: $(openssl version)"
 
 # Auto-detect Key Vault if not specified
 if [ -z "$KV_NAME" ]; then
-    KV_NAME=$(az keyvault list -g "$RG_NAME" --query "[?starts_with(name, 'kv-dns-poc')].name | [0]" -o tsv 2>/dev/null)
+    KV_NAME=$(az keyvault list -g "$RG_NAME" --query "[?starts_with(name, 'kv-')].name | [0]" -o tsv 2>/dev/null)
     if [ -z "$KV_NAME" ]; then
         echo "❌ No Key Vault found in $RG_NAME. Run E2E script Phase 2 first."
         exit 1
