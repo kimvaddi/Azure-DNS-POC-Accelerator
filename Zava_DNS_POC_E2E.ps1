@@ -361,17 +361,22 @@ function Invoke-PhaseInfra {
         Write-OK "Bicep deployment succeeded: $deploymentName"
         Add-Finding "Infra" "Bicep deploy" "All resources deployed successfully" "PASS"
 
-        # Extract outputs
-        $outputs = $deployResult | ConvertFrom-Json
-        if ($outputs.properties.outputs) {
-            $o = $outputs.properties.outputs
-            Write-Info "Key Vault: $($o.keyVaultName.value)"
-            Write-Info "LAW: $($o.logAnalyticsWorkspaceName.value)"
-            Write-Info "Public DNS: $($o.publicDnsZoneName.value)"
-            Write-Info "Web App US: $($o.webAppUSHostName.value)"
+        # Extract outputs (filter out WARNING lines before JSON parsing)
+        $jsonLines = $deployResult | Where-Object { $_ -notmatch '^WARNING|^Note:|^Bicep' }
+        try {
+            $outputs = $jsonLines -join "`n" | ConvertFrom-Json
+            if ($outputs.properties.outputs) {
+                $o = $outputs.properties.outputs
+                Write-Info "Key Vault: $($o.keyVaultName.value)"
+                Write-Info "LAW: $($o.logAnalyticsWorkspaceName.value)"
+                Write-Info "Public DNS: $($o.publicDnsZoneName.value)"
+                Write-Info "Web App US: $($o.webAppUSHostName.value)"
 
-            # Update KV_NAME from deployment output
-            if ($o.keyVaultName.value) { $script:KV_NAME = $o.keyVaultName.value }
+                # Update KV_NAME from deployment output
+                if ($o.keyVaultName.value) { $script:KV_NAME = $o.keyVaultName.value }
+            }
+        } catch {
+            Write-Warn "Could not parse deployment outputs (non-critical)"
         }
     } else {
         Write-Fail "Bicep deployment failed"
@@ -461,10 +466,13 @@ function Invoke-PhaseDNSSEC {
     # dsInfo is already the KSK key object (flags=257)
     if ($dsInfo.delegationSignerInfo -and $dsInfo.delegationSignerInfo.Count -gt 0) {
         $ds = $dsInfo.delegationSignerInfo[0]
-        $keyTag     = $dsInfo.keyTag
-        $algorithm  = $ds.digestAlgorithmType
-        $digestType = $ds.digestType
-        $digest     = $ds.digestValue
+        # Parse from the 'record' field: "keyTag algorithm digestType digest"
+        # e.g. "13831 13 2 84AF0F347CE78AA..."
+        $recordParts = $ds.record -split '\s+'
+        $keyTag     = $recordParts[0]
+        $algorithm  = $recordParts[1]     # securityAlgorithmType (13 = ECDSAP256SHA256)
+        $digestType = $recordParts[2]     # digestAlgorithmType (2 = SHA-256)
+        $digest     = $recordParts[3]     # digestValue
 
         Write-Info "Key Tag:      $keyTag"
         Write-Info "Algorithm:    $algorithm"
@@ -544,11 +552,15 @@ function Invoke-PhaseCert {
     } else {
         $DNS_ZONE_SCOPE = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME/providers/Microsoft.Network/dnsZones/$CHILD_ZONE"
 
+        # Create SP with certificate credential (avoids FDPO tenant password lifetime policy)
+        # Ref: https://learn.microsoft.com/cli/azure/ad/sp#az-ad-sp-create-for-rbac
         $spResult = az ad sp create-for-rbac `
             --name $SP_NAME `
             --role "DNS Zone Contributor" `
             --scopes $DNS_ZONE_SCOPE `
-            --years 1 `
+            --create-cert `
+            --keyvault $KV_NAME `
+            --cert "certbot-sp-cert" `
             --output json 2>&1
 
         if ($LASTEXITCODE -eq 0) {
@@ -864,7 +876,7 @@ function Invoke-PhaseValidate {
     # V2: NS Delegation
     Write-Step "V2: NS Delegation (child → parent)"
     $childPrefix = $CHILD_ZONE.Replace(".$ROOT_DOMAIN", "")
-    $nsRecords = az network dns record-set ns show -g $RG_NAME -z $ROOT_DOMAIN -n $childPrefix --query "nsRecords[].nsdname" -o json 2>$null | ConvertFrom-Json
+    $nsRecords = az network dns record-set ns show -g $RG_NAME -z $ROOT_DOMAIN -n $childPrefix --query "NSRecords[].nsdname" -o json 2>$null | ConvertFrom-Json
     if ($nsRecords -and $nsRecords.Count -ge 2) { Write-OK "NS delegation: $($nsRecords.Count) nameservers"; $testsPassed++ }
     else { Write-Fail "NS delegation missing or incomplete"; $testsFailed++ }
 
@@ -876,7 +888,7 @@ function Invoke-PhaseValidate {
 
     # V4: DS Record in Parent
     Write-Step "V4: DS Record in Parent Zone"
-    $dsRecords = az network dns record-set ds show -g $RG_NAME -z $ROOT_DOMAIN -n $childPrefix --query "dsRecords" -o json 2>$null | ConvertFrom-Json
+    $dsRecords = az network dns record-set ds show -g $RG_NAME -z $ROOT_DOMAIN -n $childPrefix --query "DSRecords" -o json 2>$null | ConvertFrom-Json
     if ($dsRecords -and $dsRecords.Count -gt 0) { Write-OK "DS record present in parent zone"; $testsPassed++ }
     else { Write-Fail "DS record not found in parent zone"; $testsFailed++ }
 
@@ -917,7 +929,7 @@ function Invoke-PhaseValidate {
     $dcvToken = "e2e-test-$(Get-Random)"
     az network dns record-set txt add-record -g $RG_NAME -z $CHILD_ZONE -n "_acme-challenge.e2e-test" -v $dcvToken --output none 2>$null
     if ($LASTEXITCODE -eq 0) {
-        $retrieved = az network dns record-set txt show -g $RG_NAME -z $CHILD_ZONE -n "_acme-challenge.e2e-test" --query "txtRecords[0].value[0]" -o tsv 2>$null
+        $retrieved = az network dns record-set txt show -g $RG_NAME -z $CHILD_ZONE -n "_acme-challenge.e2e-test" --query "TXTRecords[0].value[0]" -o tsv 2>$null
         if ($retrieved -eq $dcvToken) {
             Write-OK "DCV TXT record: created → verified → matches"
             $testsPassed++
