@@ -260,3 +260,5 @@ resource letsEncryptScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = 
 output certificateThumbprint string = string(letsEncryptScript.properties.outputs.certificateThumbprint)
 output certificateName string = string(letsEncryptScript.properties.outputs.certificateName)
 output keyVaultName string = string(letsEncryptScript.properties.outputs.keyVaultName)
+
+

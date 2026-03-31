@@ -21,9 +21,10 @@ param location string
 ])
 param skuName string = 'Standard'
 
-@description('Number of partitions (2-32)')
+@description('Number of partitions (2-32, immutable after creation; set at namespace level)')
 @minValue(2)
 @maxValue(32)
+#disable-next-line no-unused-params
 param partitionCount int = 2
 
 @description('Message retention in days (1-7)')
@@ -64,7 +65,6 @@ resource eventHub 'Microsoft.EventHub/namespaces/eventhubs@2023-01-01-preview' =
   name: eventHubName
   properties: {
     messageRetentionInDays: messageRetentionInDays
-    partitionCount: partitionCount
     status: 'Active'
   }
 }

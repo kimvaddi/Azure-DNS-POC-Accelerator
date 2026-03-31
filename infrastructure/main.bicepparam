@@ -28,21 +28,29 @@ param rgName = 'rg-dns-poc'
 // For direct az CLI runs: --parameters domain=zava-dnspoc-001.com
 
 param privateDomain = 'poc-internal.zava.local'
+param deployPrivateDnsZone = false
 
 // App Service worker quota is currently restricted in this subscription.
 // Keep disabled for core DNS/Event Hub deployment success.
 param deployWebApps = true
 
-// Preserve current ACME/Let's Encrypt custom-domain TLS bindings during redeployments.
-param enableCustomDomainTls = true
-param customDomainCertificateThumbprint = '8652E6320D9C23BD85AB6FC2450C918A1AA5DCA6'
+// Custom-domain TLS via Let's Encrypt automation.
+// enableCustomDomainTls is intentionally false here — TLS is applied by
+// the Let's Encrypt automation script AFTER the cert is imported to Key Vault.
+param enableCustomDomainTls = false
 
 // End-to-end Let's Encrypt automation (issue + import to Key Vault + bind to both web apps).
-param enableLetsEncryptAutomation = true
+// The ARM deploymentScript implementation is disabled in this subscription because
+// policy enforces allowSharedKeyAccess=false on storage accounts.
+// deploy.ps1 now performs the same Let's Encrypt -> Key Vault -> App Service flow locally
+// after the ARM deployment succeeds.
+param enableLetsEncryptAutomation = false
 // letsEncryptContactEmail defaults to dnsadmin@<domain> (derived automatically from the domain param).
 // Override here only if a different contact address is needed.
 // param letsEncryptContactEmail = 'dnsadmin@zava-dnspoc-001.com'
-param keyVaultName = 'kv-dcv-poc'
+// keyVaultName — intentionally NOT set here.
+// main.bicep defaults to kvdns<uniqueString(subscriptionId, rgName)> which is
+// unique per subscription+RG and avoids soft-delete name conflicts on redeploy.
 param letsEncryptCertificateName = 'le-wildcard-zava'
 
 // After a fresh deployment (deployWebApps=false) there are no Traffic Manager
@@ -93,9 +101,7 @@ param lawName = 'law-dns-poc'
 
 param tags = {
   project: 'dns-poc'
-  customer: 'Zava'
   environment: 'poc'
   'managed-by': 'bicep'
   'created-date': '2026-03-27'
-  contact: 'kim-vaddi'
 }

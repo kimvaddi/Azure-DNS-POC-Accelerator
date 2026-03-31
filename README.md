@@ -113,7 +113,7 @@ Open [infrastructure/main.bicepparam](infrastructure/main.bicepparam) and update
 |-----------|---------|----------------|
 | `location` | `southcentralus` | Resource group region |
 | `locationPrimary` | `westus3` | Primary web app region |
-| `locationSecondary` | `eastasia` | Secondary web app region |
+| `locationSecondary` | `westeurope` | Secondary web app region |
 | `domain` | auto-discovered (`zava-dnspoc-NNN.com`) | Public DNS domain — set by `deploy.ps1` availability check |
 | `privateDomain` | `poc-internal.Zava.local` | Your POC private DNS domain |
 | `eventHubNamespaceName` | `ehns-dns-poc` | **Must be globally unique** — append a suffix (e.g. `ehns-dns-poc-<initials>`) |
@@ -140,13 +140,44 @@ Shows every resource that will be created/modified before committing:
 
 Review the output — you should see ~35 resources listed with `+ Create` status.
 
-#### Step 4 — Deploy
+#### Step 4 — Deploy (with Automatic TLS Setup)
 
 ```powershell
 .\deploy.ps1
 ```
 
-The script runs pre-flight checks (CLI version, login, Bicep), deploys the subscription-scope template, and prints all resource outputs (DNS nameservers, Event Hub connection string endpoint, Traffic Manager FQDNs, web app URLs) when complete.
+**What happens**:
+1. Pre-flight checks (CLI, Bicep, Azure auth)
+2. Discovers or reuses public DNS zone
+3. Validates Bicep template
+4. Deploys all 35+ resources (~12–15 minutes)
+5. **Automatically issues Let's Encrypt wildcard certificate** via Azure DNS ACME challenge
+6. **Stores cert in Azure Key Vault** (RBAC-protected)
+7. **Binds SNI/TLS on all custom domains** across both region web apps
+8. Prints deployment summary with test URLs
+
+The script is **idempotent** — safe to re-run. Certificates already issued are reused.
+
+---
+
+### 📚 Full Deployment Guide
+
+**For detailed step-by-step instructions, parameter explanations, and troubleshooting:**
+
+👉 **[infrastructure/DEPLOYMENT_GUIDE.md](infrastructure/DEPLOYMENT_GUIDE.md)**
+
+This guide includes:
+- ✅ Pre-deployment checklist (permissions, prerequisites)
+- ✅ Parameter configuration (domain, regions, SKUs)
+- ✅ Deployment options (automated, staged, redeploy)
+- ✅ TLS certificate verification and troubleshooting
+- ✅ DNS registrar updates and propagation testing
+- ✅ Post-deployment monitoring and QRadar setup
+- ✅ Cleanup procedures (soft-delete, hard-delete, redeploy)
+
+---
+
+### Option 3: Manual Bicep Deployment
 
 Typical runtime: **10–15 minutes**.
 

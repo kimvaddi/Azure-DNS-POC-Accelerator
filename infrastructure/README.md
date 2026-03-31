@@ -109,7 +109,132 @@ az deployment sub show `
 
 ---
 
-## 🔧 Post-Deployment Configuration
+## � TLS Certificate Management (Let's Encrypt + Key Vault)
+
+### Overview
+
+After Bicep deployment, the `deploy.ps1` script automatically:
+1. **Issues** a Let's Encrypt wildcard certificate via Azure DNS ACME challenge
+2. **Stores** the certificate in Azure Key Vault with RBAC protection
+3. **Imports** the certificate into each App Service webspace
+4. **Binds** SNI (Server Name Indication) TLS on all custom domains
+
+**Why this approach:**
+- ✅ **Zero management**: Let's Encrypt auto-renews 30 days before expiration
+- ✅ **Least privilege**: App Service RP gets only `Key Vault Secrets User` (read-only)
+- ✅ **Repeatable**: Post-deployment script is idempotent — safe to re-run
+- ✅ **No expensive managed certs**: Avoids App Service Managed Certificate licensing
+
+### Automatic TLS Flow (Part of `deploy.ps1`)
+
+```
+Bicep Deployment
+       ↓
+   [Infrastructure Created: RG, DNS Zone, Web Apps, Key Vault]
+       ↓
+Post-Deployment TLS Setup (`Invoke-LetsEncryptKeyVaultTls.ps1`)
+       ↓
+   1. Check if KV soft-deleted; recover if needed
+   2. Issue LE wildcard cert via Azure DNS challenge
+   3. Store in Key Vault
+   4. Grant RBAC: App Service RP → Key Vault Secrets User
+   5. Import cert into US web app webspace
+   6. Bind SNI on all 3 custom domains (US app)
+   7. Import cert into UK web app webspace
+   8. Bind SNI on all 3 custom domains (UK app)
+   9. Remove any stale managed cert resources
+       ↓
+   ✅ All domains ready for HTTPS
+```
+
+### Manual Certificate Operations
+
+If needed, you can run the TLS script directly:
+
+```powershell
+cd infrastructure/
+
+pwsh -ExecutionPolicy Bypass -File .\Invoke-LetsEncryptKeyVaultTls.ps1 `
+  -SubscriptionId 'your-sub-id' `
+  -ResourceGroup 'rg-dns-poc' `
+  -DnsZoneName 'zava-dnspoc-002.com' `
+  -KeyVaultName 'kvdnsg7vqz5xal6jqs' `
+  -WebAppNames 'webapp-poc-us-xxx,webapp-poc-uk-xxx' `
+  -CustomDomains 'webfailover.zava-dnspoc-002.com,webgeo.zava-dnspoc-002.com,webweighted.zava-dnspoc-002.com' `
+  -ContactEmail 'dnsadmin@zava-dnspoc-002.com'
+```
+
+### Verify TLS Bindings
+
+```powershell
+# Check US app HTTPS bindings
+az webapp config hostname list --resource-group rg-dns-poc --webapp-name webapp-poc-us-xxx `
+  --query "[?sslState=='SniEnabled'].{domain:name,sslState:sslState,thumbprint:thumbprint}" --output table
+
+# Check UK app HTTPS bindings
+az webapp config hostname list --resource-group rg-dns-poc --webapp-name webapp-poc-uk-xxx `
+  --query "[?sslState=='SniEnabled'].{domain:name,sslState:sslState,thumbprint:thumbprint}" --output table
+
+# Check Key Vault certificate
+az keyvault certificate show --vault-name kvdnsg7vqz5xal6jqs --name le-wildcard-zava `
+  --query "{name:id, expires:attributes.expires, thumbprint:x509ThumbprintHex}" -o json
+```
+
+### Troubleshooting TLS
+
+#### Certificate Not Binding to Custom Domains
+**Symptom**: Hostname binding shows `IPBased` or empty `sslState` instead of `SniEnabled`
+
+**Cause**: Certificate not imported to webspace, or DNS lock prevents ACME challenge cleanup
+
+**Fix**:
+```powershell
+# Verify KV cert exists
+az keyvault certificate show --vault-name kvdnsg7vqz5xal6jqs --name le-wildcard-zava
+
+# Verify App Service RP has Key Vault Secrets User role
+az role assignment list --scope /subscriptions/<sub>/resourceGroups/rg-dns-poc/providers/Microsoft.KeyVault/vaults/kvdnsg7vqz5xal6jqs `
+  --query "[?principalName=='Microsoft.Web'].roleDefinitionName"
+
+# If role missing, grant it manually
+az role assignment create --scope /subscriptions/<sub>/resourceGroups/rg-dns-poc/providers/Microsoft.KeyVault/vaults/kvdnsg7vqz5xal6jqs `
+  --assignee-object-id fd4afe00-f7d0-4f8b-809f-8767c14805cd `
+  --assignee-principal-type ServicePrincipal `
+  --role "Key Vault Secrets User"
+
+# Re-run TLS setup
+pwsh -ExecutionPolicy Bypass -File .\Invoke-LetsEncryptKeyVaultTls.ps1 ...
+```
+
+#### "Soft-Deleted Key Vault" Error
+**Cause**: KV was deleted in previous deployment and is in soft-delete state with purge protection enabled
+
+**Fix**: The script auto-recovers soft-deleted vaults. If you need to manually recover:
+```powershell
+az keyvault recover --name kvdnsg7vqz5xal6jqs
+az keyvault update --name kvdnsg7vqz5xal6jqs --enable-rbac-authorization true
+```
+
+#### DNS Zone Lock Prevents ACME Challenge Cleanup
+**Cause**: The `CanNotDelete` lock on the DNS zone blocks TXT record deletion after ACME validation
+
+**Fix**: Script automatically removes and restores the lock. If manual fix needed:
+```powershell
+# List locks
+az lock list --resource-group rg-dns-poc --query "[].name"
+
+# Temporarily remove
+az lock delete --name lock-dns-zone --resource-group rg-dns-poc --resource-name zava-dnspoc-002.com --resource-type Microsoft.Network/dnsZones
+
+# Re-run TLS setup
+
+# Restore lock
+az lock create --name lock-dns-zone --resource-group rg-dns-poc --lock-type CanNotDelete --resource-name zava-dnspoc-002.com --resource-type Microsoft.Network/dnsZones
+```
+
+---
+
+## �🔧 Post-Deployment Configuration
 
 ### 1. Update DNS Registrar
 Point `poc.Zava.com` NS records to Azure DNS name servers (from outputs):

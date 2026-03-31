@@ -34,6 +34,9 @@ param domain string = 'zava-dnspoc-001.com'
 @description('Private DNS domain for internal resources')
 param privateDomain string = 'poc-internal.zava.local'
 
+@description('Deploy private DNS zone (poc-internal.zava.local) with VNet link. Set false to skip.')
+param deployPrivateDnsZone bool = false
+
 @description('Purchase and register the public domain via Azure App Service Domain. Set to false if the domain is already registered or if skipping registration for validation runs.')
 param deployAppServiceDomain bool = true
 
@@ -139,12 +142,12 @@ var customerSubdomainHostNames = [for label in customerCnameLabels: '${label}.${
 var customerVerificationSubdomainTxtNames = [for label in customerCnameLabels: 'asuid.${label}']
 var customerHostNames = customerSubdomainHostNames
 var customerVerificationTxtNames = customerVerificationSubdomainTxtNames
+var applyImmediateCustomDomainTls = enableCustomDomainTls && !enableLetsEncryptAutomation
 var customDomainVerificationValue = deployWebApps ? (webAppUS.?outputs.?customDomainVerificationId ?? '') : ''
 
 @description('Tags to apply to all resources')
 param tags object = {
   project: 'dns-poc'
-  customer: 'Zava'
   environment: 'poc'
   'managed-by': 'bicep'
 }
@@ -298,7 +301,7 @@ resource existingTrafficManagerWeighted 'Microsoft.Network/trafficmanagerprofile
 // ============================================================================
 // Internal DNS zone with VNet link and sample A records
 
-module privateDnsZone 'modules/private-dns-zone.bicep' = {
+module privateDnsZone 'modules/private-dns-zone.bicep' = if (deployPrivateDnsZone) {
   scope: rg
   name: 'deploy-private-dns-zone'
   params: {
@@ -419,7 +422,7 @@ module trafficManagerFailover 'modules/traffic-manager.bicep' = if (deployWebApp
       path: '/health.json'
       intervalInSeconds: trafficManagerMonitorIntervalSeconds
       toleratedNumberOfFailures: 3
-      timeoutInSeconds: 10
+      timeoutInSeconds: 9
     }
     endpoints: [
       {
@@ -456,7 +459,7 @@ module trafficManagerGeo 'modules/traffic-manager.bicep' = if (deployWebApps) {
       path: '/health.json'
       intervalInSeconds: trafficManagerMonitorIntervalSeconds
       toleratedNumberOfFailures: 3
-      timeoutInSeconds: 10
+      timeoutInSeconds: 9
     }
     endpoints: [
       {
@@ -493,7 +496,7 @@ module trafficManagerWeighted 'modules/traffic-manager.bicep' = if (deployWebApp
       path: '/health.json'
       intervalInSeconds: trafficManagerMonitorIntervalSeconds
       toleratedNumberOfFailures: 3
-      timeoutInSeconds: 10
+      timeoutInSeconds: 9
     }
     endpoints: [
       {
@@ -579,7 +582,7 @@ module webAppUSCustomerDomainBindings 'modules/web-app-hostname-bindings.bicep' 
   params: {
     appName: webAppNameUS
     hostNames: customerHostNames
-    enableSslBinding: enableCustomDomainTls
+    enableSslBinding: applyImmediateCustomDomainTls
     certificateThumbprint: customDomainCertificateThumbprint
   }
   dependsOn: [
@@ -595,7 +598,7 @@ module webAppUKCustomerDomainBindings 'modules/web-app-hostname-bindings.bicep' 
   params: {
     appName: webAppNameUK
     hostNames: customerHostNames
-    enableSslBinding: enableCustomDomainTls
+    enableSslBinding: applyImmediateCustomDomainTls
     certificateThumbprint: customDomainCertificateThumbprint
   }
   dependsOn: [
@@ -624,6 +627,8 @@ module letsEncryptAutomation 'modules/lets-encrypt-automation.bicep' = if (deplo
     tags: tags
   }
   dependsOn: [
+    publicDnsZone
+    appServiceDomain
     webAppUSCustomerDomainBindings
     webAppUKCustomerDomainBindings
   ]
@@ -713,8 +718,8 @@ output appServiceDomainId string = deployAppServiceDomain ? (appServiceDomain.?o
 output appServiceDomainName string = deployAppServiceDomain ? (appServiceDomain.?outputs.?domainName ?? '') : ''
 output appServiceDomainStatus string = deployAppServiceDomain ? (appServiceDomain.?outputs.?registrationStatus ?? '') : ''
 
-output privateDnsZoneId string = privateDnsZone.outputs.zoneId
-output privateDnsZoneName string = privateDnsZone.outputs.zoneName
+output privateDnsZoneId string = deployPrivateDnsZone ? (privateDnsZone.?outputs.?zoneId ?? '') : ''
+output privateDnsZoneName string = deployPrivateDnsZone ? (privateDnsZone.?outputs.?zoneName ?? '') : privateDomain
 
 output webAppUSName string = webAppUS.?outputs.?appName ?? ''
 output webAppUSId string = webAppUS.?outputs.?appId ?? ''

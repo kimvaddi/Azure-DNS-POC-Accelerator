@@ -3,22 +3,60 @@
 ## 🚀 Quick Deployment
 
 ```powershell
-# Option 1: Automated deployment script (recommended)
+# Recommended: Full deployment with automatic TLS setup
 .\deploy.ps1
 
-# Option 2: Manual deployment with Bicep parameters
-az deployment sub create `
-  --name Zava-dns-poc `
-  --location southcentralus `
-  --template-file main.bicep `
-  --parameters main.bicepparam
+# Alternative: Full redeploy (clean up soft-deleted resources, start fresh)
+.\deploy.ps1 -Redeploy
 
-# Option 3: Manual deployment with JSON parameters
-az deployment sub create `
-  --name Zava-dns-poc `
-  --location southcentralus `
-  --template-file main.bicep `
-  --parameters main.parameters.json
+# Alternative: Validate only (no deployment)
+.\deploy.ps1 -ValidateOnly
+
+# Alternative: Show what-if preview
+.\deploy.ps1 -WhatIf
+```
+
+---
+
+## 🔐 TLS Certificate Commands
+
+### Verify HTTPS Bindings (After Deployment)
+
+```powershell
+# US Web App — Check SNI-enabled domains
+az webapp config hostname list --resource-group rg-dns-poc --webapp-name webapp-poc-us-pyikahhqyplni `
+  --query "[?sslState=='SniEnabled'].{domain:name,thumbprint:thumbprint}" --output table
+
+# UK Web App — Check SNI-enabled domains
+az webapp config hostname list --resource-group rg-dns-poc --webapp-name webapp-poc-uk-pyikahhqyplni `
+  --query "[?sslState=='SniEnabled'].{domain:name,thumbprint:thumbprint}" --output table
+
+# All custom domains across both apps
+az webapp config hostname list --resource-group rg-dns-poc --webapp-name webapp-poc-us-pyikahhqyplni `
+  --query "[].{domain:name, sslState:sslState}" --output table
+```
+
+### Check Key Vault Certificate
+
+```powershell
+# View certificate details
+az keyvault certificate show --vault-name kvdnsg7vqz5xal6jqs --name le-wildcard-zava `
+  --query "{expires:attributes.expires, thumbprint:x509ThumbprintHex, status:attributes.enabled}" -o json
+
+# Download certificate (for local inspection)
+az keyvault certificate download --vault-name kvdnsg7vqz5xal6jqs --name le-wildcard-zava --file cert.pem --encoding PEM
+openssl x509 -in cert.pem -text -noout | grep -A 2 "Subject:"
+```
+
+### Check RBAC Permissions
+
+```powershell
+# Verify App Service RP has Key Vault access
+$kvScope = "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/rg-dns-poc/providers/Microsoft.KeyVault/vaults/kvdnsg7vqz5xal6jqs"
+az role assignment list --scope $kvScope --query "[].{principal:principalName,role:roleDefinitionName}" -o table
+
+# Verify current user has Key Vault admin roles
+az role assignment list --scope $kvScope --assignee $(az ad signed-in-user show --query id -o tsv) -o table
 ```
 
 ---

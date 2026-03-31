@@ -17,11 +17,11 @@
 #   Weighted               — 70% US, 30% UK. Statistical distribution check.
 #
 # Usage:
-#   .\Zava_TrafficManager_Test.ps1                      # interactive menu
-#   .\Zava_TrafficManager_Test.ps1 -Scenario Failover
-#   .\Zava_TrafficManager_Test.ps1 -Scenario Geo   -Iterations 20
-#   .\Zava_TrafficManager_Test.ps1 -Scenario All
-#   .\Zava_TrafficManager_Test.ps1 -Scenario Weighted -SkipAci  # local only
+#   .\TrafficManager_Test.ps1                      # interactive menu
+#   .\TrafficManager_Test.ps1 -Scenario Failover
+#   .\TrafficManager_Test.ps1 -Scenario Geo   -Iterations 20
+#   .\TrafficManager_Test.ps1 -Scenario All
+#   .\TrafficManager_Test.ps1 -Scenario Weighted -SkipAci  # local only
 # ============================================================================
 
 param(
@@ -545,24 +545,20 @@ try {
     az login
 }
 
-$domain = Get-DeploymentDomain -Override $Domain
-Write-Host "  Domain        : $domain" -ForegroundColor Cyan
-Write-Host "  Resource group: $ResourceGroup" -ForegroundColor Cyan
-Write-Host "  Iterations    : $Iterations (weighted uses max($Iterations, 30))" -ForegroundColor Cyan
-if ($SkipAci) { Write-Warn "ACI probes disabled — running local probes only." }
-Write-Host ""
+$domain = ''
+$resolvedDomain = Get-DeploymentDomain -Override $Domain
 
 # Scenario selection menu
 if (-not $Scenario) {
     Write-Host "  Usage:" -ForegroundColor Yellow
-    Write-Host "    .\Zava_TrafficManager_Test.ps1 -Scenario <Failover|Geo|Weighted|All> [options]"
+    Write-Host "    .\TrafficManager_Test.ps1 -Scenario <Failover|Geo|Weighted|All> [options]"
     Write-Host ""
     Write-Host "  Examples:" -ForegroundColor Yellow
-    Write-Host "    .\Zava_TrafficManager_Test.ps1 -Scenario Geo -Domain zava-dnspoc-001.com -Iterations 20"
-    Write-Host "    .\Zava_TrafficManager_Test.ps1 -Scenario Failover -Domain zava-dnspoc-001.com"
-    Write-Host "    .\Zava_TrafficManager_Test.ps1 -Scenario Weighted -Iterations 50"
-    Write-Host "    .\Zava_TrafficManager_Test.ps1 -Scenario All -Domain zava-dnspoc-001.com"
-    Write-Host "    .\Zava_TrafficManager_Test.ps1 -Scenario Geo -SkipAci   # local-only run"
+    Write-Host "    .\TrafficManager_Test.ps1 -Scenario Geo -Domain zava-dnspoc-001.com -Iterations 20"
+    Write-Host "    .\TrafficManager_Test.ps1 -Scenario Failover -Domain zava-dnspoc-001.com"
+    Write-Host "    .\TrafficManager_Test.ps1 -Scenario Weighted -Iterations 50"
+    Write-Host "    .\TrafficManager_Test.ps1 -Scenario All -Domain zava-dnspoc-001.com"
+    Write-Host "    .\TrafficManager_Test.ps1 -Scenario Geo -SkipAci   # local-only run"
     Write-Host ""
 
     Write-Host "  Select Traffic Manager scenario to test:"
@@ -580,7 +576,35 @@ if (-not $Scenario) {
         '4' { 'All' }
         default { Write-Error "Invalid choice '$choice'. Valid: 1, 2, 3, 4."; exit 1 }
     }
+
+    # In interactive mode, always confirm the target domain to test.
+    $domainPrompt = "  Enter target domain to test"
+    if ($resolvedDomain) {
+        $domainPrompt += " [$resolvedDomain]"
+    }
+
+    $domainInput = (Read-Host $domainPrompt).Trim()
+    if ($domainInput) {
+        $domain = $domainInput
+    }
+    else {
+        $domain = $resolvedDomain
+    }
 }
+else {
+    $domain = $resolvedDomain
+}
+
+if (-not $domain) {
+    Write-Error "Target domain is required. Use -Domain or provide a value when prompted."
+    exit 1
+}
+
+Write-Host "  Domain        : $domain" -ForegroundColor Cyan
+Write-Host "  Resource group: $ResourceGroup" -ForegroundColor Cyan
+Write-Host "  Iterations    : $Iterations (weighted uses max($Iterations, 30))" -ForegroundColor Cyan
+if ($SkipAci) { Write-Warn "ACI probes disabled — running local probes only." }
+Write-Host ""
 
 switch ($Scenario) {
     'Failover' { Test-Failover  -DomainName $domain -N $Iterations }

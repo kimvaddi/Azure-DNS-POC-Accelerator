@@ -1,9 +1,46 @@
+# TLS Certificate Management — Zava Energy DNS POC
+
+## 🔄 Important Update: Let's Encrypt + Key Vault (Recommended)
+
+As of the latest deployment iteration, the recommended TLS approach is:
+
+✅ **Let's Encrypt Wildcard Certificate** (free, auto-renewing)
+✅ **Azure Key Vault** (RBAC-protected storage)
+✅ **SNI Binding** on Azure App Service custom domains
+✅ **Fully automated** post-deployment via `deploy.ps1`
+
+**This approach is now the default.** The `deploy.ps1` script automatically:
+1. Issues a Let's Encrypt wildcard certificate via Azure DNS ACME challenge
+2. Stores it securely in Key Vault
+3. Binds SNI/TLS on all custom domains across both region web apps
+
+---
+
+## Quick Start: Automatic TLS Setup
+
+Run the deployment script — TLS setup happens automatically:
+
+```powershell
+cd infrastructure/
+.\deploy.ps1
+```
+
+That's it. No manual certificate management needed. See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for details.
+
+---
+
+## Manual Certificate Management (If Needed)
+
+If you need to reissue, renew, or troubleshoot certificates manually, see the sections below.
+
+---
+
 # DCV & TLS Certificate Management Guide — Zava Energy DNS POC
 
 ## Overview
 
 This guide explains how to:
-1. **Automate Domain Control Validation (DCV)** for TLS certificate issuance
+1. **Automate Domain Control Validation (DCV)** for TLS certificate issuance (alternative: Let's Encrypt)
 2. **Create minimal-privilege service principals** for DNS automation
 3. **Store certificates securely** in Azure Key Vault
 4. **Bind certificates to App Service custom domains** with HTTPS/SNI
@@ -11,7 +48,7 @@ This guide explains how to:
 
 **Target Audience:** Jeremy, Mike, Matt, and cloud operators  
 **Estimated Duration:** 30–60 minutes (first domain); 10–15 minutes per additional domain  
-**Prerequisites:** Azure CLI, PowerShell 7+, DigiCert CertCentral account (or ACME client)
+**Prerequisites:** Azure CLI, PowerShell 7+, DigiCert CertCentral account (or ACME client like Posh-ACME)
 
 ---
 
