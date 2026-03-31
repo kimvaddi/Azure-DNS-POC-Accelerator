@@ -421,6 +421,17 @@ Write-Host "`n--- VERIFY: All foundation resources ---" -ForegroundColor Green
 az resource list --resource-group $RG_NAME `
   --query "[].{name:name, type:type}" -o table
 
+# 0.9 Store connection strings in Key Vault (zero-secret pattern)
+# Dependencies: Key Vault (0.7), Event Hub (0.4), RBAC propagation (0.8)
+Write-Host "`n--- Storing connection strings in Key Vault ---"
+$EH_SEND_CS = az eventhubs namespace authorization-rule keys list -g $RG_NAME `
+  --namespace-name $EH_NAMESPACE --name RootManageSharedAccessKey --query primaryConnectionString -o tsv 2>$null
+if ($EH_SEND_CS) {
+    az keyvault secret set --vault-name $KV_NAME --name "eventhub-connection-string" --value $EH_SEND_CS -o none 2>$null
+    Write-Host "  Stored: eventhub-connection-string"
+    $EH_SEND_CS = $null  # Clear from memory
+}
+
 
 # ============================================================================
 # SECTION 2: DNS ZONES + ZONE IMPORT (Step 1)
@@ -1383,7 +1394,7 @@ rm -f /tmp/le-cert.pfx /tmp/azure-certbot.ini
 # ============================================================================
 # SECTION 6: TRAFFIC MANAGER (Step 6)
 # Deploys: 3 TM profiles (Priority/Failover, Geographic, Weighted)
-# Dependencies: Section 1 (RG)
+# Dependencies: Section 1 (RG) — profiles only, endpoints added in Section 7
 # ============================================================================
 
 Write-Host "`n=== STEP 6: TRAFFIC MANAGER ===" -ForegroundColor Cyan
@@ -1415,7 +1426,7 @@ az network traffic-manager profile list -g $RG_NAME `
 # ============================================================================
 # SECTION 7: WEB APPS + DNS WIRING (Step 7)
 # Deploys: 2 App Service Plans, 2 Web Apps, TM endpoints, DNS CNAME records
-# Dependencies: Section 6 (TM profiles)
+# Dependencies: Section 1 (RG, LAW), Section 2 (DNS Zone), Section 6 (TM profiles)
 #
 # NOTE: App Service Plans require compute quota in each region.
 #       If you hit "quota exceeded", try a different region or request quota:
