@@ -102,9 +102,9 @@ $KV_NAME            = "kv-dns-poc-zava2026"   # Default (matches Bicep)
 $_existingKV = az keyvault list -g $RG_NAME --query "[?starts_with(name, 'kv-')].name | [0]" -o tsv 2>$null
 if ($_existingKV) { $KV_NAME = $_existingKV }
 $SP_NAME            = "sp-certbot-dns-poc"
-$TM_FAILOVER        = "tm-poc-failover-$(Get-Random -Minimum 100 -Maximum 999)"
-$TM_GEO             = "tm-poc-geo-$(Get-Random -Minimum 100 -Maximum 999)"
-$TM_WEIGHTED        = "tm-poc-weighted-$(Get-Random -Minimum 100 -Maximum 999)"
+$TM_FAILOVER        = "tm-poc-failover"
+$TM_GEO             = "tm-poc-geo"
+$TM_WEIGHTED        = "tm-poc-weighted"
 $WEBAPP_US          = "webapp-poc-us-zava$(Get-Random -Minimum 1000 -Maximum 9999)"
 $WEBAPP_UK          = "webapp-poc-uk-zava$(Get-Random -Minimum 1000 -Maximum 9999)"
 
@@ -243,8 +243,12 @@ function Invoke-PhaseDomain {
         az network dns zone create -g $RG_NAME -n $ROOT_DOMAIN --output none
         if ($LASTEXITCODE -eq 0) {
             Write-OK "Parent zone created: $ROOT_DOMAIN"
-            Write-Warn "NS delegation must be configured manually at your registrar"
-            Add-Finding "Domain" "Manual zone" "Zone created but NS delegation must be done at registrar" "WARN"
+            if ($SkipDomainPurchase.IsPresent) {
+                Write-Warn "NS delegation must be configured manually at your registrar (domain not purchased)"
+                Add-Finding "Domain" "Manual zone" "Zone created without domain purchase — NS delegation needed at registrar" "WARN"
+            } else {
+                Write-Info "Domain was purchased — NS delegation is automatic via GoDaddy/Azure"
+            }
         }
     }
 
