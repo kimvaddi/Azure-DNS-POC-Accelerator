@@ -34,7 +34,7 @@ set -euo pipefail
 # CONFIGURATION
 # ============================================================================
 
-DOMAIN="${DOMAIN:-demo.zava-dnspoc-002.com}"
+DOMAIN="${DOMAIN:-demo.zava-dnspoc.com}"
 RG_NAME="${RG_NAME:-rg-dns-poc}"
 KV_NAME="${KV_NAME:-}"
 CONTACT_EMAIL="${CONTACT_EMAIL:-admin@zavaenergy.com}"

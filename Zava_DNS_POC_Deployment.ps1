@@ -36,7 +36,7 @@
 # │  1  │ Azure subscription ID       │ Customer IT          │ Before start │
 # │     │ with Owner/Contributor      │                      │              │
 # │  2  │ POC domain name             │ Customer DNS team    │ Before start │
-# │     │ (e.g., poc.Zava.com)      │                      │              │
+# │     │ (e.g., poc.zava-dnspoc.com)      │                      │              │
 # │  3  │ Exported Bind zone file(s)  │ Customer DNS team    │ Before start │
 # │     │ RFC 1035 format             │ Run: named-checkzone │              │
 # │  4  │ Registrar login             │ Customer DNS admin   │ After Step 1 │
@@ -160,7 +160,7 @@
 #    Works correctly but may change in future CLI versions.
 #
 #  - DNS delegation: takes 5 min to 48 hours to propagate globally
-#    Test with: nslookup -type=NS poc.Zava.com 8.8.8.8
+#    Test with: nslookup -type=NS poc.zava-dnspoc.com 8.8.8.8
 #
 ###############################################################################
 
@@ -174,8 +174,8 @@ $RG_NAME           = "rg-dns-poc"
 $LOCATION_PRIMARY  = "westus3"           # Primary region (web apps)
 $LOCATION_SECONDARY = "eastasia"          # Secondary region (web apps)
 $LOCATION_RG       = "southcentralus"     # Resource group location
-$DOMAIN            = "poc.Zava.com"     # Public DNS zone
-$PRIVATE_ZONE      = "poc-internal.Zava.local"  # Private DNS zone
+$DOMAIN            = "poc.zava-dnspoc.com"     # Public DNS zone
+$PRIVATE_ZONE      = "poc-internal.zava-dnspoc.local"  # Private DNS zone
 
 # -- Feature Flags (NEW: March 31, 2026) --
 $ENABLE_PRIVATE_DNS = $false              # Set $true to deploy Private DNS zone + VNet
@@ -186,7 +186,7 @@ $ENABLE_DNSSEC_SUBDOMAIN = $false         # Set $true to use child zone for DNSS
 # -- Domain Purchase (only if $ENABLE_DOMAIN_PURCHASE = $true) --
 # App Service Domains auto-create Azure DNS zone + NS delegation via GoDaddy
 # Ref: https://learn.microsoft.com/azure/app-service/manage-custom-dns-buy-domain
-$ROOT_DOMAIN       = "zava-dnspoc-002.com"  # App Service Domain to purchase
+$ROOT_DOMAIN       = "zava-dnspoc.com"  # App Service Domain to purchase
 $CHILD_ZONE        = "demo.$ROOT_DOMAIN"    # Child zone for DNSSEC (avoids App Service Domain DS limitation)
 $CONTACT_EMAIL     = "admin@zavaenergy.com" # ICANN registration + Let's Encrypt
 
@@ -215,8 +215,8 @@ $ZONE_FILES_DIR    = ".\zone-files"                    # Directory containing zo
 $ZONE_FILE_1       = ".\zone-files\Zava-zone1.zone"   # First Bind zone file
 $ZONE_FILE_2       = ".\zone-files\Zava-zone2.zone"   # Second Bind zone file  (leave empty if only 1)
 $ZONE_FILE_3       = ""                                 # Third Bind zone file   (leave empty if not needed)
-$ZONE_NAME_1       = "poc.Zava.com"                   # Azure zone name for file 1 (primary zone)
-$ZONE_NAME_2       = "zone2.poc.Zava.com"             # Azure zone name for file 2
+$ZONE_NAME_1       = "poc.zava-dnspoc.com"                   # Azure zone name for file 1 (primary zone)
+$ZONE_NAME_2       = "zone2.poc.zava-dnspoc.com"             # Azure zone name for file 2
 $ZONE_NAME_3       = ""                                 # Azure zone name for file 3 (leave empty if not needed)
 
 # ============================================================================
@@ -578,22 +578,22 @@ nslookup -type=MX $DOMAIN $NS
 # │               WHY IS THIS NEEDED?                                      │
 # │                                                                         │
 # │  When the parent domain (Zava.com) is at GoDaddy/Namecheap/etc.,    │
-# │  the internet doesn't know that poc.Zava.com lives in Azure DNS.    │
-# │  You must tell the registrar: "for anything under poc.Zava.com,     │
+# │  the internet doesn't know that poc.zava-dnspoc.com lives in Azure DNS.    │
+# │  You must tell the registrar: "for anything under poc.zava-dnspoc.com,     │
 # │  ask Azure DNS nameservers instead of my current DNS provider."       │
 # │                                                                         │
 # │  This is called SUBDOMAIN DELEGATION — adding NS records at the       │
 # │  parent zone for the child subdomain.                                  │
 # │                                                                         │
-# │  WITHOUT THIS: nslookup www.poc.Zava.com → NXDOMAIN (not found)    │
-# │  WITH THIS:    nslookup www.poc.Zava.com → 10.0.1.2 (from Azure)   │
+# │  WITHOUT THIS: nslookup www.poc.zava-dnspoc.com → NXDOMAIN (not found)    │
+# │  WITH THIS:    nslookup www.poc.zava-dnspoc.com → 10.0.1.2 (from Azure)   │
 # └─────────────────────────────────────────────────────────────────────────┘
 #
 # TWO OPTIONS:
 #
 # OPTION A — SUBDOMAIN DELEGATION (Recommended for POC)
 #   At the registrar (GoDaddy), add NS records for the subdomain only.
-#   Production DNS stays untouched. Only poc.Zava.com goes to Azure.
+#   Production DNS stays untouched. Only poc.zava-dnspoc.com goes to Azure.
 #
 # OPTION B — FULL ZONE DELEGATION (Production migration — NOT for POC)
 #   Change the NS records for the entire domain at the registrar.
@@ -620,7 +620,7 @@ Write-Host @"
 ║  and add these NS records to the PARENT zone (Zava.com):              ║
 ║                                                                          ║
 ║  Record Type: NS                                                         ║
-║  Host/Name:   poc           (this creates poc.Zava.com)                ║
+║  Host/Name:   poc           (this creates poc.zava-dnspoc.com)                ║
 ║  Value:       ns1-03.azure-dns.com                                       ║
 ║                                                                          ║
 ║  Record Type: NS                                                         ║
@@ -635,7 +635,7 @@ Write-Host @"
 ║  Host/Name:   poc                                                        ║
 ║  Value:       ns4-03.azure-dns.info                                      ║
 ║                                                                          ║
-║  This tells the internet: "for anything under poc.Zava.com,           ║
+║  This tells the internet: "for anything under poc.zava-dnspoc.com,           ║
 ║  ask Azure DNS instead of GoDaddy."                                      ║
 ║                                                                          ║
 ║  ─────────────────────────────────────────────────────                    ║
@@ -683,10 +683,10 @@ Write-Host @"
 # 1.5.1 Verify delegation is working (test from public DNS)
 Write-Host "`n--- Verify delegation (query from public DNS 8.8.8.8) ---" -ForegroundColor Green
 Write-Host "Run this AFTER configuring NS records at the registrar:"
-Write-Host "  nslookup -type=NS poc.Zava.com 8.8.8.8"
+Write-Host "  nslookup -type=NS poc.zava-dnspoc.com 8.8.8.8"
 Write-Host "  Expected: ns1-03.azure-dns.com, ns2-03.azure-dns.net, etc."
 Write-Host ""
-Write-Host "  nslookup www.poc.Zava.com 8.8.8.8"
+Write-Host "  nslookup www.poc.zava-dnspoc.com 8.8.8.8"
 Write-Host "  Expected: 10.0.1.2 (resolved from Azure DNS)"
 Write-Host ""
 
@@ -817,7 +817,7 @@ Write-Host "  10 bulk records deleted"
 # Uncomment and save as dns-records.bicep, then deploy with:
 #   az deployment group create -g rg-dns-poc --template-file dns-records.bicep
 #
-# param dnsZoneName string = 'poc.Zava.com'
+# param dnsZoneName string = 'poc.zava-dnspoc.com'
 #
 # resource dnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' existing = {
 #   name: dnsZoneName
@@ -840,7 +840,7 @@ Write-Host "  10 bulk records deleted"
 #   properties: {
 #     TTL: 3600
 #     CNAMERecord: {
-#       cname: 'bicep-test.poc.Zava.com'
+#       cname: 'bicep-test.poc.zava-dnspoc.com'
 #     }
 #   }
 # }
@@ -851,8 +851,8 @@ Write-Host "  10 bulk records deleted"
 #   properties: {
 #     TTL: 3600
 #     MXRecords: [
-#       { preference: 10, exchange: 'mail.poc.Zava.com' }
-#       { preference: 20, exchange: 'mail2.poc.Zava.com' }
+#       { preference: 10, exchange: 'mail.poc.zava-dnspoc.com' }
+#       { preference: 20, exchange: 'mail2.poc.zava-dnspoc.com' }
 #     ]
 #   }
 # }
@@ -2051,7 +2051,7 @@ Write-Host "  5. Schedule zone snapshot automation"
 
 # $AFD_PROFILE    = "afd-dns-poc"                    # AFD profile name
 # $AFD_ENDPOINT   = "poc-endpoint"                   # AFD endpoint name (globally unique)
-# $AFD_SUBDOMAIN  = "app"                            # app.poc.Zava.com → AFD
+# $AFD_SUBDOMAIN  = "app"                            # app.poc.zava-dnspoc.com → AFD
 #
 # Write-Host "`n=== STEP 11: AZURE FRONT DOOR (Optional) ===" -ForegroundColor Cyan
 #

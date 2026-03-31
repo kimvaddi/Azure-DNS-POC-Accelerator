@@ -15,10 +15,10 @@
       "value": "rg-dns-poc"
     },
     "domain": {
-      "value": "poc.Zava.com"
+      "value": "poc.zava-dnspoc.com"
     },
     "privateDomain": {
-      "value": "poc-internal.Zava.local"
+      "value": "poc-internal.zava-dnspoc.local"
     },
     "webAppNameUS": {
       "value": "webapp-poc-us"

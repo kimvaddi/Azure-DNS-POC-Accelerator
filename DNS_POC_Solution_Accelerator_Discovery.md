@@ -200,7 +200,7 @@
 | **Custom RBAC role** (DNS Record Operator) | Operator vs Admin delegation (Scope #3) | Layer 6 |
 | **Traffic Manager — Priority profile** | DNS failover testing (Optional #6) | Layer 3 |
 | **Traffic Manager — Geographic profile** | Geo-based routing (Optional #8) | Layer 3 |
-| **VNet + Private DNS Zone** | Internal DNS testing (`poc-internal.Zava.local`) | Layer 0/1 |
+| **VNet + Private DNS Zone** | Internal DNS testing (`poc-internal.zava-dnspoc.local`) | Layer 0/1 |
 | **Function Apps** (multi-region) | Emulate geo-distributed DNS clients for nslookup from multiple regions | Layer 2 |
 | **Bind zone files** (sample) | Zone import testing — customer provides or we generate samples | Pre-POC |
 
@@ -233,7 +233,7 @@ Zava is evaluating **Azure DNS against at least one other vendor**. They're fini
 │                                                                          │
 │  ┌─────────────┐    ┌─────────────────┐    ┌──────────────────────────┐ │
 │  │ Bind Servers │    │ Azure DNS Zone   │    │ Traffic Manager          │ │
-│  │ (Legacy DMZ) │ →  │ poc.Zava.com   │ →  │ Failover / Geo / Weight  │ │
+│  │ (Legacy DMZ) │ →  │ poc.zava-dnspoc.com   │ →  │ Failover / Geo / Weight  │ │
 │  │ Zone Export  │    │ Zone Import      │    │           │              │ │
 │  └──────────────┘    └────────┬────────┘    └───────────┼──────────────┘ │
 │                               │                         │                │
@@ -270,8 +270,8 @@ Since Zava is **greenfield** (no existing Azure DNS infrastructure), the acceler
 ```
 az group create  →  Resource Group (rg-dns-poc, southcentralus)
 az monitor log-analytics workspace create  →  Log Analytics Workspace
-az network dns zone create  →  Public DNS Zone (poc.Zava.com)
-az network dns zone create  →  Private DNS Zone (poc-internal.Zava.local)
+az network dns zone create  →  Public DNS Zone (poc.zava-dnspoc.com)
+az network dns zone create  →  Private DNS Zone (poc-internal.zava-dnspoc.local)
 ```
 
 #### Layer 1: Observability + Messaging Platform (Depends on: Layer 0)
@@ -343,8 +343,8 @@ Function App geo-probe tests           →  Multi-region nslookup emulation
 
 | Capability | kimvaddi.com (Reference) | Zava POC (Required) | Gap |
 |-----------|-------------------------|----------------------|-----|
-| DNS Zone (Public) | ✅ kimvaddi.com | ✅ poc.Zava.com | Pattern matches — reuse |
-| DNS Zone (Private) | ❌ None | ✅ poc-internal.Zava.local | **NEW** — add VNet + private zone |
+| DNS Zone (Public) | ✅ kimvaddi.com | ✅ poc.zava-dnspoc.com | Pattern matches — reuse |
+| DNS Zone (Private) | ❌ None | ✅ poc-internal.zava-dnspoc.local | **NEW** — add VNet + private zone |
 | Zone Import (Bind) | ❌ Manual records only | ✅ Import 2-3 Bind files | **NEW** — add import + validation |
 | Traffic Manager | ✅ Performance routing | ✅ Priority + Geographic + Weighted | **EXTEND** — 3 routing profiles needed |
 | Web Apps (multi-region) | ✅ West US 3 + East Asia | ✅ South Central US + UK South | **MODIFY** — different regions for Zava |
@@ -366,7 +366,7 @@ The solution accelerator uses the kimvaddi.com pattern but makes everything conf
 
 | Parameter | kimvaddi.com Value | Zava Default | Customer Sets |
 |-----------|-------------------|----------------|--------------|
-| `DOMAIN` | kimvaddi.com | poc.Zava.com | ✅ |
+| `DOMAIN` | kimvaddi.com | poc.zava-dnspoc.com | ✅ |
 | `RG_NAME` | DNSdemo | rg-dns-poc | ✅ |
 | `LOCATION_PRIMARY` | westus3 | southcentralus | ✅ |
 | `LOCATION_SECONDARY` | eastasia | uksouth | ✅ |
@@ -379,7 +379,7 @@ The solution accelerator uses the kimvaddi.com pattern but makes everything conf
 | `SUBSCRIPTION_ID` | ba89cfed-... | (customer) | ✅ |
 | `ENABLE_DNSSEC` | false | false | ✅ |
 | `ENABLE_PRIVATE_DNS` | false | true | ✅ |
-| `PRIVATE_ZONE` | (none) | poc-internal.Zava.local | ✅ |
+| `PRIVATE_ZONE` | (none) | poc-internal.zava-dnspoc.local | ✅ |
 
 ---
 

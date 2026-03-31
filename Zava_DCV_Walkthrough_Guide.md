@@ -513,7 +513,7 @@ To complete Gaps 2+5 (DigiCert integration), the customer must:
    az keyvault secret set --vault-name <kv-name> --name "digicert-org-id" --value "<your-org-id>"
    ```
 
-2. **Delegate NS records** for test domain (`poc.Zava.com`) to Azure DNS
+2. **Delegate NS records** for test domain (`poc.zava-dnspoc.com`) to Azure DNS
 
 3. **Choose DigiCert path:** CertCentral API (Option A) or ACME endpoint (Option B)
 

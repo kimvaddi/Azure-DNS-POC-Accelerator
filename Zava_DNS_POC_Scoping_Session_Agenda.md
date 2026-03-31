@@ -173,7 +173,7 @@ NOW ──────────────────── POC START ─�
 
 | # | Task | Owner | Due |
 |---|---|---|---|
-| 1 | Confirm POC domain/subdomain (e.g., `poc.Zava.com` or a test domain) | Jeremy | 1 week before start |
+| 1 | Confirm POC domain/subdomain (e.g., `poc.zava-dnspoc.com` or a test domain) | Jeremy | 1 week before start |
 | 2 | Export 2–3 representative Bind zone files (RFC 1035 format) | Jeremy / Matt | 1 week before start |
 | 3 | Confirm SIEM type and Event Hub compatibility (Splunk? Sentinel? QRadar?) | Zava Security team | 1 week before start |
 | 4 | Provision resource group `rg-dns-poc` in the enterprise landing zone | Zava Platform team | 3 days before start |

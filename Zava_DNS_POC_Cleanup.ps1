@@ -40,8 +40,8 @@
 # ============================================================================
 
 $RG_NAME           = "rg-dns-poc"
-$DOMAIN            = "poc.Zava.com"
-$PRIVATE_ZONE      = "poc-internal.Zava.local"
+$DOMAIN            = "poc.zava-dnspoc.com"
+$PRIVATE_ZONE      = "poc-internal.zava-dnspoc.local"
 $EH_NAMESPACE      = "ehns-dns-poc"
 $SUBSCRIPTION_ID   = "<your-subscription-id>"  # Set this or use current
 

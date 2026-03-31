@@ -29,10 +29,10 @@ param locationSecondary string = 'eastasia'
 param rgName string = 'rg-dns-poc'
 
 @description('Public DNS domain for the POC')
-param domain string = 'poc.Zava.com'
+param domain string = 'poc.zava-dnspoc.com'
 
 @description('Private DNS domain for internal resources')
-param privateDomain string = 'poc-internal.Zava.local'
+param privateDomain string = 'poc-internal.zava-dnspoc.local'
 
 @description('Enable Private DNS zone and VNet deployment (set false to skip)')
 param enablePrivateDns bool = false
@@ -164,7 +164,7 @@ module vnet 'modules/vnet.bicep' = if (enablePrivateDns) {
 // ============================================================================
 // PUBLIC DNS ZONE
 // ============================================================================
-// Primary POC DNS zone (poc.Zava.com)
+// Primary POC DNS zone (poc.zava-dnspoc.com)
 
 module publicDnsZone 'modules/public-dns-zone.bicep' = {
   scope: rg

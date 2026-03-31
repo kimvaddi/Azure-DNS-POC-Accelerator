@@ -3,7 +3,7 @@
 // ============================================================================
 // Private DNS zone with VNet link and sample A records
 
-@description('Private DNS zone name (e.g., poc-internal.Zava.local)')
+@description('Private DNS zone name (e.g., poc-internal.zava-dnspoc.local)')
 param zoneName string
 
 @description('VNet ID to link for DNS resolution')

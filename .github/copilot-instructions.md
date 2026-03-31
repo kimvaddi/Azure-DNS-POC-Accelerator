@@ -92,7 +92,7 @@ This POC supports three deployment paths — choose based on customer preference
 - **Audience is the customer team** (Jeremy, Matt) and internal Microsoft stakeholders (Kim). Write for DNS practitioners who are new to Azure, not Azure experts.
 - **Azure region:** `southcentralus` (closest to Zava HQ in San Antonio).
 - **Resource group:** `rg-dns-poc` inside Zava's existing Enterprise Landing Zone.
-- **POC domain:** `poc.Zava.com` (public), `poc-internal.Zava.local` (private).
+- **POC domain:** `poc.zava-dnspoc.com` (public), `poc-internal.zava-dnspoc.local` (private).
 - **Scripts use Azure CLI** (`az` commands). PowerShell alternatives are provided where noted.
 - Variables in the runbook use `UPPER_SNAKE_CASE` and must be set in Section 0 before execution.
 - Placeholders use angle brackets: `<subscription-id>`, `<tenant-id>`, etc.
@@ -138,7 +138,7 @@ This POC supports three deployment paths — choose based on customer preference
 
 ## Key Constraints
 
-- **No production domains in POC** — use `poc.Zava.com` subdomain only.
+- **No production domains in POC** — use `poc.zava-dnspoc.com` subdomain only.
 - **No registrar NS delegation changes** during POC.
 - **POC cost target:** ~$27 for the 2-week period (API-verified: App Service B1 x2 = $13.44, Event Hub Standard = $10.08, everything else < $3).
 - **Competitive sensitivity:** Don't disparage other vendors. Lead with Azure's strengths (100% SLA, native integration, zero maintenance, global anycast).

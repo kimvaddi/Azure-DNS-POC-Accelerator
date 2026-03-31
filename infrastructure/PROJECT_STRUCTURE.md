@@ -221,7 +221,7 @@ Before deploying, ensure:
 - [ ] Azure CLI installed and authenticated (`az login`)
 - [ ] Bicep CLI installed (`az bicep install`)
 - [ ] Subscription permissions (Owner or Contributor + User Access Administrator)
-- [ ] Domain `poc.Zava.com` registered (or ready to use subdomain)
+- [ ] Domain `poc.zava-dnspoc.com` registered (or ready to use subdomain)
 - [ ] Resource names are globally unique (especially web apps, storage account)
 - [ ] Parameters reviewed in `main.bicepparam` or `main.parameters.json`
 - [ ] Cost estimate approved (~$26 for 2 weeks)

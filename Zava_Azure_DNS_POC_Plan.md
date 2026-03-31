@@ -79,7 +79,7 @@ Zava is replacing aging Bind-based DNS servers in their DMZ with a cloud-hosted 
 │  │                                                                   │ │
 │  │  ┌──────────────────┐    ┌──────────────────────┐               │ │
 │  │  │  Azure DNS Zone   │    │  Azure DNS Zone       │               │ │
-│  │  │  poc.Zava.com   │    │  poc-internal.Zava   │               │ │
+│  │  │  poc.zava-dnspoc.com   │    │  poc-internal.Zava   │               │ │
 │  │  │  (Public)         │    │  (Private DNS Zone)    │               │ │
 │  │  └────────┬─────────┘    └──────────┬───────────┘               │ │
 │  │           │                          │                            │ │
@@ -105,7 +105,7 @@ Zava is replacing aging Bind-based DNS servers in their DMZ with a cloud-hosted 
 
 **Key design decisions:**
 - Use a **dedicated POC resource group** (`rg-dns-poc`) inside the existing landing zone — easy to provision, easy to tear down.
-- Use a **subdomain or non-production domain** for testing (e.g., `poc.Zava.com`) — no risk to production DNS.
+- Use a **subdomain or non-production domain** for testing (e.g., `poc.zava-dnspoc.com`) — no risk to production DNS.
 - Landing zone RBAC and policies already apply — POC inherits governance automatically.
 - Event Hub namespace for log streaming to existing SIEM pipeline.
 
@@ -117,7 +117,7 @@ Zava is replacing aging Bind-based DNS servers in their DMZ with a cloud-hosted 
 
 | Task | Owner | Target |
 |---|---|---|
-| Confirm POC domain/subdomain (e.g., `poc.Zava.com`) | Jeremy / Zava DNS team | Before POC start |
+| Confirm POC domain/subdomain (e.g., `poc.zava-dnspoc.com`) | Jeremy / Zava DNS team | Before POC start |
 | Export 2–3 representative Bind zone files (RFC 1035 format) | Jeremy / Matt / Mike | Before POC start |
 | Confirm QRadar Event Hub DSM connector is available | Zava Security team | Before POC start |
 | Provision POC resource group `rg-dns-poc` in landing zone | Zava Platform team | Before POC start |
@@ -188,8 +188,8 @@ This scorecard was confirmed with Zava during the scoping session (March 25, 202
 named-checkzone Zava.com /etc/bind/zones/db.Zava.com > Zava.com.zone
 
 # Import into Azure DNS
-az network dns zone create -g rg-dns-poc -n poc.Zava.com
-az network dns zone import -g rg-dns-poc -n poc.Zava.com -f Zava.com.zone
+az network dns zone create -g rg-dns-poc -n poc.zava-dnspoc.com
+az network dns zone import -g rg-dns-poc -n poc.zava-dnspoc.com -f Zava.com.zone
 ```
 
 **Caveats:**  
@@ -246,13 +246,13 @@ Azure DNS Zone
 
 ```bash
 # Enable DNSSEC signing on a zone
-az network dns dnssec-config create -g rg-dns-poc -z poc.Zava.com
+az network dns dnssec-config create -g rg-dns-poc -z poc.zava-dnspoc.com
 
 # Get the DS record to publish at the parent/registrar
-az network dns dnssec-config show -g rg-dns-poc -z poc.Zava.com
+az network dns dnssec-config show -g rg-dns-poc -z poc.zava-dnspoc.com
 
 # Validate
-dig +dnssec poc.Zava.com @ns1-01.azure-dns.com
+dig +dnssec poc.zava-dnspoc.com @ns1-01.azure-dns.com
 ```
 
 ### 6.5 Geo-Based Routing (Traffic Manager)
@@ -292,7 +292,7 @@ Zava uses **DigiCert CertCentral** for certificate management. DigiCert uses `_d
 # 3. DigiCert validates → issues certificate
 # 4. Clean up TXT record
 
-DOMAIN="poc.Zava.com"
+DOMAIN="poc.zava-dnspoc.com"
 DCV_TOKEN="<digicert-dcv-random-value>"  # From DigiCert CertCentral order
 
 # Create the _dnsauth TXT record
@@ -318,16 +318,16 @@ az network dns record-set txt remove-record \
 ```bash
 # On-demand zone snapshot
 az network dns zone export \
-  -g rg-dns-poc -n poc.Zava.com \
+  -g rg-dns-poc -n poc.zava-dnspoc.com \
   -f "snapshot-poc-Zava-com-$(date +%Y%m%d-%H%M%S).zone"
 
 # Verify snapshot is valid (re-import to a test zone)
-az network dns zone create -g rg-dns-poc -n snapshot-test.poc.Zava.com
-az network dns zone import -g rg-dns-poc -n snapshot-test.poc.Zava.com \
+az network dns zone create -g rg-dns-poc -n snapshot-test.poc.zava-dnspoc.com
+az network dns zone import -g rg-dns-poc -n snapshot-test.poc.zava-dnspoc.com \
   -f snapshot-poc-Zava-com-*.zone
 
 # Cleanup test zone
-az network dns zone delete -g rg-dns-poc -n snapshot-test.poc.Zava.com --yes
+az network dns zone delete -g rg-dns-poc -n snapshot-test.poc.zava-dnspoc.com --yes
 ```
 
 **Scheduled snapshots:** Use Azure Automation (runbook on a schedule) or a cron job on an admin workstation to export zones daily/weekly.

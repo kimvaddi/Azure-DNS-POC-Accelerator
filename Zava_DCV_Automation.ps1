@@ -35,7 +35,7 @@ param(
 
 $RG_NAME        = "rg-dns-poc"
 $LOCATION       = "southcentralus"
-$DOMAIN         = "poc.Zava.com"
+$DOMAIN         = "poc.zava-dnspoc.com"
 $SUBSCRIPTION   = (az account show --query id -o tsv)
 $KV_NAME        = "kv-dns-poc-$(Get-Random -Maximum 9999)"  # Must be globally unique
 $SP_NAME        = "sp-certbot-dns-poc"
@@ -354,7 +354,7 @@ function Invoke-Gap4 {
 # ============================================================================
 
 param(
-    [string]$Domain = "poc.Zava.com",
+    [string]$Domain = "poc.zava-dnspoc.com",
     [string]$ResourceGroup = "rg-dns-poc",
     [string]$KeyVaultName = "<your-kv-name>",
     [int]$RenewalThresholdDays = 30

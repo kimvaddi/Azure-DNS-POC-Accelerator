@@ -207,7 +207,7 @@ See the PowerShell script header for the complete list. Key findings:
 ```mermaid
 graph TD
     CLIENTS(("Internet Clients"))
-    DNS["Azure DNS<br/>poc.Zava.com"]
+    DNS["Azure DNS<br/>poc.zava-dnspoc.com"]
     TM_F["TM Failover"]
     TM_G["TM Geographic"]
     TM_W["TM Weighted"]
@@ -232,7 +232,7 @@ Edit Section 0 (PowerShell/Bash) or parameters file (Bicep):
 
 | Parameter | Default | Customer Sets |
 |-----------|---------|--------------|
-| `$DOMAIN` / `domain` | poc.Zava.com | ✅ |
+| `$DOMAIN` / `domain` | poc.zava-dnspoc.com | ✅ |
 | `$RG_NAME` / `rgName` | rg-dns-poc | ✅ |
 | `$LOCATION_PRIMARY` / `locationPrimary` | westus3 | ✅ |
 | `$LOCATION_SECONDARY` / `locationSecondary` | eastasia | ✅ |

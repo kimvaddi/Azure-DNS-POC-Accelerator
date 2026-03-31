@@ -50,8 +50,8 @@ RESOURCE_GROUP="rg-dns-poc"                        # POC resource group
 LOCATION="southcentralus"                          # Closest Azure region to Zava HQ (San Antonio)
 
 # -- DNS settings --
-PUBLIC_ZONE="poc.Zava.com"                       # Public DNS zone for POC
-PRIVATE_ZONE="poc-internal.Zava.local"           # Private DNS zone for POC
+PUBLIC_ZONE="poc.zava-dnspoc.com"                       # Public DNS zone for POC
+PRIVATE_ZONE="poc-internal.zava-dnspoc.local"           # Private DNS zone for POC
 VNET_NAME="<landing-zone-vnet-name>"               # Existing VNet in landing zone
 VNET_RG="<vnet-resource-group>"                    # Resource group containing the VNet
 
@@ -64,7 +64,7 @@ ENABLE_DNSSEC_SUBDOMAIN=false                      # Set true for child zone DNS
 # -- Domain Purchase (only if ENABLE_DOMAIN_PURCHASE=true) --
 # App Service Domains auto-create Azure DNS zone + NS delegation via GoDaddy
 # Ref: https://learn.microsoft.com/azure/app-service/manage-custom-dns-buy-domain
-ROOT_DOMAIN="zava-dnspoc-002.com"                  # App Service Domain to purchase
+ROOT_DOMAIN="zava-dnspoc.com"                  # App Service Domain to purchase
 CHILD_ZONE="demo.$ROOT_DOMAIN"                    # Child zone for DNSSEC
 CONTACT_EMAIL="admin@zavaenergy.com"               # ICANN + Let's Encrypt
 
@@ -77,8 +77,8 @@ SP_CERTBOT_NAME="sp-certbot-dns-poc"
 # -- Bind zone files (local paths after export from Bind server) --
 ZONE_FILE_1="./zone-files/Zava-zone1.zone"       # First Bind zone file
 ZONE_FILE_2="./zone-files/Zava-zone2.zone"       # Second Bind zone file
-ZONE_NAME_1="zone1.poc.Zava.com"                 # Azure zone name for file 1
-ZONE_NAME_2="zone2.poc.Zava.com"                 # Azure zone name for file 2
+ZONE_NAME_1="zone1.poc.zava-dnspoc.com"                 # Azure zone name for file 1
+ZONE_NAME_2="zone2.poc.zava-dnspoc.com"                 # Azure zone name for file 2
 
 # -- RBAC settings --
 ADMIN_USER_OBJECT_ID="<admin-user-entra-object-id>"
@@ -702,7 +702,7 @@ verify_dcv_removed "_acme-challenge.$PUBLIC_ZONE" 30
 
 
 # ==========================================================================
-# TEST 2: Subdomain DCV — Certificate for app.poc.Zava.com
+# TEST 2: Subdomain DCV — Certificate for app.poc.zava-dnspoc.com
 # ==========================================================================
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -739,7 +739,7 @@ az network dns record-set txt remove-record \
 
 
 # ==========================================================================
-# TEST 3: Wildcard DCV — Certificate for *.poc.Zava.com
+# TEST 3: Wildcard DCV — Certificate for *.poc.zava-dnspoc.com
 # ==========================================================================
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -1020,7 +1020,7 @@ verify_dcv_removed "_dnsauth.$PUBLIC_ZONE" 30
 
 
 # ==========================================================================
-# TEST 8: DigiCert DCV — Subdomain _dnsauth (app.poc.Zava.com)
+# TEST 8: DigiCert DCV — Subdomain _dnsauth (app.poc.zava-dnspoc.com)
 # ==========================================================================
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -1056,7 +1056,7 @@ az network dns record-set txt remove-record \
 
 
 # ==========================================================================
-# TEST 9: DigiCert DCV — Wildcard _dnsauth (*.poc.Zava.com)
+# TEST 9: DigiCert DCV — Wildcard _dnsauth (*.poc.zava-dnspoc.com)
 # ==========================================================================
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -1213,14 +1213,14 @@ cat > bulk-records.ps1 << 'PSEOF'
 # Usage: .\bulk-records.ps1
 
 $rg = "rg-dns-poc"
-$zone = "poc.Zava.com"
+$zone = "poc.zava-dnspoc.com"
 
 # Define records as an array of objects
 $records = @(
     @{ Name = "web1";    Type = "A";      Value = "10.0.3.1" }
     @{ Name = "web2";    Type = "A";      Value = "10.0.3.2" }
-    @{ Name = "api";     Type = "CNAME";  Value = "web1.poc.Zava.com" }
-    @{ Name = "mail";    Type = "MX";     Value = "mail.poc.Zava.com"; Priority = 10 }
+    @{ Name = "api";     Type = "CNAME";  Value = "web1.poc.zava-dnspoc.com" }
+    @{ Name = "mail";    Type = "MX";     Value = "mail.poc.zava-dnspoc.com"; Priority = 10 }
     @{ Name = "spf";     Type = "TXT";    Value = "v=spf1 include:Zava.com ~all" }
 )
 
@@ -1549,7 +1549,7 @@ fi
 # 7.4 Verify snapshot is valid — re-import to a test zone
 echo ""
 echo "Validating snapshot by re-importing to a test zone..."
-SNAPSHOT_TEST_ZONE="snapshot-test.poc.Zava.com"
+SNAPSHOT_TEST_ZONE="snapshot-test.poc.zava-dnspoc.com"
 
 az network dns zone create \
   --resource-group "$RESOURCE_GROUP" \
@@ -1588,8 +1588,8 @@ echo "--- Scheduled Snapshots ---"
 echo ""
 echo "For automated daily snapshots, add this to a cron job or Azure Automation:"
 echo ""
-echo '  SNAPSHOT_FILE="./zone-snapshots/snapshot-poc.Zava.com-$(date +%Y%m%d).zone"'
-echo '  az network dns zone export -g rg-dns-poc -n poc.Zava.com -f "$SNAPSHOT_FILE"'
+echo '  SNAPSHOT_FILE="./zone-snapshots/snapshot-poc.zava-dnspoc.com-$(date +%Y%m%d).zone"'
+echo '  az network dns zone export -g rg-dns-poc -n poc.zava-dnspoc.com -f "$SNAPSHOT_FILE"'
 echo '  echo "Zone snapshot taken: $SNAPSHOT_FILE"'
 echo ""
 echo "Retention: Keep last 30 daily snapshots (delete older with find -mtime +30)"

@@ -19,9 +19,9 @@ Complete Infrastructure-as-Code deployment for Azure DNS POC evaluation, includi
 ## 📋 What Gets Deployed
 
 ### Core DNS Infrastructure
-- **Public DNS Zone**: `poc.Zava.com` (with CanNotDelete lock)
-- **Private DNS Zone**: `poc-internal.Zava.local` (VNet-linked)
-- Private DNS A records: `db.poc-internal.Zava.local`, `app`, `cache`
+- **Public DNS Zone**: `poc.zava-dnspoc.com` (with CanNotDelete lock)
+- **Private DNS Zone**: `poc-internal.zava-dnspoc.local` (VNet-linked)
+- Private DNS A records: `db.poc-internal.zava-dnspoc.local`, `app`, `cache`
 
 ### Logging & Integration
 - **Log Analytics Workspace**: 30-day retention, PerGB2018 pricing
@@ -42,9 +42,9 @@ Complete Infrastructure-as-Code deployment for Azure DNS POC evaluation, includi
 - Security hardening: `httpsOnly=true`, `ftpsState=Disabled`, `minTlsVersion=1.2`
 
 ### DNS Records (TTL=30)
-- `failover.poc.Zava.com` → Traffic Manager failover FQDN
-- `geo.poc.Zava.com` → Traffic Manager geographic FQDN
-- `weighted.poc.Zava.com` → Traffic Manager weighted FQDN
+- `failover.poc.zava-dnspoc.com` → Traffic Manager failover FQDN
+- `geo.poc.zava-dnspoc.com` → Traffic Manager geographic FQDN
+- `weighted.poc.zava-dnspoc.com` → Traffic Manager weighted FQDN
 
 ### Diagnostic Settings
 - **Subscription Activity Log**: All 8 categories → Event Hub + Log Analytics
@@ -62,7 +62,7 @@ Complete Infrastructure-as-Code deployment for Azure DNS POC evaluation, includi
 1. **Azure CLI** installed and authenticated
 2. **Bicep CLI** (bundled with Azure CLI 2.20+)
 3. **Subscription permissions**: Owner or Contributor + User Access Administrator
-4. **Verified domain ownership**: Ensure `poc.Zava.com` is registered and you can update NS records at registrar
+4. **Verified domain ownership**: Ensure `poc.zava-dnspoc.com` is registered and you can update NS records at registrar
 
 ### Step 1: Review Parameters
 Edit `main.bicepparam` to customize:
@@ -71,8 +71,8 @@ Edit `main.bicepparam` to customize:
 - Regions (default: `southcentralus`, `westus3`, `eastasia`)
 
 ```bicep
-param domain = 'poc.Zava.com'
-param privateDomain = 'poc-internal.Zava.local'
+param domain = 'poc.zava-dnspoc.com'
+param privateDomain = 'poc-internal.zava-dnspoc.local'
 param location = 'southcentralus'
 ```
 
@@ -127,7 +127,7 @@ az keyvault secret show --vault-name <keyVaultName> --name StorageAccountConnect
 ## 🔧 Post-Deployment Configuration
 
 ### 1. Update DNS Registrar
-Point `poc.Zava.com` NS records to Azure DNS name servers (from outputs):
+Point `poc.zava-dnspoc.com` NS records to Azure DNS name servers (from outputs):
 ```
 ns1-01.azure-dns.com.
 ns2-01.azure-dns.net.
@@ -135,7 +135,7 @@ ns3-01.azure-dns.org.
 ns4-01.azure-dns.info.
 ```
 
-⚠️ **DO NOT** update registrar during POC if this is a test subdomain — validate with `dig @ns1-01.azure-dns.com poc.Zava.com` instead.
+⚠️ **DO NOT** update registrar during POC if this is a test subdomain — validate with `dig @ns1-01.azure-dns.com poc.zava-dnspoc.com` instead.
 
 ### 2. Configure IBM QRadar Event Hub Consumer
 Use `eventHubListenConnectionString` output to configure QRadar DSM connector:
@@ -161,19 +161,19 @@ Expected: All endpoints show `Online` within 2 minutes of deployment.
 ### 4. Test DNS Resolution
 ```powershell
 # Test public DNS records
-nslookup failover.poc.Zava.com
-nslookup geo.poc.Zava.com
-nslookup weighted.poc.Zava.com
+nslookup failover.poc.zava-dnspoc.com
+nslookup geo.poc.zava-dnspoc.com
+nslookup weighted.poc.zava-dnspoc.com
 
 # Test private DNS (requires VNet VM)
-nslookup db.poc-internal.Zava.local 10.0.0.4
+nslookup db.poc-internal.zava-dnspoc.local 10.0.0.4
 ```
 
 ### 5. Test Web Apps
 ```powershell
-curl https://failover.poc.Zava.com
-curl https://geo.poc.Zava.com
-curl https://weighted.poc.Zava.com
+curl https://failover.poc.zava-dnspoc.com
+curl https://geo.poc.zava-dnspoc.com
+curl https://weighted.poc.zava-dnspoc.com
 ```
 
 ---
@@ -211,15 +211,15 @@ AzureMetrics
 ## 🧪 POC Test Scenarios
 
 ### Scenario 1: DNS Failover Test
-1. **Baseline**: `curl https://failover.poc.Zava.com` → returns US web app
+1. **Baseline**: `curl https://failover.poc.zava-dnspoc.com` → returns US web app
 2. **Simulate failure**: Stop US web app
 3. **Wait 60 seconds**: Traffic Manager health probe detects failure
-4. **Verify**: `curl https://failover.poc.Zava.com` → returns UK web app
+4. **Verify**: `curl https://failover.poc.zava-dnspoc.com` → returns UK web app
 
 ### Scenario 2: Geographic Routing
 ```powershell
 # From US IP: Should route to US web app
-curl https://geo.poc.Zava.com
+curl https://geo.poc.zava-dnspoc.com
 
 # From UK IP (use VPN/proxy): Should route to UK web app
 ```
@@ -228,7 +228,7 @@ curl https://geo.poc.Zava.com
 Run 100 requests and verify ~70% hit US, ~30% hit UK:
 ```powershell
 1..100 | ForEach-Object {
-    curl -s https://weighted.poc.Zava.com | Select-String "webapp-poc"
+    curl -s https://weighted.poc.zava-dnspoc.com | Select-String "webapp-poc"
 } | Group-Object
 ```
 
@@ -311,7 +311,7 @@ az monitor diagnostic-settings subscription delete `
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │           Resource Group: rg-dns-poc                        │ │
 │  │  ┌──────────────────────────────────────────────────────┐  │ │
-│  │  │  PUBLIC DNS ZONE: poc.Zava.com                      │  │ │
+│  │  │  PUBLIC DNS ZONE: poc.zava-dnspoc.com                      │  │ │
 │  │  │  • CNAME: failover → tm-poc-failover.trafficmgr.net  │  │ │
 │  │  │  • CNAME: geo → tm-poc-geo.trafficmgr.net            │  │ │
 │  │  │  • CNAME: weighted → tm-poc-weighted.trafficmgr.net  │  │ │
@@ -319,7 +319,7 @@ az monitor diagnostic-settings subscription delete `
 │  │  └──────────────────────────────────────────────────────┘  │ │
 │  │                                                              │ │
 │  │  ┌──────────────────────────────────────────────────────┐  │ │
-│  │  │  PRIVATE DNS ZONE: poc-internal.Zava.local          │  │ │
+│  │  │  PRIVATE DNS ZONE: poc-internal.zava-dnspoc.local          │  │ │
 │  │  │  • A: db → 10.0.1.100                                 │  │ │
 │  │  │  • A: app → 10.0.1.101                                │  │ │
 │  │  │  • A: cache → 10.0.1.102                              │  │ │

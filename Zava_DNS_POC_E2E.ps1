@@ -29,7 +29,7 @@
 #
 # DNSSEC APPROACH:
 #   App Service Domains do NOT support DS record publication at the registrar.
-#   Fix: Create a child zone (e.g., demo.zava-dnspoc-002.com), sign it with
+#   Fix: Create a child zone (e.g., demo.zava-dnspoc.com), sign it with
 #   DNSSEC, and publish the DS record in the parent zone — which we control
 #   in Azure DNS. This gives us the full chain of trust.
 #   Ref: Daniel Mauser proved this on demo.zava-dnspoc-001.com
@@ -69,7 +69,7 @@ param(
 # -- Domain Configuration --
 # Root domain: purchased via App Service Domain (auto-creates Azure DNS zone)
 # Child domain: used for DNSSEC + Let's Encrypt (we control parent zone)
-$ROOT_DOMAIN        = "zava-dnspoc-002.com"              # App Service Domain to purchase
+$ROOT_DOMAIN        = "zava-dnspoc.com"              # App Service Domain to purchase
 $CHILD_ZONE         = "demo.$ROOT_DOMAIN"                # Child zone for DNSSEC signing
 $CONTACT_EMAIL      = "admin@zavaenergy.com"             # ICANN registration + Let's Encrypt
 
@@ -244,7 +244,7 @@ function Invoke-PhaseDomain {
     Write-Step "1.6 Delegating child zone to Azure DNS"
     $childNS = az network dns zone show -g $RG_NAME -n $CHILD_ZONE --query "nameServers" -o json 2>$null | ConvertFrom-Json
     if ($childNS) {
-        # Extract subdomain prefix (e.g., "demo" from "demo.zava-dnspoc-002.com")
+        # Extract subdomain prefix (e.g., "demo" from "demo.zava-dnspoc.com")
         $childPrefix = $CHILD_ZONE.Replace(".$ROOT_DOMAIN", "")
 
         foreach ($ns in $childNS) {
