@@ -3,8 +3,38 @@
 #
 # Customer Template: Zava Energy Corporation
 # Author: Kim Vaddi (Microsoft)
-# Tested: March 27, 2026 — All steps validated in Azure
+# Tested: March 31, 2026 — All steps validated in Azure
 # Subscription: MCAPS-Hybrid-REQ-118274-2025-kimvaddi
+#
+# MICROSOFT LEARN DOCUMENTATION REFERENCES:
+#   Domain Purchase:     https://learn.microsoft.com/azure/app-service/manage-custom-dns-buy-domain
+#   DNS Zone Delegation: https://learn.microsoft.com/azure/dns/dns-domain-delegation
+#   DNSSEC Signing:      https://learn.microsoft.com/azure/dns/dnssec-how-to
+#   DNSSEC Overview:     https://learn.microsoft.com/azure/dns/dnssec
+#   Key Vault:           https://learn.microsoft.com/azure/key-vault/general/best-practices
+#   Event Hub + SIEM:    https://learn.microsoft.com/azure/azure-monitor/essentials/diagnostic-settings
+#   Traffic Manager:     https://learn.microsoft.com/azure/traffic-manager/traffic-manager-routing-methods
+#   TM Priority Routing: https://learn.microsoft.com/azure/traffic-manager/traffic-manager-configure-priority-routing-method
+#   TM Monitoring:       https://learn.microsoft.com/azure/traffic-manager/traffic-manager-monitoring
+#   App Service TLS:     https://learn.microsoft.com/azure/app-service/configure-ssl-certificate
+#   Let's Encrypt + AKS: https://learn.microsoft.com/azure/application-gateway/ingress-controller-letsencrypt-certificate-application-gateway
+#   certbot-dns-azure:   https://docs.certbot-dns-azure.co.uk/en/latest/
+#   Let's Encrypt:       https://letsencrypt.org/getting-started/
+#   Custom RBAC Roles:   https://learn.microsoft.com/azure/role-based-access-control/custom-roles
+#
+# DEPLOYMENT ORDER (dependencies):
+#   1. Domain Purchase (Section 0.5)  ← FIRST: creates DNS zone + NS delegation
+#   2. Foundation (Section 1)         ← RG, LAW, Event Hub, KV, VNet
+#   3. DNS Zones + Import (Section 2) ← depends on RG
+#   4. Audit Logging (Section 3)      ← depends on LAW + Event Hub
+#   5. RBAC (Section 4)               ← depends on DNS Zone
+#   6. DCV Tests (Section 5)          ← depends on DNS Zone
+#   7. Let's Encrypt (Section 5.5)    ← depends on DNS Zone + KV + domain purchase
+#   8. Traffic Manager (Section 6)    ← depends on RG (profiles only)
+#   9. Web Apps + Wiring (Section 7)  ← depends on TM + LAW + DNS Zone
+#  10. Diagnostics (Section 7.5)      ← depends on Web Apps + TM + LAW
+#  11. Snapshots (Section 8)          ← depends on DNS Zone with records
+#  12. DNSSEC (Section 9)             ← depends on DNS Zone + domain purchase
 #
 # USAGE:
 #   1. Edit SECTION 0 variables below

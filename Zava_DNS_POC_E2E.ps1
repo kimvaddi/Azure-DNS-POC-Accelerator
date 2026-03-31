@@ -5,6 +5,21 @@
 # Author: Kim Vaddi (Microsoft)
 # Created: March 31, 2026
 #
+# MICROSOFT LEARN DOCUMENTATION REFERENCES:
+#   Domain Purchase:     https://learn.microsoft.com/azure/app-service/manage-custom-dns-buy-domain
+#   DNS Zone Delegation: https://learn.microsoft.com/azure/dns/dns-domain-delegation
+#   DNSSEC Signing:      https://learn.microsoft.com/azure/dns/dnssec-how-to
+#   DNSSEC Overview:     https://learn.microsoft.com/azure/dns/dnssec
+#   Key Vault:           https://learn.microsoft.com/azure/key-vault/general/best-practices
+#   Event Hub + SIEM:    https://learn.microsoft.com/azure/azure-monitor/essentials/diagnostic-settings
+#   Traffic Manager:     https://learn.microsoft.com/azure/traffic-manager/traffic-manager-routing-methods
+#   TM Priority Routing: https://learn.microsoft.com/azure/traffic-manager/traffic-manager-configure-priority-routing-method
+#   App Service TLS:     https://learn.microsoft.com/azure/app-service/configure-ssl-certificate
+#   Let's Encrypt + AGW: https://learn.microsoft.com/azure/application-gateway/ingress-controller-letsencrypt-certificate-application-gateway
+#   certbot-dns-azure:   https://docs.certbot-dns-azure.co.uk/en/latest/
+#   Let's Encrypt:       https://letsencrypt.org/getting-started/
+#   Custom RBAC Roles:   https://learn.microsoft.com/azure/role-based-access-control/custom-roles
+#
 # PURPOSE:
 #   Single-script deployment that:
 #   1. Buys an App Service Domain (real domain, auto-delegates to Azure DNS)

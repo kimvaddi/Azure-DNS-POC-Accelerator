@@ -5,6 +5,26 @@
 # Copy-paste scripts for every POC workstream.
 # Designed for Jeremy, Mike & Matt to execute independently.
 #
+# MICROSOFT LEARN DOCUMENTATION REFERENCES:
+#   Domain Purchase:     https://learn.microsoft.com/azure/app-service/manage-custom-dns-buy-domain
+#   DNS Zone Delegation: https://learn.microsoft.com/azure/dns/dns-domain-delegation
+#   DNSSEC Signing:      https://learn.microsoft.com/azure/dns/dnssec-how-to
+#   Key Vault:           https://learn.microsoft.com/azure/key-vault/general/best-practices
+#   Event Hub + SIEM:    https://learn.microsoft.com/azure/azure-monitor/essentials/diagnostic-settings
+#   Traffic Manager:     https://learn.microsoft.com/azure/traffic-manager/traffic-manager-routing-methods
+#   App Service TLS:     https://learn.microsoft.com/azure/app-service/configure-ssl-certificate
+#   certbot-dns-azure:   https://docs.certbot-dns-azure.co.uk/en/latest/
+#   Custom RBAC Roles:   https://learn.microsoft.com/azure/role-based-access-control/custom-roles
+#
+# DEPLOYMENT ORDER (dependencies):
+#   1. Domain Purchase (Section 0.5)  <- FIRST: creates DNS zone + NS delegation
+#   2. Environment Setup (Section 1)  <- RG, KV, DNS Zone
+#   3. Zone Import (Section 2)        <- depends on DNS Zone
+#   4. DCV + Let's Encrypt (Section 5) <- depends on DNS Zone + KV
+#   5. Logging/SIEM (Section 6)       <- depends on Event Hub + LAW
+#   6. Failover + TM (Section 9)      <- depends on Web Apps
+#   7. DNSSEC (Section 10)            <- depends on DNS Zone + domain purchase
+#
 # SIEM: IBM QRadar (via Event Hub)
 # Certificate Authority: DigiCert CertCentral (DCV uses _dnsauth TXT records)
 # DNSSEC: Optional / Nice-to-have
