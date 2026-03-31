@@ -78,7 +78,7 @@ $SUBSCRIPTION_ID    = "<your-subscription-id>"
 $RG_NAME            = "rg-dns-poc"
 $LOCATION           = "southcentralus"
 $LOCATION_PRIMARY   = "westus3"
-$LOCATION_SECONDARY = "uknorth"
+$LOCATION_SECONDARY = "uksouth"
 
 # -- Infrastructure Names --
 $LAW_NAME           = "law-dns-poc"
@@ -410,24 +410,26 @@ function Invoke-PhaseDNSSEC {
     }
 
     # 3.2 — Wait for signing to complete
-    Write-Step "3.2 Waiting for DNSSEC signing to complete (up to 60s)"
-    $maxWait = 60
+    Write-Step "3.2 Waiting for DNSSEC signing to complete (up to 120s)"
+    $maxWait = 120
     $waited = 0
     $dsInfo = $null
     while ($waited -lt $maxWait) {
-        $signingKeys = az network dns zone show `
+        $signingKeysJson = az network dns zone show `
             --name $CHILD_ZONE `
             --resource-group $RG_NAME `
-            --query "signingKeys[?delegationSignerInfo != null].delegationSignerInfo" `
-            -o json 2>$null | ConvertFrom-Json
+            --query "signingKeys[?flags == ``257``] | [0]" `
+            -o json 2>$null
 
-        if ($signingKeys -and $signingKeys.Count -gt 0) {
-            $dsInfo = $signingKeys[0]
-            Write-OK "DNSSEC signing complete"
-            break
+        if ($signingKeysJson -and $signingKeysJson -ne 'null') {
+            $dsInfo = $signingKeysJson | ConvertFrom-Json
+            if ($dsInfo.delegationSignerInfo -and $dsInfo.delegationSignerInfo.Count -gt 0) {
+                Write-OK "DNSSEC signing complete"
+                break
+            }
         }
-        Start-Sleep -Seconds 10
-        $waited += 10
+        Start-Sleep -Seconds 15
+        $waited += 15
         Write-Info "Waiting... ${waited}s"
     }
 
@@ -439,20 +441,13 @@ function Invoke-PhaseDNSSEC {
 
     # 3.3 — Parse DS record components
     Write-Step "3.3 DS Record Information"
-    $dsKeyTag    = $dsInfo.digestAlgorithm  # Actually need to parse carefully
     Write-Info "Raw DS info: $($dsInfo | ConvertTo-Json -Compress)"
 
-    # Use az CLI JSON parsing to get the DS fields
-    $dsRaw = az network dns zone show `
-        --name $CHILD_ZONE `
-        --resource-group $RG_NAME `
-        --query "signingKeys[?delegationSignerInfo != null] | [0]" `
-        -o json 2>$null | ConvertFrom-Json
-
-    if ($dsRaw.delegationSignerInfo) {
-        $ds = $dsRaw.delegationSignerInfo
-        $keyTag     = $dsRaw.keyTag
-        $algorithm  = $ds.digestAlgorithm
+    # dsInfo is already the KSK key object (flags=257)
+    if ($dsInfo.delegationSignerInfo -and $dsInfo.delegationSignerInfo.Count -gt 0) {
+        $ds = $dsInfo.delegationSignerInfo[0]
+        $keyTag     = $dsInfo.keyTag
+        $algorithm  = $ds.digestAlgorithmType
         $digestType = $ds.digestType
         $digest     = $ds.digestValue
 
@@ -538,6 +533,7 @@ function Invoke-PhaseCert {
             --name $SP_NAME `
             --role "DNS Zone Contributor" `
             --scopes $DNS_ZONE_SCOPE `
+            --years 1 `
             --output json 2>&1
 
         if ($LASTEXITCODE -eq 0) {

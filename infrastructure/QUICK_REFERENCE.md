@@ -39,7 +39,7 @@ az deployment sub create `
 | **Traffic Manager** | `tm-poc-geo` | Geographic routing |
 | **Traffic Manager** | `tm-poc-weighted` | Weighted load balancing |
 | **App Service Plan** | `asp-poc-us` | US region hosting (westus3) |
-| **App Service Plan** | `asp-poc-uk` | UK region hosting (uknorth) |
+| **App Service Plan** | `asp-poc-uk` | UK region hosting (uksouth) |
 | **Web App** | `webapp-poc-us` | US endpoint |
 | **Web App** | `webapp-poc-uk` | UK endpoint |
 

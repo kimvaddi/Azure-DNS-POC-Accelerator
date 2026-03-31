@@ -9,7 +9,7 @@
       "value": "westus3"
     },
     "locationSecondary": {
-      "value": "uknorth"
+      "value": "uksouth"
     },
     "rgName": {
       "value": "rg-dns-poc"

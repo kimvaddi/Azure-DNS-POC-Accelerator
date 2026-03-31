@@ -23,7 +23,7 @@ param location string = 'southcentralus'
 param locationPrimary string = 'westus3'
 
 @description('Secondary web app region (UK for geographic routing test)')
-param locationSecondary string = 'uknorth'
+param locationSecondary string = 'uksouth'
 
 @description('Resource group name')
 param rgName string = 'rg-dns-poc'

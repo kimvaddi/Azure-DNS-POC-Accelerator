@@ -57,9 +57,9 @@ VNET_RG="<vnet-resource-group>"                    # Resource group containing t
 
 # -- Feature Flags (NEW: March 31, 2026) --
 ENABLE_PRIVATE_DNS=false                           # Set true to deploy Private DNS zone + VNet
-ENABLE_DOMAIN_PURCHASE=false                       # Set true to buy App Service Domain (~$12/yr)
-ENABLE_LETSENCRYPT=false                           # Set true to run Let's Encrypt cert automation
-ENABLE_DNSSEC_SUBDOMAIN=false                      # Set true for child zone DNSSEC chain of trust
+ENABLE_DOMAIN_PURCHASE=true                        # Buy App Service Domain (~$12/yr) — required for DNSSEC + LE
+ENABLE_LETSENCRYPT=true                            # Run Let's Encrypt cert automation after deployment
+ENABLE_DNSSEC_SUBDOMAIN=true                       # Use child zone for DNSSEC chain of trust
 
 # -- Domain Purchase (only if ENABLE_DOMAIN_PURCHASE=true) --
 # App Service Domains auto-create Azure DNS zone + NS delegation via GoDaddy

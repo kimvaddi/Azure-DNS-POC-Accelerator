@@ -101,7 +101,7 @@
 #     - All flowing to Log Analytics Workspace
 #
 #  6. Compute quota failures in multiple regions
-#     - southcentralus, eastus, uknorth: Basic VM quota = 0 (Linux)
+#     - southcentralus, eastus, uksouth: Basic VM quota = 0 (Linux)
 #     - Fix: use regions with existing quota or request increase
 #     - Windows plans work without Linux quota (used dotnet:8 runtime)
 #
@@ -172,16 +172,16 @@
 $SUBSCRIPTION_ID   = "<your-subscription-id>"
 $RG_NAME           = "rg-dns-poc"
 $LOCATION_PRIMARY  = "westus3"           # Primary region (web apps)
-$LOCATION_SECONDARY = "uknorth"           # Secondary region (web apps)
+$LOCATION_SECONDARY = "uksouth"           # Secondary region (web apps)
 $LOCATION_RG       = "southcentralus"     # Resource group location
 $DOMAIN            = "poc.zava-dnspoc.com"     # Public DNS zone
 $PRIVATE_ZONE      = "poc-internal.zava-dnspoc.local"  # Private DNS zone
 
 # -- Feature Flags (NEW: March 31, 2026) --
 $ENABLE_PRIVATE_DNS = $false              # Set $true to deploy Private DNS zone + VNet
-$ENABLE_DOMAIN_PURCHASE = $false          # Set $true to buy App Service Domain (~$12/yr)
-$ENABLE_LETSENCRYPT = $false              # Set $true to run Let's Encrypt cert automation
-$ENABLE_DNSSEC_SUBDOMAIN = $false         # Set $true to use child zone for DNSSEC chain of trust
+$ENABLE_DOMAIN_PURCHASE = $true           # Buy App Service Domain (~$12/yr) — required for DNSSEC + Let's Encrypt
+$ENABLE_LETSENCRYPT = $true               # Run Let's Encrypt cert automation after deployment
+$ENABLE_DNSSEC_SUBDOMAIN = $true          # Use child zone for DNSSEC chain of trust
 
 # -- Domain Purchase (only if $ENABLE_DOMAIN_PURCHASE = $true) --
 # App Service Domains auto-create Azure DNS zone + NS delegation via GoDaddy
