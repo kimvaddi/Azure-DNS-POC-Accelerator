@@ -24,6 +24,13 @@ param(
     [Parameter(Mandatory=$false)]
     [string]$ResourceGroupName = "rg-dns-poc",
 
+    [Parameter(Mandatory=$false)]
+    [ValidateSet('Auto', 'CustomerInput')]
+    [string]$DomainSelectionMode = 'Auto',
+
+    [Parameter(Mandatory=$false)]
+    [string]$CustomerDomain,
+
     # When set, deletes the existing rg-dns-poc resource group and all
     # subscription-level diagnostics before deploying. Use this to cleanly
     # redeploy with a new domain name.
@@ -61,6 +68,16 @@ function Write-Warning {
 function Write-Error {
     param([string]$Message)
     Write-Host "✗ $Message" -ForegroundColor Red
+}
+
+function Test-ValidDnsZoneName {
+    param([string]$ZoneName)
+
+    if (-not $ZoneName) {
+        return $false
+    }
+
+    return ($ZoneName -match '^(?=.{1,253}$)(?!-)(?:[a-zA-Z0-9-]{1,63}\.)+[A-Za-z]{2,63}$')
 }
 
 function Get-AppSettingValue {
@@ -271,6 +288,10 @@ privateZone=$privateDomain
                 <add value="index.html" />
             </files>
         </defaultDocument>
+        <staticContent>
+            <mimeMap fileExtension=".json" mimeType="application/json" />
+            <mimeMap fileExtension=".txt" mimeType="text/plain" />
+        </staticContent>
     </system.webServer>
 </configuration>
 "@
@@ -361,42 +382,64 @@ if (-not (Test-Path $ParametersFile)) {
 # ============================================================================
 # DOMAIN AVAILABILITY DISCOVERY
 # ============================================================================
-# Check zava-dnspoc-001.com through zava-dnspoc-999.com and use the first
-# available name. Availability is verified against the App Service Domain API
-# (which checks both GoDaddy registration status and Azure subscription).
-
-Write-Step "Discovering Available App Service Domain"
-
 $subscriptionId = (az account show --query id --output tsv)
 $domainBase = 'zava-dnspoc'
 $discoveredDomain = $null
-$bearerToken = (az account get-access-token --query accessToken -o tsv)
+$useCustomerDomain = $false
 
-for ($i = 1; $i -le 999; $i++) {
-    $candidate = '{0}-{1:D3}.com' -f $domainBase, $i
-    Write-Host "  Checking: $candidate ..."
-
-    $checkUri  = "https://management.azure.com/subscriptions/$subscriptionId/providers/Microsoft.DomainRegistration/checkDomainAvailability?api-version=2022-03-01"
-    $checkBody = @{ name = $candidate } | ConvertTo-Json -Compress
-    try {
-        $checkResult = Invoke-RestMethod -Uri $checkUri -Method POST `
-            -Headers @{ Authorization = "Bearer $bearerToken"; "Content-Type" = "application/json" } `
-            -Body $checkBody -ErrorAction Stop
-    } catch {
-        Write-Warning "  Availability check failed for $candidate — skipping."
-        continue
+if ($DomainSelectionMode -eq 'CustomerInput') {
+    if (-not $CustomerDomain) {
+        Write-Error "DomainSelectionMode=CustomerInput requires -CustomerDomain (example: contoso.com or subdomain.contoso.com)."
+        exit 1
     }
-    if ($checkResult.available -eq $true) {
-        $discoveredDomain = $candidate
-        Write-Success "Available domain found: $discoveredDomain"
-        break
-    } else {
-        Write-Host "  Not available ($($checkResult.reason)). Trying next..." -ForegroundColor Yellow
+
+    $normalizedDomain = $CustomerDomain.Trim().TrimEnd('.')
+    if (-not (Test-ValidDnsZoneName -ZoneName $normalizedDomain)) {
+        Write-Error "Invalid -CustomerDomain value '$CustomerDomain'. Use values like contoso.com or subdomain.contoso.com."
+        exit 1
+    }
+
+    Write-Step "Using Customer Input Domain"
+    $discoveredDomain = $normalizedDomain
+    $useCustomerDomain = $true
+    Write-Success "Customer domain selected: $discoveredDomain"
+} else {
+    # Check zava-dnspoc-001.com through zava-dnspoc-999.com and use the first
+    # available name. Availability is verified against the App Service Domain API
+    # (which checks both GoDaddy registration status and Azure subscription).
+    Write-Step "Discovering Available App Service Domain"
+
+    $bearerToken = (az account get-access-token --query accessToken -o tsv)
+    for ($i = 1; $i -le 999; $i++) {
+        $candidate = '{0}-{1:D3}.com' -f $domainBase, $i
+        Write-Host "  Checking: $candidate ..."
+
+        $checkUri  = "https://management.azure.com/subscriptions/$subscriptionId/providers/Microsoft.DomainRegistration/checkDomainAvailability?api-version=2022-03-01"
+        $checkBody = @{ name = $candidate } | ConvertTo-Json -Compress
+        try {
+            $checkResult = Invoke-RestMethod -Uri $checkUri -Method POST `
+                -Headers @{ Authorization = "Bearer $bearerToken"; "Content-Type" = "application/json" } `
+                -Body $checkBody -ErrorAction Stop
+        } catch {
+            Write-Warning "  Availability check failed for $candidate — skipping."
+            continue
+        }
+        if ($checkResult.available -eq $true) {
+            $discoveredDomain = $candidate
+            Write-Success "Available domain found: $discoveredDomain"
+            break
+        } else {
+            Write-Host "  Not available ($($checkResult.reason)). Trying next..." -ForegroundColor Yellow
+        }
     }
 }
 
 if (-not $discoveredDomain) {
-    Write-Error "No available domain found in range $domainBase-001.com to $domainBase-999.com"
+    if ($DomainSelectionMode -eq 'Auto') {
+        Write-Error "No available domain found in range $domainBase-001.com to $domainBase-999.com"
+    } else {
+        Write-Error "No domain selected. Provide -CustomerDomain when using DomainSelectionMode=CustomerInput."
+    }
     exit 1
 }
 
@@ -418,6 +461,28 @@ $AdditionalParameters += @(
     "domainConsentAgreedBy=$publicIp",
     "domainConsentAgreedAt=$consentTimestamp"
 )
+
+if ($useCustomerDomain) {
+    $isSubdomainInput = ($discoveredDomain.Split('.').Count -gt 2)
+    $existingDeployAppServiceDomain = $null
+    foreach ($p in $AdditionalParameters) {
+        if ($p -match '^deployAppServiceDomain=') {
+            $existingDeployAppServiceDomain = ($p -split '=', 2)[1]
+        }
+    }
+
+    if ($isSubdomainInput -and $existingDeployAppServiceDomain -eq 'true') {
+        Write-Error "deployAppServiceDomain=true is not supported with subdomain input '$discoveredDomain'. Set deployAppServiceDomain=false."
+        exit 1
+    }
+
+    if (-not $existingDeployAppServiceDomain) {
+        # Customer-supplied domains are treated as pre-owned/delegated domains.
+        # Domain purchase should be disabled unless the operator explicitly overrides it.
+        $AdditionalParameters += 'deployAppServiceDomain=false'
+        Write-Warning "Customer domain mode detected. Setting deployAppServiceDomain=false unless explicitly overridden."
+    }
+}
 
 # Derive the Let's Encrypt ACME contact email from the discovered domain.
 # Using dnsadmin@<domain> keeps the contact tied to the deployment domain

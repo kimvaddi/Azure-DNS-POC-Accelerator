@@ -6,7 +6,7 @@
 # locations simultaneously:
 #
 #   US client  → runs on your local machine (assumes US network location)
-#   EU client  → runs via a temporary Azure Container Instance in UK South
+#   EU client  → runs via a temporary Azure Container Instance in West Europe
 #
 # ACI containers are created, used, and deleted per test session.
 # The /metadata.json endpoint on each web app identifies which backend responded.
@@ -56,8 +56,8 @@ $TmFailoverProfile      = 'tm-poc-failover'
 $TmGeoProfile           = 'tm-poc-geo'
 $TmWeightedProfile      = 'tm-poc-weighted'
 $TmFailoverEndpointUs   = 'us-primary'
-$AciImage               = 'mcr.microsoft.com/powershell:7.4'
-$AciLocation            = 'uksouth'       # EU probe region
+$AciImage               = 'mcr.microsoft.com/azure-cli:latest'
+$AciLocation            = 'westeurope'    # EU probe region
 
 # ============================================================================
 # DISPLAY HELPERS
@@ -98,8 +98,36 @@ function Show-Distribution {
         $color = if ($g.Name -match 'ERROR') { 'Red' } elseif ($pct -ge 60) { 'Green' } else { 'Cyan' }
         Write-Host ("    {0,-30} {1,3}%  {2}" -f $g.Name, $pct, $bars) -ForegroundColor $color
     }
-    if ($Expected) {
-        Write-Host "    Expected: $Expected" -ForegroundColor Gray
+}
+
+function Test-AciProviderRegistration {
+    try {
+        $state = az provider show --namespace Microsoft.ContainerInstance --query registrationState -o tsv 2>$null
+        return ($state -in @('Registered', 'Registering'))
+    } catch {
+        return $false
+    }
+}
+
+function ConvertFrom-JsonLoose {
+    param([string]$RawText)
+
+    if (-not $RawText -or $RawText.Trim().Length -eq 0) {
+        return $null
+    }
+
+    # Some files include CLI preamble/warnings before JSON. Parse from the first '{'.
+    $trimmed = $RawText.Trim()
+    $firstBrace = $trimmed.IndexOf('{')
+    if ($firstBrace -lt 0) {
+        return $null
+    }
+
+    $jsonCandidate = $trimmed.Substring($firstBrace)
+    try {
+        return $jsonCandidate | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        return $null
     }
 }
 
@@ -110,14 +138,38 @@ function Get-DeploymentDomain {
     param([string]$Override)
     if ($Override) { return $Override }
 
+    function Resolve-DomainFromObject {
+        param([object]$Obj)
+
+        if (-not $Obj) { return $null }
+
+        $candidate = $null
+        try { $candidate = $Obj.publicDnsZoneName.value } catch {}
+        if (-not $candidate) {
+            try { $candidate = $Obj.publicDnsZoneName } catch {}
+        }
+        if (-not $candidate) {
+            try { $candidate = $Obj.properties.outputs.publicDnsZoneName.value } catch {}
+        }
+
+        return $candidate
+    }
+
     # 1. Fixed file saved by deploy.ps1
     $fixed = Join-Path $PSScriptRoot 'infrastructure\deployment-output.json'
     if (Test-Path $fixed) {
-        $data = Get-Content $fixed -Raw | ConvertFrom-Json
-        $d = if ($data.publicDnsZoneName.value) { $data.publicDnsZoneName.value } else { $data.publicDnsZoneName }
-        if ($d) {
-            Write-Host "  Domain auto-discovered: $d  (from infrastructure/deployment-output.json)" -ForegroundColor Gray
-            return $d
+        $raw = Get-Content $fixed -Raw
+        $data = ConvertFrom-JsonLoose -RawText $raw
+        if ($data) {
+            # Handle both shapes safely:
+            # 1) outputs-only object: { publicDnsZoneName: { value: "..." } }
+            # 2) full deployment object: { properties: { outputs: { publicDnsZoneName: { value: "..." } } } }
+            $d = Resolve-DomainFromObject -Obj $data
+
+            if ($d) {
+                Write-Host "  Domain auto-discovered: $d  (from infrastructure/deployment-output.json)" -ForegroundColor Gray
+                return $d
+            }
         }
     }
 
@@ -125,15 +177,19 @@ function Get-DeploymentDomain {
     $latest = Get-ChildItem -Path $PSScriptRoot -Filter 'deployment-outputs-*.json' -Recurse -ErrorAction SilentlyContinue |
               Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($latest) {
-        $data = Get-Content $latest.FullName -Raw | ConvertFrom-Json
-        $d = if ($data.publicDnsZoneName.value) { $data.publicDnsZoneName.value } else { $data.publicDnsZoneName }
-        if ($d) {
-            Write-Host "  Domain auto-discovered: $d  (from $($latest.Name))" -ForegroundColor Gray
-            return $d
+        $raw = Get-Content $latest.FullName -Raw
+        $data = ConvertFrom-JsonLoose -RawText $raw
+        if ($data) {
+            $d = Resolve-DomainFromObject -Obj $data
+
+            if ($d) {
+                Write-Host "  Domain auto-discovered: $d  (from $($latest.Name))" -ForegroundColor Gray
+                return $d
+            }
         }
     }
 
-    # 3. Prompt
+    # 3. Prompt when discovery did not find a domain.
     return (Read-Host "  Enter domain (e.g. zava-dnspoc-001.com)").Trim()
 }
 
@@ -148,11 +204,20 @@ function Invoke-LocalProbe {
 
     for ($i = 1; $i -le $N; $i++) {
         try {
-            $r = Invoke-WebRequest -Uri "$Url/metadata.json" -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+            $probePath = '/metadata.json'
+            try {
+                $r = Invoke-WebRequest -Uri "$Url$probePath" -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+            } catch {
+                $probePath = '/health.json'
+                $r = Invoke-WebRequest -Uri "$Url$probePath" -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+            }
+
             $j = $r.Content | ConvertFrom-Json
-            $hit = "$($j.regionDisplayName) [$($j.region)]"
+            $regionDisplay = if ($j.regionDisplayName) { $j.regionDisplayName } elseif ($j.region) { $j.region } else { 'unknown' }
+            $regionCode = if ($j.region) { $j.region } else { 'unknown' }
+            $hit = "$regionDisplay [$regionCode]"
             $results.Add($hit)
-            Write-Host ("    [{0,2}/{1}] {2}" -f $i, $N, $hit) -ForegroundColor Gray
+            Write-Host ("    [{0,2}/{1}] {2} via {3}" -f $i, $N, $hit, $probePath) -ForegroundColor Gray
         }
         catch {
             $results.Add('ERROR')
@@ -164,7 +229,7 @@ function Invoke-LocalProbe {
 }
 
 # ============================================================================
-# ACI PROBE — spins up a container in UK South and runs the same probe remotely
+# ACI PROBE — spins up a container in West Europe and runs the same probe remotely
 # This is key for Geographic routing: the container gets a UK IP, so TM routes
 # its DNS queries to the UK-mapped endpoint.
 # ============================================================================
@@ -176,53 +241,111 @@ function Invoke-AciProbe {
         return $null
     }
 
+    if (-not (Test-AciProviderRegistration)) {
+        Write-Warn "Microsoft.ContainerInstance is not registered in this subscription."
+        Write-Warn "Run: az provider register --namespace Microsoft.ContainerInstance"
+        Write-Warn "EU probe skipped until the provider registration completes."
+        return $null
+    }
+
     Write-Step "EU probe via ACI in $AciLocation  ($N × GET $Url/metadata.json)"
     Write-Host "    Spawning temporary container — image pull ~60 s on first run." -ForegroundColor Gray
 
     # Script that runs INSIDE the ACI container.
-    # Uses single-quote heredoc so outer PS variables are NOT expanded here.
+    # Use Python because the Azure CLI base image is accessible from ACI and already contains Python.
     $aciScript = @'
-$url = $env:TEST_URL
-$n   = [int]$env:TEST_N
-$results = [System.Collections.Generic.List[string]]::new()
-for ($i = 1; $i -le $n; $i++) {
-    try {
-        $r   = Invoke-WebRequest -Uri "$url/metadata.json" -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
-        $j   = $r.Content | ConvertFrom-Json
-        $hit = "$($j.regionDisplayName) [$($j.region)]"
-        $results.Add($hit)
-        Write-Output ("[$i/$n] $hit")
-    } catch {
-        $results.Add('ERROR')
-        Write-Output ("[$i/$n] ERROR")
-    }
-    if ($i -lt $n) { Start-Sleep -Seconds 1 }
-}
-Write-Output '--- SUMMARY ---'
-$results | Group-Object | Sort-Object Count -Descending | ForEach-Object {
-    $pct = [Math]::Round(($_.Count / $results.Count) * 100)
-    Write-Output ("{0,3}%  {1}  ({2}x)" -f $pct, $_.Name, $_.Count)
-}
+import json
+import os
+import time
+import urllib.request
+
+url = os.environ['TEST_URL']
+n = int(os.environ['TEST_N'])
+results = []
+
+for i in range(1, n + 1):
+    try:
+        probe_path = '/metadata.json'
+        try:
+            with urllib.request.urlopen(url + probe_path, timeout=15) as resp:
+                payload = json.loads(resp.read().decode('utf-8'))
+        except Exception:
+            probe_path = '/health.json'
+            with urllib.request.urlopen(url + probe_path, timeout=15) as resp:
+                payload = json.loads(resp.read().decode('utf-8'))
+
+        region_display = payload.get('regionDisplayName') or payload.get('region') or 'unknown'
+        region_code = payload.get('region') or 'unknown'
+        hit = f"{region_display} [{region_code}]"
+        results.append(hit)
+        print(f"[{i}/{n}] {hit} via {probe_path}", flush=True)
+    except Exception:
+        results.append('ERROR')
+        print(f"[{i}/{n}] ERROR", flush=True)
+
+    if i < n:
+        time.sleep(1)
+
+print('--- SUMMARY ---', flush=True)
+for name in sorted(set(results), key=lambda item: results.count(item), reverse=True):
+    count = results.count(name)
+    pct = round((count / len(results)) * 100)
+    print(f"{pct:>3}%  {name}  ({count}x)", flush=True)
 '@
 
-    $encoded  = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($aciScript))
-    $aciName  = "aci-tmtest-$([Guid]::NewGuid().ToString('N').Substring(0, 8))"
+        $encoded  = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($aciScript))
+        $aciName  = "aci-tmtest-$([Guid]::NewGuid().ToString('N').Substring(0, 8))"
+        $aciSpecPath = Join-Path ([System.IO.Path]::GetTempPath()) ("$aciName.json")
+        $aciSpec = @{
+                apiVersion = '2021-10-01'
+                location = $AciLocation
+                name = $aciName
+                type = 'Microsoft.ContainerInstance/containerGroups'
+                properties = @{
+                        osType = 'Linux'
+                        restartPolicy = 'Never'
+                        containers = @(
+                                @{
+                                        name = $aciName
+                                        properties = @{
+                                                image = $AciImage
+                                                command = @(
+                                                        'python3'
+                                                        '-c'
+                                                        'import os,base64; exec(base64.b64decode(os.environ["PROBE_SCRIPT_B64"]).decode("utf-8"))'
+                                                )
+                                                environmentVariables = @(
+                                                        @{ name = 'TEST_URL'; value = $Url }
+                                                        @{ name = 'TEST_N'; value = "$N" }
+                                                        @{ name = 'PROBE_SCRIPT_B64'; value = $encoded }
+                                                )
+                                                resources = @{
+                                                        requests = @{
+                                                                cpu = 1
+                                                                memoryInGB = 1
+                                                        }
+                                                }
+                                        }
+                                }
+                        )
+                }
+        }
+        $aciSpec | ConvertTo-Json -Depth 20 | Set-Content -Path $aciSpecPath -Encoding UTF8
 
     Write-Host "    Container name: $aciName" -ForegroundColor Gray
 
-    $null = az container create `
-        --name $aciName `
-        --resource-group $ResourceGroup `
-        --image $AciImage `
-        --location $AciLocation `
-        --cpu 0.5 --memory 0.5 `
-        --restart-policy Never `
-        --command-line "pwsh -NonInteractive -EncodedCommand $encoded" `
-        --environment-variables TEST_URL=$Url TEST_N=$N `
-        --output none 2>&1
+        $createOutput = az container create `
+                --resource-group $ResourceGroup `
+            --file $aciSpecPath `
+                --output json 2>&1
 
     if ($LASTEXITCODE -ne 0) {
         Write-Warn "Failed to create ACI '$aciName'. EU probe skipped."
+        if ($createOutput) {
+            Write-Host "    Azure error:" -ForegroundColor DarkYellow
+            $createOutput | ForEach-Object { Write-Host "      $_" -ForegroundColor DarkYellow }
+        }
+                Remove-Item -Path $aciSpecPath -Force -ErrorAction SilentlyContinue
         return $null
     }
 
@@ -233,9 +356,11 @@ $results | Group-Object | Sort-Object Count -Descending | ForEach-Object {
         $state = az container show --name $aciName --resource-group $ResourceGroup `
                     --query instanceView.state -o tsv 2>$null
         Write-Host "    [${elapsed}s] ACI state: $state" -ForegroundColor Gray
-    } while ($state -eq 'Running' -and $elapsed -lt $timeout)
+    } while ($state -in @('Pending', 'Running') -and $elapsed -lt $timeout)
 
     $logs = az container logs --name $aciName --resource-group $ResourceGroup 2>&1
+
+    Remove-Item -Path $aciSpecPath -Force -ErrorAction SilentlyContinue
 
     if (-not $SkipCleanup) {
         $null = az container delete --name $aciName --resource-group $ResourceGroup --yes --output none 2>&1
@@ -259,9 +384,6 @@ function Show-AciResults {
         $color = if ($line -match 'ERROR') { 'Red' } elseif ($line -match '---') { 'White' } else { 'Gray' }
         Write-Host "    $line" -ForegroundColor $color
     }
-    if ($Expected) {
-        Write-Host "    Expected: $Expected" -ForegroundColor Yellow
-    }
 }
 
 # ============================================================================
@@ -282,6 +404,7 @@ function Test-Failover {
     Write-Host "    3. Waits for TM probe cycle + TTL drain (~40 s)"
     Write-Host "    4. Re-probes (expect UK)"
     Write-Host "    5. Re-enables US endpoint"
+    Write-Host "    6. Waits 40 s for TTL drain, re-probes to confirm US is back"
     Write-Host ""
     Write-Warn "This test temporarily DISABLES the US endpoint."
     Write-Warn "It will be re-enabled automatically at the end."
@@ -294,7 +417,6 @@ function Test-Failover {
     # === Step 1: Normal ===
     Write-Host ""; Write-Host "  STEP 1 — Normal operation (US primary expected)" -ForegroundColor Cyan
     $normalLocal = Invoke-LocalProbe -Url $url -N $N -Label "US client (local machine)"
-    $normalAci   = Invoke-AciProbe  -Url $url -N $N
 
     # === Step 2: Disable US ===
     Write-Host ""; Write-Host "  STEP 2 — Disabling US endpoint..." -ForegroundColor Cyan
@@ -316,7 +438,6 @@ function Test-Failover {
     # === Step 3: Re-probe ===
     Write-Host ""; Write-Host "  STEP 3 — Re-probing after US failure (UK expected)" -ForegroundColor Cyan
     $failLocal = Invoke-LocalProbe -Url $url -N $N -Label "US client (local machine)"
-    $failAci   = Invoke-AciProbe  -Url $url -N $N
 
     # === Restore US ===
     Write-Host ""; Write-Step "Restoring US endpoint..."
@@ -329,12 +450,20 @@ function Test-Failover {
         --output none
     Write-Ok "US endpoint re-enabled."
 
+    # === Step 4: Confirm restore ===
+    Write-Host ""; Write-Host "  STEP 4 — Waiting 40 s for TTL drain before confirming restore..." -ForegroundColor Yellow
+    for ($w = 40; $w -gt 0; $w -= 5) {
+        Write-Host "    ${w}s remaining..." -ForegroundColor Gray
+        Start-Sleep -Seconds 5
+    }
+    Write-Host ""; Write-Host "  STEP 4 — Re-probing after restore (US primary expected)" -ForegroundColor Cyan
+    $restoreLocal = Invoke-LocalProbe -Url $url -N $N -Label "US client (local machine)"
+
     # === Results ===
     Write-Banner "FAILOVER RESULTS" Green
-    Show-Distribution $normalLocal "Step 1 — Local (expected: US primary)"     "South Central US [southcentralus]"
-    if ($normalAci)  { Show-AciResults $normalAci  "Step 1 — Normal operation"         "South Central US [follows priority, not geography]" }
-    Show-Distribution $failLocal   "Step 3 — Local after failure (expected: UK)"  "UK South [uksouth]"
-    if ($failAci)    { Show-AciResults $failAci    "Step 3 — After failure"             "UK South" }
+    Show-Distribution $normalLocal  "Step 1 — Normal (expected: US primary)"        "South Central US [southcentralus]"
+    Show-Distribution $failLocal    "Step 3 — After US disabled (expected: UK)"     "West Europe [westeurope]"
+    Show-Distribution $restoreLocal "Step 4 — After restore (expected: US back)"    "South Central US [southcentralus]"
     Write-Host ""
 }
 
@@ -352,10 +481,10 @@ function Test-Geographic {
     Write-Host "  Routing logic: US/CA/MX → US app,  GB + WORLD → UK app"
     Write-Host ""
     Write-Host "  Local probe = runs on YOUR machine (expected: US app because your IP is in US)"
-    Write-Host "  ACI probe   = runs in Azure UK South (expected: UK app — UK IP)"
+    Write-Host "  ACI probe   = runs in Azure West Europe (expected: EU/UK app — EU IP)"
     Write-Host ""
     Write-Host "  Note: Traffic Manager geo-routing uses the DNS resolver IP, not client IP."
-    Write-Host "  Azure DNS resolvers in UK South are classified as GB region." -ForegroundColor Gray
+    Write-Host "  Azure DNS resolvers in West Europe are classified as EU geography for this probe." -ForegroundColor Gray
     Write-Host ""
 
     $localResults = Invoke-LocalProbe -Url $url -N $N -Label "Local machine"
@@ -363,7 +492,7 @@ function Test-Geographic {
 
     Write-Banner "GEOGRAPHIC RESULTS" Green
     Show-Distribution $localResults "Local probe (expected: US app)"          "South Central US [southcentralus]"
-    if ($aciLogs) { Show-AciResults $aciLogs "ACI probe, UK South (expected: UK app)"  "UK South [uksouth]" }
+    if ($aciLogs) { Show-AciResults $aciLogs "ACI probe, West Europe (expected: EU/UK app)"  "West Europe [westeurope]" }
     Write-Host ""
 }
 
@@ -402,7 +531,7 @@ function Test-Weighted {
 Write-Host ""
 Write-Host "  ╔═══════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
 Write-Host "  ║   Zava Azure DNS POC — Traffic Manager Test Suite         ║" -ForegroundColor Cyan
-Write-Host "  ║   Local (US) + ACI in UK South (EU) dual-region probing   ║" -ForegroundColor Cyan
+Write-Host "  ║  Local (US) + ACI in West Europe (EU) dual-region probe   ║" -ForegroundColor Cyan
 Write-Host "  ╚═══════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
@@ -425,6 +554,17 @@ Write-Host ""
 
 # Scenario selection menu
 if (-not $Scenario) {
+    Write-Host "  Usage:" -ForegroundColor Yellow
+    Write-Host "    .\Zava_TrafficManager_Test.ps1 -Scenario <Failover|Geo|Weighted|All> [options]"
+    Write-Host ""
+    Write-Host "  Examples:" -ForegroundColor Yellow
+    Write-Host "    .\Zava_TrafficManager_Test.ps1 -Scenario Geo -Domain zava-dnspoc-001.com -Iterations 20"
+    Write-Host "    .\Zava_TrafficManager_Test.ps1 -Scenario Failover -Domain zava-dnspoc-001.com"
+    Write-Host "    .\Zava_TrafficManager_Test.ps1 -Scenario Weighted -Iterations 50"
+    Write-Host "    .\Zava_TrafficManager_Test.ps1 -Scenario All -Domain zava-dnspoc-001.com"
+    Write-Host "    .\Zava_TrafficManager_Test.ps1 -Scenario Geo -SkipAci   # local-only run"
+    Write-Host ""
+
     Write-Host "  Select Traffic Manager scenario to test:"
     Write-Host ""
     Write-Host "  [1]  Failover   — Priority routing — disable US, verify UK takes over"
