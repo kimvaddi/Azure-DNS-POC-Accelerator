@@ -172,7 +172,7 @@
 $SUBSCRIPTION_ID   = "<your-subscription-id>"
 $RG_NAME           = "rg-dns-poc"
 $LOCATION_PRIMARY  = "westus3"           # Primary region (web apps)
-$LOCATION_SECONDARY = "eastasia"          # Secondary region (web apps)
+$LOCATION_SECONDARY = "uksouth"           # Secondary region (web apps)
 $LOCATION_RG       = "southcentralus"     # Resource group location
 $DOMAIN            = "poc.zava-dnspoc.com"     # Public DNS zone
 $PRIVATE_ZONE      = "poc-internal.zava-dnspoc.local"  # Private DNS zone

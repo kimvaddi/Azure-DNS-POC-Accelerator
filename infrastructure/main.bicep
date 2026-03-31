@@ -22,8 +22,8 @@ param location string = 'southcentralus'
 @description('Primary web app region (US West)')
 param locationPrimary string = 'westus3'
 
-@description('Secondary web app region (Asia for geographic routing test)')
-param locationSecondary string = 'eastasia'
+@description('Secondary web app region (UK for geographic routing test)')
+param locationSecondary string = 'uksouth'
 
 @description('Resource group name')
 param rgName string = 'rg-dns-poc'
@@ -40,7 +40,7 @@ param enablePrivateDns bool = false
 @description('Web app name for US region')
 param webAppNameUS string = 'webapp-poc-us'
 
-@description('Web app name for UK/Asia region')
+@description('Web app name for UK region')
 param webAppNameUK string = 'webapp-poc-uk'
 
 @description('Storage account name for QRadar checkpoint tracking (must be globally unique)')

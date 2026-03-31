@@ -305,7 +305,7 @@ After deploying, verify:
 - ✅ **Tag strategy**: project, customer, environment, managed-by
 
 ### Infrastructure Design
-- ✅ **Multi-region**: US (westus3) + UK (eastasia)
+- ✅ **Multi-region**: US (westus3) + UK (uksouth)
 - ✅ **High availability**: Traffic Manager failover + health probes
 - ✅ **Observability**: Full diagnostic settings on all resources
 - ✅ **Cost-optimized**: B1 App Service Plans for POC
