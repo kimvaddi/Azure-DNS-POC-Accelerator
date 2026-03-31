@@ -38,7 +38,7 @@ Complete Infrastructure-as-Code deployment for Azure DNS POC evaluation, includi
 
 ### Multi-Region Web Apps
 - **US Region** (`westus3`): App Service Plan B1 + Web App
-- **UK Region** (`uksouth`): App Service Plan B1 + Web App
+- **UK Region** (`westeurope`): App Service Plan B1 + Web App
 - Security hardening: `httpsOnly=true`, `ftpsState=Disabled`, `minTlsVersion=1.2`
 
 ### DNS Records (TTL=30)
@@ -68,7 +68,7 @@ Complete Infrastructure-as-Code deployment for Azure DNS POC evaluation, includi
 Edit `main.bicepparam` to customize:
 - Domain names (`domain`, `privateDomain`)
 - Resource naming (web app names must be globally unique)
-- Regions (default: `southcentralus`, `westus3`, `uksouth`)
+- Regions (default: `southcentralus`, `westus3`, `westeurope`)
 
 ```bicep
 param domain = 'poc.zava-dnspoc.com'
@@ -348,7 +348,7 @@ az monitor diagnostic-settings subscription delete `
 │  │  ┌──────────────────────────────────────────────────────┐  │ │
 │  │  │  WEB APPS (Multi-Region)                              │  │ │
 │  │  │  • webapp-poc-us (westus3) → App Service Plan B1    │  │ │
-│  │  │  • webapp-poc-uk (uksouth) → App Service Plan B1   │  │ │
+│  │  │  • webapp-poc-uk (westeurope) → App Service Plan B1   │  │ │
 │  │  │  Security: HTTPS Only, FTPS Disabled, TLS 1.2       │  │ │
 │  │  └──────────────────────────────────────────────────────┘  │ │
 │  │                                                              │ │

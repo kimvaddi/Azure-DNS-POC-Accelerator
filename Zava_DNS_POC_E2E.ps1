@@ -78,7 +78,7 @@ $SUBSCRIPTION_ID    = "<your-subscription-id>"
 $RG_NAME            = "rg-dns-poc"
 $LOCATION           = "southcentralus"
 $LOCATION_PRIMARY   = "westus3"
-$LOCATION_SECONDARY = "uksouth"
+$LOCATION_SECONDARY = "westeurope"
 
 # -- Infrastructure Names --
 $LAW_NAME           = "law-dns-poc"

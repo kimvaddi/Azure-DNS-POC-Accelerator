@@ -286,7 +286,7 @@ az monitor app-insights component create  →  Application Insights (per region)
 
 ```
 az appservice plan create (Region A: southcentralus)  →  App Service Plan A
-az appservice plan create (Region B: uksouth)          →  App Service Plan B
+az appservice plan create (Region B: westeurope)          →  App Service Plan B
 az webapp create (Region A)  →  Web App A (US endpoint)
 az webapp create (Region B)  →  Web App B (UK endpoint)
 az functionapp create (multi-region)  →  Function Apps for geo DNS testing
@@ -347,7 +347,7 @@ Function App geo-probe tests           →  Multi-region nslookup emulation
 | DNS Zone (Private) | ❌ None | ✅ poc-internal.zava-dnspoc.local | **NEW** — add VNet + private zone |
 | Zone Import (Bind) | ❌ Manual records only | ✅ Import 2-3 Bind files | **NEW** — add import + validation |
 | Traffic Manager | ✅ Performance routing | ✅ Priority + Geographic + Weighted | **EXTEND** — 3 routing profiles needed |
-| Web Apps (multi-region) | ✅ West US 3 + East Asia | ✅ South Central US + UK South | **MODIFY** — different regions for Zava |
+| Web Apps (multi-region) | ✅ West US 3 + East Asia | ✅ South Central US + West Europe | **MODIFY** — different regions for Zava |
 | TLS Certificates | ✅ App Service Managed | ✅ DigiCert DCV via `_dnsauth` | **NEW** — DCV automation workflow |
 | Log Analytics | ✅ law-kimvaddi | ✅ Required for reporting | Pattern matches — reuse |
 | Event Hub → SIEM | ❌ None | ✅ QRadar integration | **NEW** — Event Hub + diagnostic settings |
@@ -369,7 +369,7 @@ The solution accelerator uses the kimvaddi.com pattern but makes everything conf
 | `DOMAIN` | kimvaddi.com | poc.zava-dnspoc.com | ✅ |
 | `RG_NAME` | DNSdemo | rg-dns-poc | ✅ |
 | `LOCATION_PRIMARY` | westus3 | southcentralus | ✅ |
-| `LOCATION_SECONDARY` | eastasia | uksouth | ✅ |
+| `LOCATION_SECONDARY` | eastasia | westeurope | ✅ |
 | `WEBAPP_NAME_A` | westus3webapp | webapp-poc-us | ✅ |
 | `WEBAPP_NAME_B` | eastasiawebapp | webapp-poc-uk | ✅ |
 | `TM_PROFILE_NAME` | tm-kimvaddi-perf | tm-poc-Zava | ✅ |

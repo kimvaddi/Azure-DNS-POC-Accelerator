@@ -101,7 +101,7 @@
 #     - All flowing to Log Analytics Workspace
 #
 #  6. Compute quota failures in multiple regions
-#     - southcentralus, eastus, uksouth: Basic VM quota = 0 (Linux)
+#     - southcentralus, eastus, westeurope: Basic VM quota = 0 (Linux)
 #     - Fix: use regions with existing quota or request increase
 #     - Windows plans work without Linux quota (used dotnet:8 runtime)
 #
@@ -172,7 +172,7 @@
 $SUBSCRIPTION_ID   = "<your-subscription-id>"
 $RG_NAME           = "rg-dns-poc"
 $LOCATION_PRIMARY  = "westus3"           # Primary region (web apps)
-$LOCATION_SECONDARY = "uksouth"           # Secondary region (web apps)
+$LOCATION_SECONDARY = "westeurope"           # Secondary region (web apps)
 $LOCATION_RG       = "southcentralus"     # Resource group location
 $DOMAIN            = "poc.zava-dnspoc.com"     # Public DNS zone
 $PRIVATE_ZONE      = "poc-internal.zava-dnspoc.local"  # Private DNS zone

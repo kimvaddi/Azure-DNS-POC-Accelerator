@@ -11,7 +11,7 @@ using './main.bicep'
 
 param location = 'southcentralus'
 param locationPrimary = 'westus3'
-param locationSecondary = 'uksouth'
+param locationSecondary = 'westeurope'
 
 // ============================================================================
 // RESOURCE GROUP
