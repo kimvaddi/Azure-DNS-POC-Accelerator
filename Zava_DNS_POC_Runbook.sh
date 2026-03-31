@@ -55,6 +55,25 @@ PRIVATE_ZONE="poc-internal.Zava.local"           # Private DNS zone for POC
 VNET_NAME="<landing-zone-vnet-name>"               # Existing VNet in landing zone
 VNET_RG="<vnet-resource-group>"                    # Resource group containing the VNet
 
+# -- Feature Flags (NEW: March 31, 2026) --
+ENABLE_PRIVATE_DNS=false                           # Set true to deploy Private DNS zone + VNet
+ENABLE_DOMAIN_PURCHASE=false                       # Set true to buy App Service Domain (~$12/yr)
+ENABLE_LETSENCRYPT=false                           # Set true to run Let's Encrypt cert automation
+ENABLE_DNSSEC_SUBDOMAIN=false                      # Set true for child zone DNSSEC chain of trust
+
+# -- Domain Purchase (only if ENABLE_DOMAIN_PURCHASE=true) --
+# App Service Domains auto-create Azure DNS zone + NS delegation via GoDaddy
+# Ref: https://learn.microsoft.com/azure/app-service/manage-custom-dns-buy-domain
+ROOT_DOMAIN="zava-dnspoc-002.com"                  # App Service Domain to purchase
+CHILD_ZONE="demo.$ROOT_DOMAIN"                    # Child zone for DNSSEC
+CONTACT_EMAIL="admin@zavaenergy.com"               # ICANN + Let's Encrypt
+
+# -- Let's Encrypt (only if ENABLE_LETSENCRYPT=true) --
+# Uses certbot + certbot-dns-azure plugin with DNS-01 challenge
+# Ref: https://docs.certbot-dns-azure.co.uk/en/latest/
+# Ref: https://letsencrypt.org/getting-started/
+SP_CERTBOT_NAME="sp-certbot-dns-poc"
+
 # -- Bind zone files (local paths after export from Bind server) --
 ZONE_FILE_1="./zone-files/Zava-zone1.zone"       # First Bind zone file
 ZONE_FILE_2="./zone-files/Zava-zone2.zone"       # Second Bind zone file
@@ -89,6 +108,56 @@ echo " Resource Group: $RESOURCE_GROUP"
 echo " Location:       $LOCATION"
 echo " Public Zone:    $PUBLIC_ZONE"
 echo "============================================"
+
+
+# ============================================================================
+# SECTION 0.5: DOMAIN PURCHASE + CHILD ZONE (Optional)
+# Buys App Service Domain, creates child zone for DNSSEC chain of trust
+# Ref: https://learn.microsoft.com/azure/app-service/manage-custom-dns-buy-domain
+# Ref: https://learn.microsoft.com/azure/dns/dnssec-how-to
+# ============================================================================
+
+if [ "$ENABLE_DOMAIN_PURCHASE" = true ]; then
+  echo ""
+  echo "=== SECTION 0.5: Domain Purchase + Child Zone ==="
+  echo ""
+
+  # Ensure RG exists
+  az group create --name "$RESOURCE_GROUP" --location "$LOCATION" \
+    --tags project=dns-poc customer=Zava environment=poc --output none
+
+  # Check domain availability
+  echo "Checking domain availability: $ROOT_DOMAIN"
+  az appservice domain check-availability --name "$ROOT_DOMAIN" --output table
+
+  echo ""
+  echo "CUSTOMER ACTION: Purchase domain via Azure Portal > App Service Domains"
+  echo "  Or: az appservice domain create --resource-group $RESOURCE_GROUP --hostname $ROOT_DOMAIN ..."
+  echo ""
+
+  # Create child zone
+  echo "Creating child zone: $CHILD_ZONE"
+  az network dns zone create -g "$RESOURCE_GROUP" -n "$CHILD_ZONE" --output none 2>/dev/null
+  echo "  ✅ Child zone created"
+
+  # Delegate child zone (NS records in parent)
+  echo "Delegating child zone to Azure DNS..."
+  CHILD_PREFIX="${CHILD_ZONE%%.$ROOT_DOMAIN}"
+  CHILD_NS=$(az network dns zone show -g "$RESOURCE_GROUP" -n "$CHILD_ZONE" --query "nameServers[]" -o tsv 2>/dev/null)
+  for ns in $CHILD_NS; do
+    az network dns record-set ns add-record \
+      -g "$RESOURCE_GROUP" -z "$ROOT_DOMAIN" \
+      -n "$CHILD_PREFIX" --nsdname "$ns" --output none 2>/dev/null
+  done
+  echo "  ✅ NS delegation created in $ROOT_DOMAIN for $CHILD_PREFIX"
+
+  # Switch to child zone for all subsequent sections
+  echo "  Switching PUBLIC_ZONE to $CHILD_ZONE for DNSSEC support"
+  PUBLIC_ZONE="$CHILD_ZONE"
+else
+  echo ""
+  echo "--- Skipping domain purchase (ENABLE_DOMAIN_PURCHASE=false) ---"
+fi
 
 
 # ============================================================================
@@ -1122,6 +1191,88 @@ echo "PowerShell bulk creation script written to: bulk-records.ps1"
 
 
 # ============================================================================
+# SECTION 5.5: LET'S ENCRYPT CERTIFICATE AUTOMATION (Optional)
+# Issues free TLS cert via DNS-01 challenge using certbot + certbot-dns-azure
+# Dependencies: Section 5 (DNS Zone), Key Vault (Section 1)
+#
+# Ref: https://letsencrypt.org/getting-started/
+# Ref: https://docs.certbot-dns-azure.co.uk/en/latest/
+# Ref: https://learn.microsoft.com/azure/application-gateway/ingress-controller-letsencrypt-certificate-application-gateway
+# ============================================================================
+
+if [ "$ENABLE_LETSENCRYPT" = true ]; then
+
+echo ""
+echo "=== SECTION 5.5: Let's Encrypt Certificate Automation ==="
+echo ""
+
+# 5.5.1 Create Service Principal for certbot
+echo "Creating Service Principal for certbot..."
+DNS_ZONE_SCOPE="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.Network/dnsZones/${PUBLIC_ZONE}"
+
+EXISTING_SP=$(az ad sp list --display-name "$SP_CERTBOT_NAME" --query "[0].appId" -o tsv 2>/dev/null)
+if [ -n "$EXISTING_SP" ]; then
+  echo "  SP already exists: $EXISTING_SP — reusing"
+else
+  SP_RESULT=$(az ad sp create-for-rbac \
+    --name "$SP_CERTBOT_NAME" \
+    --role "DNS Zone Contributor" \
+    --scopes "$DNS_ZONE_SCOPE" \
+    --output json 2>/dev/null)
+
+  if [ $? -eq 0 ]; then
+    SP_APP_ID=$(echo "$SP_RESULT" | jq -r '.appId')
+    SP_SECRET=$(echo "$SP_RESULT" | jq -r '.password')
+    SP_TENANT=$(echo "$SP_RESULT" | jq -r '.tenant')
+    echo "  ✅ SP created: $SP_APP_ID"
+
+    # Store in Key Vault (zero-secret pattern)
+    # Ref: https://learn.microsoft.com/azure/key-vault/general/best-practices
+    az keyvault secret set --vault-name "$KEYVAULT_NAME" --name "certbot-sp-client-id" --value "$SP_APP_ID" --output none 2>/dev/null
+    az keyvault secret set --vault-name "$KEYVAULT_NAME" --name "certbot-sp-client-secret" --value "$SP_SECRET" --output none 2>/dev/null
+    az keyvault secret set --vault-name "$KEYVAULT_NAME" --name "certbot-sp-tenant-id" --value "$SP_TENANT" --output none 2>/dev/null
+    unset SP_RESULT SP_APP_ID SP_SECRET SP_TENANT
+    echo "  ✅ Credentials stored in Key Vault: $KEYVAULT_NAME"
+  else
+    echo "  ❌ SP creation failed — check permissions"
+  fi
+fi
+
+# 5.5.2 Install certbot
+echo ""
+echo "Installing certbot + certbot-dns-azure..."
+pip install certbot certbot-dns-azure 2>&1 | tail -3
+
+# 5.5.3 Run the standalone cert automation script
+if [ -f "./letsencrypt-cert.sh" ]; then
+  echo ""
+  echo "Running Let's Encrypt automation: ./letsencrypt-cert.sh"
+  chmod +x ./letsencrypt-cert.sh
+  DOMAIN="$PUBLIC_ZONE" KV_NAME="$KEYVAULT_NAME" RG_NAME="$RESOURCE_GROUP" \
+    ./letsencrypt-cert.sh
+else
+  echo ""
+  echo "  letsencrypt-cert.sh not found — generating manual commands:"
+  echo ""
+  echo "  # Retrieve SP creds from Key Vault"
+  echo "  CLIENT_ID=\$(az keyvault secret show --vault-name $KEYVAULT_NAME --name certbot-sp-client-id --query value -o tsv)"
+  echo "  CLIENT_SECRET=\$(az keyvault secret show --vault-name $KEYVAULT_NAME --name certbot-sp-client-secret --query value -o tsv)"
+  echo "  TENANT_ID=\$(az keyvault secret show --vault-name $KEYVAULT_NAME --name certbot-sp-tenant-id --query value -o tsv)"
+  echo ""
+  echo "  # Staging dry-run"
+  echo "  certbot certonly --authenticator dns-azure --dns-azure-propagation-seconds 60 \\"
+  echo "    --server https://acme-staging-v02.api.letsencrypt.org/directory \\"
+  echo "    -d $PUBLIC_ZONE -d \"*.$PUBLIC_ZONE\" --dry-run --non-interactive --agree-tos -m $CONTACT_EMAIL"
+fi
+
+else
+  echo ""
+  echo "--- Skipping Let's Encrypt (ENABLE_LETSENCRYPT=false) ---"
+  echo "  Set ENABLE_LETSENCRYPT=true in Section 0 to enable."
+fi
+
+
+# ============================================================================
 # SECTION 6: DNS QUERY LOGGING → SIEM (Day 5)
 # ============================================================================
 
@@ -1642,10 +1793,59 @@ echo ""
 echo "Look for:"
 echo "  - RRSIG records in the response (zone is signed)"
 echo "  - AD flag in the header (Authenticated Data — chain of trust valid)"
-echo ""
-echo "NOTE: Full chain-of-trust validation requires the DS record to be"
-echo "published at the parent zone (registrar). For the POC, you can verify"
-echo "that the zone IS signed (RRSIG present) even before DS publication."
+
+# 10.1.4 DNSSEC Subdomain Approach — Publish DS record in parent zone
+# App Service Domain limitation: Cannot publish DS records at the registrar (GoDaddy).
+# Workaround: If using a child zone, we own the parent zone in Azure DNS,
+# so we can publish the DS record there ourselves.
+# Ref: https://learn.microsoft.com/azure/dns/dnssec-how-to
+if [ "$ENABLE_DNSSEC_SUBDOMAIN" = true ] && [ "$ENABLE_DOMAIN_PURCHASE" = true ]; then
+  echo ""
+  echo "--- Publishing DS record in parent zone (chain of trust) ---"
+  echo "  Child zone: $PUBLIC_ZONE → Parent zone: $ROOT_DOMAIN"
+
+  # Wait for signing to complete
+  WAITED=0
+  while [ $WAITED -lt 60 ]; do
+    DS_INFO=$(az network dns zone show -n "$PUBLIC_ZONE" -g "$RESOURCE_GROUP" \
+      --query "signingKeys[?delegationSignerInfo != null] | [0]" -o json 2>/dev/null)
+    if [ -n "$DS_INFO" ] && [ "$DS_INFO" != "null" ]; then break; fi
+    sleep 10; WAITED=$((WAITED + 10))
+    echo "  Waiting for signing... ${WAITED}s"
+  done
+
+  if [ -n "$DS_INFO" ] && [ "$DS_INFO" != "null" ]; then
+    KEY_TAG=$(echo "$DS_INFO" | jq -r '.keyTag')
+    ALGORITHM=$(echo "$DS_INFO" | jq -r '.delegationSignerInfo.digestAlgorithm')
+    DIGEST_TYPE=$(echo "$DS_INFO" | jq -r '.delegationSignerInfo.digestType')
+    DIGEST=$(echo "$DS_INFO" | jq -r '.delegationSignerInfo.digestValue')
+    CHILD_PREFIX="${PUBLIC_ZONE%%.$ROOT_DOMAIN}"
+
+    az network dns record-set ds add-record \
+      -g "$RESOURCE_GROUP" -z "$ROOT_DOMAIN" \
+      -n "$CHILD_PREFIX" \
+      --key-tag "$KEY_TAG" --algorithm "$ALGORITHM" \
+      --digest-type "$DIGEST_TYPE" --digest "$DIGEST" \
+      --output none 2>/dev/null
+
+    if [ $? -eq 0 ]; then
+      echo "  ✅ DS record published in $ROOT_DOMAIN for $CHILD_PREFIX"
+      echo "  DNSSEC chain of trust: .com TLD → $ROOT_DOMAIN → $PUBLIC_ZONE (signed)"
+    else
+      echo "  ❌ DS record publication failed"
+    fi
+  else
+    echo "  Could not retrieve DS record — signing may still be in progress"
+  fi
+else
+  echo ""
+  echo "NOTE: Full chain-of-trust validation requires the DS record to be"
+  echo "published at the parent zone (registrar). For the POC, you can verify"
+  echo "that the zone IS signed (RRSIG present) even before DS publication."
+  echo ""
+  echo "To enable automated DS publication, set ENABLE_DNSSEC_SUBDOMAIN=true"
+  echo "and ENABLE_DOMAIN_PURCHASE=true in Section 0."
+fi
 
 
 # ----------------------------------------------------------------------------
@@ -1771,8 +1971,10 @@ echo "  for i in \$(seq 1 20); do dig tm-poc-weighted.trafficmanager.net +short;
 
 
 # ============================================================================
-# SECTION 11: PRIVATE DNS ZONE + VNET LINK (Optional)
+# SECTION 11: PRIVATE DNS ZONE + VNET LINK (Optional — controlled by ENABLE_PRIVATE_DNS)
 # ============================================================================
+
+if [ "$ENABLE_PRIVATE_DNS" = true ]; then
 
 echo ""
 echo "=== SECTION 11: Private DNS Zone ==="
@@ -1822,6 +2024,12 @@ echo "  Public zones ($PUBLIC_ZONE):  Resolved by internet clients"
 echo "  Private zones ($PRIVATE_ZONE): Resolved only within linked VNets"
 echo "  Both can coexist in the same resource group."
 echo "  Azure DNS resolver in VNets checks private zones first."
+
+else
+  echo ""
+  echo "--- Skipping Private DNS Zone (ENABLE_PRIVATE_DNS=false) ---"
+  echo "  Set ENABLE_PRIVATE_DNS=true in Section 0 to deploy."
+fi
 
 
 # ============================================================================

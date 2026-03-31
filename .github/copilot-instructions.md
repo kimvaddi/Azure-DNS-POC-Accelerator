@@ -21,6 +21,9 @@ This workspace contains customer-facing engagement materials for **Zava Energy C
 - **When editing deployment scripts:** Preserve section structure, verification steps, and extensive comments
 - **When asked about deployment:** Reference the appropriate method (Bicep vs PowerShell vs Bash) based on context
 - **When troubleshooting:** Check the "Known Issues" section in deployment script headers first (14+ findings already documented)
+- **When validating deployments:** Cross-check against `AUDIT_REPORT_2026-03-29.md` (46 findings) and `REMEDIATION_PLAN.md`
+- **When handling secrets:** Use the Key Vault zero-secret pattern — retrieve DigiCert API keys at runtime via `az keyvault secret show`, never pass as CLI parameters or expose in logs. See `Zava_DCV_Automation.ps1` for reference.
+- **When scripting cleanup:** Follow dependency order: DNSSEC config → Resource Locks → Resource Group. See `Zava_DNS_POC_Cleanup.ps1`.
 
 ## Three Deployment Options
 
@@ -48,13 +51,22 @@ This POC supports three deployment paths — choose based on customer preference
 | `DCV_Gap_Analysis.md` | Gap analysis and automation opportunities for DigiCert DCV workflows |
 | `DNS_POC_Solution_Accelerator_Discovery.md` | Discovery document — kimvaddi.com reference analysis + gap mapping |
 
+### Audit & Remediation (Post-Kickoff)
+| File | Purpose |
+|------|---------||
+| `AUDIT_REPORT_2026-03-29.md` | Security & WAF audit — **46 findings** (14 critical). Organized by Security, Network, Ops, Reliability, Docs, Code Quality |
+| `REMEDIATION_PLAN.md` | 4-phase implementation roadmap for all 46 findings with line numbers, testing, and rollback steps |
+
 ### Deployment Scripts
 | File | Lines | Status |
 |------|-------|--------|
-| `Zava_DNS_POC_Deployment.ps1` | 1,639 | ✅ **Battle-tested (14 findings fixed)** — PowerShell end-to-end (16 sections) |
-| `Zava_DNS_POC_Runbook.sh` | 1,800+ | ✅ Bash/az CLI runbook (13 sections, 9-test DCV suite) |
+| `Zava_DNS_POC_E2E.ps1` | 900+ | ✅ **Push-button E2E** — Domain purchase → Bicep → DNSSEC → Let's Encrypt → Validation |
+| `letsencrypt-cert.sh` | 280+ | ✅ Standalone Let's Encrypt cert automation (staging → prod → KV import) |
+| `Zava_DNS_POC_Deployment.ps1` | 2,000+ | ✅ **Battle-tested** — PowerShell (16 sections + feature flags for LE/DNSSEC/private DNS) |
+| `Zava_DNS_POC_Runbook.sh` | 2,100+ | ✅ Bash/az CLI runbook (13 sections + feature flags + 9-test DCV suite) |
 | `Zava_DCV_Automation.ps1` | — | 🔧 DigiCert DCV automation (Key Vault + cert lifecycle) |
-| `Zava_DNS_POC_Cleanup.ps1` | 182 | 🔧 Dependency-ordered cleanup script |
+| `cert-renewal-runbook.ps1` | — | 🔧 Generated scaffold — scheduled cert renewal via Key Vault + DigiCert (awaits customer credentials) |
+| `Zava_DNS_POC_Cleanup.ps1` | 182 | 🔧 Dependency-ordered cleanup (must remove: DNSSEC → Locks → RG in that order) |
 
 ### Infrastructure-as-Code (Bicep)
 | Path | Purpose |
@@ -73,8 +85,8 @@ This POC supports three deployment paths — choose based on customer preference
 |------|---------|
 | `sample-bind-zone.txt` | Sample Bind zone file (RFC 1035) with all record types |
 | `dns-operator-role.json` | Custom RBAC role definition for DNS record operators |
-| `DNS_POC_Architecture.drawio` | Architecture diagram (open in draw.io or VS Code extension) |
-
+| `DNS_POC_Architecture.drawio` | Architecture diagram (open in draw.io or VS Code extension) || `HighLevelASD.drawio` | 3-page high-level architecture (Resource Group, DNS, Compute, TM, Security, Observability layers) |
+| `infrastructure/main.json` | Compiled ARM template — auto-generated from `main.bicep` via `az bicep build` (**do not edit manually**) |
 ## Conventions
 
 - **Audience is the customer team** (Jeremy, Matt) and internal Microsoft stakeholders (Kim). Write for DNS practitioners who are new to Azure, not Azure experts.
@@ -105,7 +117,12 @@ This POC supports three deployment paths — choose based on customer preference
 - Zone Snapshots: `az network dns zone export` for point-in-time backups.
 - DNSSEC: Optional. `az network dns dnssec-config create` to sign, then publish DS record at registrar.
 - Geo-routing uses **Traffic Manager** with Geographic routing method (DNS-level, not application-level).
-- DNS Failover uses **Traffic Manager** with Priority routing method.
+- DNS Failover uses **Traffic Manager** with Priority routing method. **Set CNAME TTL to 30s** for failover scenarios (default 3600s is too slow).
+- POC deploys **3 Traffic Manager profiles** (Priority, Geographic, Weighted) — each independently testable.
+- QRadar integration requires **4 resources**: Event Hub namespace + Send/Listen SAS policies + consumer group + storage account.
+- Bicep parameter format: prefer `.bicepparam` (native) over `.parameters.json`. Both are provided.
+- Pre-flight checks: Both deployment scripts validate Azure CLI version, login state, subscription, and region availability before executing. Agents should do the same.
+- Bash runbook includes **9-test DCV proof suite** (more rigorous than PowerShell DCV section) — prefer Bash for cert automation testing.
 
 ## Success Criteria Tiers
 

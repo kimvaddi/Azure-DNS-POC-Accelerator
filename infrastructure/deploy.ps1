@@ -239,7 +239,11 @@ foreach ($ns in $outputs.publicDnsNameServers.value) {
 }
 
 Write-Host "`nPrivate DNS Zone:"
-Write-Host "  Name: $($outputs.privateDnsZoneName.value)`n"
+if ($outputs.privateDnsZoneName.value) {
+    Write-Host "  Name: $($outputs.privateDnsZoneName.value)`n"
+} else {
+    Write-Host "  Skipped (enablePrivateDns = false)`n"
+}
 
 Write-Host "Event Hub Integration (QRadar):"
 Write-Host "  Namespace: $($outputs.eventHubNamespaceId.value)"

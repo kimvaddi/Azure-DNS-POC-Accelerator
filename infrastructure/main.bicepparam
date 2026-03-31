@@ -26,6 +26,9 @@ param rgName = 'rg-dns-poc'
 param domain = 'poc.Zava.com'
 param privateDomain = 'poc-internal.Zava.local'
 
+// Set to true to deploy Private DNS zone + VNet (adds ~$1/mo cost)
+param enablePrivateDns = false
+
 // ============================================================================
 // WEB APP NAMES (must be globally unique - update these values)
 // ============================================================================

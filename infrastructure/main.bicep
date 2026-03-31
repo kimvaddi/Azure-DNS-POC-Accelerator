@@ -34,6 +34,9 @@ param domain string = 'poc.Zava.com'
 @description('Private DNS domain for internal resources')
 param privateDomain string = 'poc-internal.Zava.local'
 
+@description('Enable Private DNS zone and VNet deployment (set false to skip)')
+param enablePrivateDns bool = false
+
 @description('Web app name for US region')
 param webAppNameUS string = 'webapp-poc-us'
 
@@ -142,11 +145,10 @@ module keyVault 'modules/key-vault.bicep' = {
 }
 
 // ============================================================================
-// VIRTUAL NETWORK
+// VIRTUAL NETWORK (optional — only needed for private DNS)
 // ============================================================================
-// VNet for private DNS zone testing
 
-module vnet 'modules/vnet.bicep' = {
+module vnet 'modules/vnet.bicep' = if (enablePrivateDns) {
   scope: rg
   name: 'deploy-vnet'
   params: {
@@ -174,16 +176,15 @@ module publicDnsZone 'modules/public-dns-zone.bicep' = {
 }
 
 // ============================================================================
-// PRIVATE DNS ZONE
+// PRIVATE DNS ZONE (optional — set enablePrivateDns = true to deploy)
 // ============================================================================
-// Internal DNS zone with VNet link and sample A records
 
-module privateDnsZone 'modules/private-dns-zone.bicep' = {
+module privateDnsZone 'modules/private-dns-zone.bicep' = if (enablePrivateDns) {
   scope: rg
   name: 'deploy-private-dns-zone'
   params: {
     zoneName: privateDomain
-    vnetId: vnet.outputs.vnetId
+    vnetId: enablePrivateDns ? vnet!.outputs.vnetId : ''
     vnetLinkName: 'link-vnet-dns-poc'
     aRecords: [
       { name: 'db', ipAddress: '10.0.1.100' }
@@ -494,15 +495,15 @@ output secretRetrievalInstructions string = 'az keyvault secret show --vault-nam
 output storageAccountId string = storage.outputs.storageAccountId
 output storageAccountName string = storage.outputs.storageAccountName
 
-output vnetId string = vnet.outputs.vnetId
-output vnetName string = vnet.outputs.vnetName
+output vnetId string = enablePrivateDns ? vnet!.outputs.vnetId : ''
+output vnetName string = enablePrivateDns ? vnet!.outputs.vnetName : ''
 
 output publicDnsZoneId string = publicDnsZone.outputs.zoneId
 output publicDnsZoneName string = publicDnsZone.outputs.zoneName
 output publicDnsNameServers array = publicDnsZone.outputs.nameServers
 
-output privateDnsZoneId string = privateDnsZone.outputs.zoneId
-output privateDnsZoneName string = privateDnsZone.outputs.zoneName
+output privateDnsZoneId string = enablePrivateDns ? privateDnsZone!.outputs.zoneId : ''
+output privateDnsZoneName string = enablePrivateDns ? privateDnsZone!.outputs.zoneName : ''
 
 output webAppUSId string = webAppUS.outputs.appId
 output webAppUSHostName string = webAppUS.outputs.defaultHostName
