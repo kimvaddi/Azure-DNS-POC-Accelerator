@@ -199,7 +199,9 @@ $LAW_NAME          = "law-dns-poc"
 $EH_NAMESPACE      = "ehns-dns-poc"       # Must be globally unique
 $EH_NAME           = "dns-logs"
 $VNET_NAME         = "vnet-dns-poc"
-$KV_NAME           = "kv-dns-poc-zava2026"   # Default (matches Bicep)`n$_existingKV = az keyvault list -g $RG_NAME --query "[?starts_with(name, 'kv-')].name | [0]" -o tsv 2>$null`nif ($_existingKV) { $KV_NAME = $_existingKV }
+$KV_NAME           = "kv-dns-poc-zava2026"   # Default (matches Bicep)
+$_existingKV = az keyvault list -g $RG_NAME --query "[?starts_with(name, 'kv-')].name | [0]" -o tsv 2>$null
+if ($_existingKV) { $KV_NAME = $_existingKV }
 $TM_FAILOVER       = "tm-poc-failover"    # Must be globally unique
 $TM_GEO            = "tm-poc-geo"         # Must be globally unique
 $TM_WEIGHTED       = "tm-poc-weighted"    # Must be globally unique

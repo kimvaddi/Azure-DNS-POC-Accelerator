@@ -83,7 +83,9 @@ $LOCATION_SECONDARY = "uknorth"
 # -- Infrastructure Names --
 $LAW_NAME           = "law-dns-poc"
 $EH_NAMESPACE       = "ehns-dns-poc-$(Get-Random -Minimum 100 -Maximum 999)"
-$KV_NAME            = "kv-dns-poc-zava2026"   # Default (matches Bicep)`n$_existingKV = az keyvault list -g $RG_NAME --query "[?starts_with(name, 'kv-')].name | [0]" -o tsv 2>$null`nif ($_existingKV) { $KV_NAME = $_existingKV }
+$KV_NAME            = "kv-dns-poc-zava2026"   # Default (matches Bicep)
+$_existingKV = az keyvault list -g $RG_NAME --query "[?starts_with(name, 'kv-')].name | [0]" -o tsv 2>$null
+if ($_existingKV) { $KV_NAME = $_existingKV }
 $SP_NAME            = "sp-certbot-dns-poc"
 $TM_FAILOVER        = "tm-poc-failover-$(Get-Random -Minimum 100 -Maximum 999)"
 $TM_GEO             = "tm-poc-geo-$(Get-Random -Minimum 100 -Maximum 999)"
