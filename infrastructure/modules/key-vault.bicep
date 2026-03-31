@@ -30,7 +30,8 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     enableRbacAuthorization: enableRbacAuthorization
     enableSoftDelete: true
     softDeleteRetentionInDays: 7
-    enablePurgeProtection: false // POC only — enable in production
+    // enablePurgeProtection omitted for POC (cannot be set to false once enabled)
+    // In production, set to true: enablePurgeProtection: true
   }
 }
 

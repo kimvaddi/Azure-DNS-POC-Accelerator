@@ -1,0 +1,15 @@
+{
+    "nameFirst": "Kim",
+    "nameLast": "Vaddi",
+    "email": "kimvaddi@microsoft.com",
+    "phone": "+1.2105551234",
+    "organization": "Microsoft Corporation",
+    "jobTitle": "Azure Specialist",
+    "addressMailing": {
+        "address1": "One Microsoft Way",
+        "city": "Redmond",
+        "state": "WA",
+        "country": "US",
+        "postalCode": "98052"
+    }
+}

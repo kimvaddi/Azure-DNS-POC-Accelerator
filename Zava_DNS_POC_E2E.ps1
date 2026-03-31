@@ -174,40 +174,41 @@ function Invoke-PhaseDomain {
 
         # 1.3 — Purchase App Service Domain
         Write-Step "1.3 Purchasing App Service Domain: $ROOT_DOMAIN"
-        Write-Info "This will charge ~$12/yr to your subscription"
+        Write-Info "This will charge ~`$12/yr to your subscription"
         Write-Info "Domain registration is via GoDaddy (managed by Azure)"
+        # Ref: https://learn.microsoft.com/azure/app-service/manage-custom-dns-buy-domain
 
-        # App Service Domain requires contact info — using placeholder
-        # In production, customer provides real ICANN contact details
-        az appservice domain create `
-            --resource-group $RG_NAME `
-            --hostname $ROOT_DOMAIN `
-            --contact-info "@{
-                nameFirst:'Zava',
-                nameLast:'POC',
-                email:'$CONTACT_EMAIL',
-                nameMiddle:'',
-                phone:'+1.2105551234',
-                organization:'Zava Energy Corporation',
-                jobTitle:'DNS Engineer',
-                addressMailing:{
-                    address1:'100 Main St',
-                    city:'San Antonio',
-                    state:'TX',
-                    country:'US',
-                    postalCode:'78201'
-                }
-            }" `
-            --accept-terms `
-            --auto-renew `
-            --output none 2>&1
-
-        if ($LASTEXITCODE -eq 0) {
-            Write-OK "Domain $ROOT_DOMAIN purchased successfully"
-            Add-Finding "Domain" "Purchase" "App Service Domain registered via GoDaddy/Azure" "PASS"
+        # Check if already registered
+        $existingDomain = az appservice domain show --hostname $ROOT_DOMAIN -g $RG_NAME --query "name" -o tsv 2>$null
+        if ($existingDomain) {
+            Write-Warn "Domain already registered: $existingDomain"
+            Add-Finding "Domain" "Purchase" "Domain already exists — skipping purchase" "PASS"
         } else {
-            Write-Warn "Domain purchase returned non-zero exit code. Checking if zone exists..."
-            Add-Finding "Domain" "Purchase" "Command returned error — domain may already exist or need manual purchase" "WARN"
+            # Requires contact info JSON file
+            $contactFile = ".\domain-contact-info.json"
+            if (-not (Test-Path $contactFile)) {
+                Write-Fail "domain-contact-info.json not found. Create it with ICANN contact details."
+                Write-Info "Template: https://github.com/AzureAppServiceCLI/appservice_domains_templates/blob/master/contact_info.json"
+                Add-Finding "Domain" "Purchase" "Missing domain-contact-info.json" "FAIL"
+            } else {
+                # Dry-run first
+                Write-Step "1.3.1 Dry-run preview"
+                az appservice domain create -g $RG_NAME --hostname $ROOT_DOMAIN `
+                    --contact-info=@"$contactFile" --dryrun 2>$null
+
+                # Actual purchase
+                Write-Step "1.3.2 Executing domain purchase"
+                az appservice domain create -g $RG_NAME --hostname $ROOT_DOMAIN `
+                    --contact-info=@"$contactFile" --accept-terms --auto-renew --privacy --output table 2>&1
+
+                if ($LASTEXITCODE -eq 0) {
+                    Write-OK "Domain $ROOT_DOMAIN purchased successfully"
+                    Add-Finding "Domain" "Purchase" "App Service Domain registered via GoDaddy/Azure" "PASS"
+                } else {
+                    Write-Warn "Domain purchase returned non-zero exit code"
+                    Add-Finding "Domain" "Purchase" "Command returned error — check output above" "WARN"
+                }
+            }
         }
     } else {
         Write-Info "Skipping domain purchase (--SkipDomainPurchase flag)"

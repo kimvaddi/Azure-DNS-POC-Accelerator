@@ -251,10 +251,61 @@ if ($ENABLE_DOMAIN_PURCHASE) {
     # 0.5.3 Purchase domain (charges ~$12/yr)
     Write-Host "--- Purchasing App Service Domain: $ROOT_DOMAIN ---"
     Write-Host "  NOTE: This charges ~$12/yr to your Azure subscription" -ForegroundColor Yellow
-    # Customer must provide real ICANN contact info
-    # Ref: https://learn.microsoft.com/azure/app-service/manage-custom-dns-buy-domain#buy-and-map-an-app-service-domain
-    Write-Host "  CUSTOMER ACTION: Purchase domain via Azure Portal > App Service Domains"
-    Write-Host "  OR: az appservice domain create --resource-group $RG_NAME --hostname $ROOT_DOMAIN --contact-info <json>"
+    # Ref: https://learn.microsoft.com/azure/app-service/manage-custom-dns-buy-domain
+    # Ref: az appservice domain create --help
+
+    # Check if domain already exists in this RG
+    $existingDomain = az appservice domain show --hostname $ROOT_DOMAIN -g $RG_NAME --query "name" -o tsv 2>$null
+    if ($existingDomain) {
+        Write-Host "  Domain already registered: $existingDomain" -ForegroundColor Yellow
+    } else {
+        # Contact info JSON file required (edit domain-contact-info.json with real details)
+        $contactFile = ".\domain-contact-info.json"
+        if (-not (Test-Path $contactFile)) {
+            Write-Host "  ERROR: $contactFile not found. Create it with ICANN contact details." -ForegroundColor Red
+            Write-Host "  Template: https://github.com/AzureAppServiceCLI/appservice_domains_templates/blob/master/contact_info.json"
+            return
+        }
+
+        # Show terms first
+        Write-Host "--- Showing domain purchase terms ---"
+        az appservice domain show-terms --hostname $ROOT_DOMAIN --output table 2>$null
+
+        # Dry-run to preview
+        Write-Host "--- Dry-run (preview only) ---"
+        az appservice domain create `
+            --resource-group $RG_NAME `
+            --hostname $ROOT_DOMAIN `
+            --contact-info=@"$contactFile" `
+            --dryrun 2>$null
+
+        # Actual purchase
+        Write-Host "--- Executing domain purchase ---"
+        az appservice domain create `
+            --resource-group $RG_NAME `
+            --hostname $ROOT_DOMAIN `
+            --contact-info=@"$contactFile" `
+            --accept-terms `
+            --auto-renew `
+            --privacy `
+            --output table 2>&1
+
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  Domain $ROOT_DOMAIN purchased successfully" -ForegroundColor Green
+        } else {
+            Write-Host "  Domain purchase failed — check output above" -ForegroundColor Red
+            Write-Host "  Common issues: subscription spending limit, domain unavailable, invalid contact info"
+        }
+    }
+
+    # 0.5.3.1 Verify parent zone was auto-created
+    Write-Host "--- Verifying parent zone: $ROOT_DOMAIN ---"
+    $parentZone = az network dns zone show -g $RG_NAME -n $ROOT_DOMAIN --query "name" -o tsv 2>$null
+    if (-not $parentZone) {
+        Write-Host "  Parent zone not auto-created — creating manually" -ForegroundColor Yellow
+        az network dns zone create -g $RG_NAME -n $ROOT_DOMAIN --output none 2>$null
+    }
+    Write-Host "  Parent zone: $(az network dns zone show -g $RG_NAME -n $ROOT_DOMAIN --query 'name' -o tsv)" -ForegroundColor Green
 
     # 0.5.4 Create child zone for DNSSEC
     Write-Host "--- Creating child zone: $CHILD_ZONE ---"

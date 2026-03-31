@@ -130,10 +130,58 @@ if [ "$ENABLE_DOMAIN_PURCHASE" = true ]; then
   echo "Checking domain availability: $ROOT_DOMAIN"
   az appservice domain check-availability --name "$ROOT_DOMAIN" --output table
 
-  echo ""
-  echo "CUSTOMER ACTION: Purchase domain via Azure Portal > App Service Domains"
-  echo "  Or: az appservice domain create --resource-group $RESOURCE_GROUP --hostname $ROOT_DOMAIN ..."
-  echo ""
+  # Check if domain already exists
+  EXISTING_DOMAIN=$(az appservice domain show --hostname "$ROOT_DOMAIN" -g "$RESOURCE_GROUP" --query "name" -o tsv 2>/dev/null)
+  if [ -n "$EXISTING_DOMAIN" ]; then
+    echo "  ✅ Domain already registered: $EXISTING_DOMAIN"
+  else
+    # Contact info file required
+    # Ref: https://learn.microsoft.com/azure/app-service/manage-custom-dns-buy-domain
+    CONTACT_FILE="./domain-contact-info.json"
+    if [ ! -f "$CONTACT_FILE" ]; then
+      echo "  ❌ $CONTACT_FILE not found. Create it with ICANN contact details."
+      echo "  Template: https://github.com/AzureAppServiceCLI/appservice_domains_templates/blob/master/contact_info.json"
+      exit 1
+    fi
+
+    # Show terms
+    echo "--- Domain purchase terms ---"
+    az appservice domain show-terms --hostname "$ROOT_DOMAIN" --output table 2>/dev/null
+
+    # Dry-run preview
+    echo "--- Dry-run (preview only) ---"
+    az appservice domain create \
+      --resource-group "$RESOURCE_GROUP" \
+      --hostname "$ROOT_DOMAIN" \
+      --contact-info=@"$CONTACT_FILE" \
+      --dryrun 2>/dev/null
+
+    # Purchase
+    echo "--- Executing domain purchase (~\$12/yr) ---"
+    az appservice domain create \
+      --resource-group "$RESOURCE_GROUP" \
+      --hostname "$ROOT_DOMAIN" \
+      --contact-info=@"$CONTACT_FILE" \
+      --accept-terms \
+      --auto-renew \
+      --privacy \
+      --output table 2>&1
+
+    if [ $? -eq 0 ]; then
+      echo "  ✅ Domain $ROOT_DOMAIN purchased successfully"
+    else
+      echo "  ❌ Domain purchase failed — check output above"
+    fi
+  fi
+
+  # Verify parent zone
+  echo "--- Verifying parent zone: $ROOT_DOMAIN ---"
+  PARENT_ZONE=$(az network dns zone show -g "$RESOURCE_GROUP" -n "$ROOT_DOMAIN" --query "name" -o tsv 2>/dev/null)
+  if [ -z "$PARENT_ZONE" ]; then
+    echo "  Parent zone not auto-created — creating manually"
+    az network dns zone create -g "$RESOURCE_GROUP" -n "$ROOT_DOMAIN" --output none 2>/dev/null
+  fi
+  echo "  ✅ Parent zone ready"
 
   # Create child zone
   echo "Creating child zone: $CHILD_ZONE"

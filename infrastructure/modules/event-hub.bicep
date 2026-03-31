@@ -66,9 +66,6 @@ resource eventHub 'Microsoft.EventHub/namespaces/eventhubs@2023-01-01-preview' =
     messageRetentionInDays: messageRetentionInDays
     partitionCount: partitionCount
     status: 'Active'
-    captureDescription: {
-      enabled: false
-    }
   }
 }
 
