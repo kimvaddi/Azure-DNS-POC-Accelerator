@@ -1,0 +1,202 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "title": "Public Azure DNS observability",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "# Public Azure DNS monitoring for __ZONE_NAME__\nThis workbook tracks public-zone changes using Azure Activity Log data and renders Azure DNS metrics directly from Azure Monitor metric storage for the public zone.",
+              "style": "info"
+            },
+            "name": "overview"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "AzureActivity\n| where TimeGenerated > ago(24h)\n| where ResourceProviderValue =~ 'MICROSOFT.NETWORK'\n| where _ResourceId startswith '__ZONE_ID__'\n| project TimeGenerated, Caller, OperationName=OperationNameValue, Status=ActivityStatusValue, ResourceGroup, ResourceId=_ResourceId, CorrelationId\n| order by TimeGenerated desc",
+              "size": 0,
+              "title": "Recent public DNS changes (24h)",
+              "showRefreshButton": true,
+              "showExportToExcel": true,
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "__WORKSPACE_ID__"
+              ],
+              "visualization": "table"
+            },
+            "name": "recentChanges"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "AzureActivity\n| where TimeGenerated > ago(7d)\n| where ResourceProviderValue =~ 'MICROSOFT.NETWORK'\n| where _ResourceId startswith '__ZONE_ID__'\n| summarize ChangeCount=count(), LastChange=max(TimeGenerated) by Caller\n| order by ChangeCount desc",
+              "size": 0,
+              "title": "Changes by caller (7d)",
+              "showRefreshButton": true,
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "__WORKSPACE_ID__"
+              ],
+              "visualization": "barchart"
+            },
+            "name": "changesByCaller",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "AzureActivity\n| where TimeGenerated > ago(7d)\n| where ResourceProviderValue =~ 'MICROSOFT.NETWORK'\n| where _ResourceId startswith '__ZONE_ID__'\n| extend Segments = split(_ResourceId, '/')\n| extend RecordType = iff(array_length(Segments) > 9, toupper(tostring(Segments[9])), 'ZONE')\n| extend RecordSetName = iff(array_length(Segments) > 10, tostring(Segments[10]), '@')\n| where RecordType != 'ZONE'\n| project TimeGenerated, Caller, OperationName=OperationNameValue, Status=ActivityStatusValue, RecordType, RecordSetName, CorrelationId\n| order by TimeGenerated desc",
+              "size": 0,
+              "title": "Record set write activity (7d)",
+              "showRefreshButton": true,
+              "showExportToExcel": true,
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "__WORKSPACE_ID__"
+              ],
+              "visualization": "table"
+            },
+            "name": "recordSetWrites",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "AzureActivity\n| where TimeGenerated > ago(7d)\n| where ResourceProviderValue =~ 'MICROSOFT.NETWORK'\n| where _ResourceId startswith '__ZONE_ID__'\n| extend Segments = split(_ResourceId, '/')\n| extend RecordType = iff(array_length(Segments) > 9, toupper(tostring(Segments[9])), 'ZONE')\n| extend RecordSetName = iff(array_length(Segments) > 10, tostring(Segments[10]), '@')\n| where RecordType != 'ZONE'\n| summarize ChangeCount=count(), LastChange=max(TimeGenerated) by RecordType, RecordSetName\n| top 15 by ChangeCount desc",
+              "size": 0,
+              "title": "Most changed record sets (7d)",
+              "showRefreshButton": true,
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "__WORKSPACE_ID__"
+              ],
+              "visualization": "barchart"
+            },
+            "name": "topChangedRecordSets",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "AzureActivity\n| where TimeGenerated > ago(30d)\n| where ResourceProviderValue =~ 'MICROSOFT.NETWORK'\n| where _ResourceId startswith '__ZONE_ID__'\n| where ActivityStatusValue !~ 'Succeeded'\n| extend Segments = split(_ResourceId, '/')\n| extend RecordType = iff(array_length(Segments) > 9, toupper(tostring(Segments[9])), 'ZONE')\n| extend RecordSetName = iff(array_length(Segments) > 10, tostring(Segments[10]), '@')\n| project TimeGenerated, Caller, OperationName=OperationNameValue, Status=ActivityStatusValue, RecordType, RecordSetName, CorrelationId\n| order by TimeGenerated desc",
+              "size": 0,
+              "title": "Failed DNS changes (30d)",
+              "showRefreshButton": true,
+              "showExportToExcel": true,
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "__WORKSPACE_ID__"
+              ],
+              "visualization": "table"
+            },
+            "name": "failedDnsChanges",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 10,
+            "content": {
+              "chartId": "workbook-public-dns-query-volume",
+              "version": "MetricsItem/2.0",
+              "size": 0,
+              "chartType": 2,
+              "resourceType": "microsoft.network/dnszones",
+              "metricScope": 0,
+              "resourceIds": [
+                "__ZONE_ID__"
+              ],
+              "timeContext": {
+                "durationMs": 604800000
+              },
+              "metrics": [
+                {
+                  "namespace": "microsoft.network/dnszones",
+                  "metric": "microsoft.network/dnszones--QueryVolume",
+                  "aggregation": 7,
+                  "columnName": "Query Volume"
+                }
+              ],
+              "title": "Query volume (7d)",
+              "showOpenInMe": true,
+              "gridSettings": {
+                "rowLimit": 10000
+              }
+            },
+            "name": "queryVolumeMetric",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 10,
+            "content": {
+              "chartId": "workbook-public-dns-recordsets",
+              "version": "MetricsItem/2.0",
+              "size": 0,
+              "chartType": 2,
+              "resourceType": "microsoft.network/dnszones",
+              "metricScope": 0,
+              "resourceIds": [
+                "__ZONE_ID__"
+              ],
+              "timeContext": {
+                "durationMs": 604800000
+              },
+              "metrics": [
+                {
+                  "namespace": "microsoft.network/dnszones",
+                  "metric": "microsoft.network/dnszones--RecordSetCount",
+                  "aggregation": 4,
+                  "columnName": "Record Set Count"
+                },
+                {
+                  "namespace": "microsoft.network/dnszones",
+                  "metric": "microsoft.network/dnszones--RecordSetCapacityUtilization",
+                  "aggregation": 4,
+                  "columnName": "Record Set Capacity Utilization"
+                }
+              ],
+              "title": "Record set inventory and capacity (7d)",
+              "showOpenInMe": true,
+              "gridSettings": {
+                "rowLimit": 10000
+              }
+            },
+            "name": "recordSetMetrics",
+            "styleSettings": {
+              "showBorder": true
+            }
+          }
+        ]
+      },
+      "name": "group-publicDnsMonitoring"
+    }
+  ],
+  "fallbackResourceIds": [
+    "__ZONE_ID__"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
