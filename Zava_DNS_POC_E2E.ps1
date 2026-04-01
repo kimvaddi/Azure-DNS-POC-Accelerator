@@ -332,7 +332,7 @@ function Invoke-PhaseInfra {
     # Build dynamic parameters — override domain and optionally skip private DNS
     $enablePDns = if ($ENABLE_PRIVATE_DNS) { "true" } else { "false" }
     $bicepParams = @(
-        "--parameters", "domain=$CHILD_ZONE",
+        "--parameters", "domain=poc.$ROOT_DOMAIN",
         "--parameters", "rgName=$RG_NAME",
         "--parameters", "location=$LOCATION",
         "--parameters", "locationPrimary=$LOCATION_PRIMARY",

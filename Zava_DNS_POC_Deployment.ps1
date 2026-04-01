@@ -355,11 +355,28 @@ if ($ENABLE_DOMAIN_PURCHASE) {
         Write-Host "  NS delegation created in $ROOT_DOMAIN for $childPrefix" -ForegroundColor Green
     }
 
-    # Update $DOMAIN to use child zone for subsequent sections
-    Write-Host "  Switching DOMAIN to $CHILD_ZONE for DNSSEC support" -ForegroundColor Cyan
-    $DOMAIN = $CHILD_ZONE
+    # Store child zone for DNSSEC (Section 9) — do NOT overwrite $DOMAIN
+    # $DOMAIN stays as poc.zava-dnspoc.com for all other sections (zone import, CNAME, DCV, etc.)
+    $DNSSEC_ZONE = $CHILD_ZONE
+    Write-Host "  DNSSEC zone: $DNSSEC_ZONE (used in Section 9 only)" -ForegroundColor Cyan
+    Write-Host "  Primary zone: $DOMAIN (used for all other sections)" -ForegroundColor Cyan
 
-    Write-Host "`n  VERIFY: nslookup -type=NS $CHILD_ZONE" -ForegroundColor Yellow
+    # Also create the primary POC zone as a child of the root domain
+    Write-Host "--- Creating primary POC zone: $DOMAIN ---"
+    az network dns zone create -g $RG_NAME -n $DOMAIN --output none 2>$null
+    if ($LASTEXITCODE -eq 0) { Write-Host "  POC zone created: $DOMAIN" -ForegroundColor Green }
+
+    # Delegate POC zone in parent
+    $pocNS = az network dns zone show -g $RG_NAME -n $DOMAIN --query "nameServers" -o json 2>$null | ConvertFrom-Json
+    if ($pocNS) {
+        $pocPrefix = $DOMAIN.Replace(".$ROOT_DOMAIN", "")
+        foreach ($ns in $pocNS) {
+            az network dns record-set ns add-record -g $RG_NAME -z $ROOT_DOMAIN -n $pocPrefix --nsdname $ns --output none 2>$null
+        }
+        Write-Host "  NS delegation created in $ROOT_DOMAIN for $pocPrefix" -ForegroundColor Green
+    }
+
+    Write-Host "`n  VERIFY: nslookup -type=NS $DOMAIN" -ForegroundColor Yellow
 } else {
     Write-Host "`n--- Skipping domain purchase (ENABLE_DOMAIN_PURCHASE = `$false) ---" -ForegroundColor DarkGray
 }
@@ -1882,51 +1899,56 @@ Write-Host @"
 
 Write-Host "`n=== STEP 9: DNSSEC ===" -ForegroundColor Cyan
 
+# Use the DNSSEC child zone (set in Section 0.5), or fall back to $DOMAIN
+$DNSSEC_TARGET = if ($DNSSEC_ZONE) { $DNSSEC_ZONE } else { $DOMAIN }
+Write-Host "  DNSSEC target zone: $DNSSEC_TARGET"
+
 # 9.1 Enable DNSSEC signing
 Write-Host "--- Enabling DNSSEC zone signing ---"
 # Ref: https://learn.microsoft.com/azure/dns/dnssec-how-to
 # Ref: https://learn.microsoft.com/azure/dns/dnssec (DNSSEC overview)
-az network dns dnssec-config create -g $RG_NAME -z $DOMAIN `
+az network dns dnssec-config create -g $RG_NAME -z $DNSSEC_TARGET `
   --query "{provisioningState:provisioningState}" -o table
 
 # 9.2 Show signing keys (DS record for registrar)
 Write-Host "--- DNSSEC signing keys ---"
-az network dns dnssec-config show -g $RG_NAME -z $DOMAIN `
+az network dns dnssec-config show -g $RG_NAME -z $DNSSEC_TARGET `
   --query "{signingKeys:signingKeys[].{keyTag:keyTag, flags:flags}}" -o json
 
 # 9.2.5 DNSSEC SUBDOMAIN APPROACH — Publish DS record in parent zone
-# App Service Domain limitation: Cannot publish DS records at the registrar (GoDaddy).
-# Workaround: If using a child zone (ENABLE_DNSSEC_SUBDOMAIN), we own the parent zone
-# in Azure DNS, so we can publish the DS record there ourselves.
-# This is how Daniel Mauser proved DNSSEC on demo.zava-dnspoc-001.com.
 if ($ENABLE_DNSSEC_SUBDOMAIN -and $ENABLE_DOMAIN_PURCHASE) {
     Write-Host "`n--- Publishing DS record in parent zone (chain of trust) ---" -ForegroundColor Cyan
-    Write-Host "  Child zone: $DOMAIN → Parent zone: $ROOT_DOMAIN"
+    Write-Host "  Child zone: $DNSSEC_TARGET → Parent zone: $ROOT_DOMAIN"
 
     # Wait for signing to complete
-    $maxWait = 60; $waited = 0
+    $maxWait = 120; $waited = 0
     while ($waited -lt $maxWait) {
-        $signingKeys = az network dns zone show -n $DOMAIN -g $RG_NAME `
-            --query "signingKeys[?delegationSignerInfo != null].delegationSignerInfo" -o json 2>$null | ConvertFrom-Json
-        if ($signingKeys -and $signingKeys.Count -gt 0) { break }
-        Start-Sleep -Seconds 10; $waited += 10
+        $signingKeysJson = az network dns zone show -n $DNSSEC_TARGET -g $RG_NAME `
+            --query "signingKeys[?flags == ``257``] | [0]" -o json 2>$null
+        if ($signingKeysJson -and $signingKeysJson -ne 'null') {
+            $dsInfo = $signingKeysJson | ConvertFrom-Json
+            if ($dsInfo.delegationSignerInfo -and $dsInfo.delegationSignerInfo.Count -gt 0) { break }
+        }
+        Start-Sleep -Seconds 15; $waited += 15
         Write-Host "  Waiting for signing... ${waited}s"
     }
 
-    if ($signingKeys -and $signingKeys.Count -gt 0) {
-        $dsRaw = az network dns zone show -n $DOMAIN -g $RG_NAME `
-            --query "signingKeys[?delegationSignerInfo != null] | [0]" -o json 2>$null | ConvertFrom-Json
-        $ds = $dsRaw.delegationSignerInfo
-        $keyTag = $dsRaw.keyTag
-        $childPrefix = $DOMAIN.Replace(".$ROOT_DOMAIN", "")
+    if ($dsInfo -and $dsInfo.delegationSignerInfo.Count -gt 0) {
+        $ds = $dsInfo.delegationSignerInfo[0]
+        $recordParts = $ds.record -split '\s+'
+        $keyTag     = $recordParts[0]
+        $algorithm  = $recordParts[1]
+        $digestType = $recordParts[2]
+        $digest     = $recordParts[3]
+        $childPrefix = $DNSSEC_TARGET.Replace(".$ROOT_DOMAIN", "")
 
+        Write-Host "  DS: keyTag=$keyTag algorithm=$algorithm digestType=$digestType"
         az network dns record-set ds add-record -g $RG_NAME -z $ROOT_DOMAIN `
-            -n $childPrefix --key-tag $keyTag --algorithm $ds.digestAlgorithm `
-            --digest-type $ds.digestType --digest $ds.digestValue --output none 2>$null
+            -n $childPrefix --key-tag $keyTag --algorithm $algorithm `
+            --digest-type $digestType --digest $digest --output none 2>$null
 
         if ($LASTEXITCODE -eq 0) {
             Write-Host "  DS record published in $ROOT_DOMAIN for $childPrefix" -ForegroundColor Green
-            Write-Host "  DNSSEC chain of trust: .com TLD → $ROOT_DOMAIN → $DOMAIN (signed)" -ForegroundColor Green
         } else {
             Write-Host "  DS record publication failed" -ForegroundColor Red
         }
@@ -1935,12 +1957,11 @@ if ($ENABLE_DNSSEC_SUBDOMAIN -and $ENABLE_DOMAIN_PURCHASE) {
     }
 } else {
     Write-Host "`n  NOTE: For full DNSSEC chain of trust, publish the DS record at your registrar." -ForegroundColor Yellow
-    Write-Host "  Or set ENABLE_DNSSEC_SUBDOMAIN=`$true + ENABLE_DOMAIN_PURCHASE=`$true"
 }
 
 # 9.3 Verify DNSKEY records
 Write-Host "--- Verify DNSKEY records ---"
-Resolve-DnsName -Name $DOMAIN -Type DNSKEY -Server $NS |
+Resolve-DnsName -Name $DNSSEC_TARGET -Type DNSKEY -Server $NS |
   Format-Table Name, Type, KeyTag, Flags -AutoSize
 
 

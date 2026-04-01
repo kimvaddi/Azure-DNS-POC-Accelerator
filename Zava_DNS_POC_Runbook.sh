@@ -221,9 +221,11 @@ if [ "$ENABLE_DOMAIN_PURCHASE" = true ]; then
   done
   echo "  ✅ NS delegation created in $ROOT_DOMAIN for $CHILD_PREFIX"
 
-  # Switch to child zone for all subsequent sections
-  echo "  Switching PUBLIC_ZONE to $CHILD_ZONE for DNSSEC support"
-  PUBLIC_ZONE="$CHILD_ZONE"
+  # Keep PUBLIC_ZONE as poc.zava-dnspoc.com — do NOT overwrite with CHILD_ZONE
+  # DNSSEC uses CHILD_ZONE separately in Section 10
+  DNSSEC_ZONE="$CHILD_ZONE"
+  echo "  DNSSEC zone: $DNSSEC_ZONE (Section 10 only)"
+  echo "  Primary zone: $PUBLIC_ZONE (all other sections)"
 else
   echo ""
   echo "--- Skipping domain purchase (ENABLE_DOMAIN_PURCHASE=false) ---"
