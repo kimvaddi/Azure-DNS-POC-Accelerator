@@ -95,18 +95,19 @@ $LOCATION           = "southcentralus"
 $LOCATION_PRIMARY   = "westus3"
 $LOCATION_SECONDARY = "westeurope"
 
-# -- Infrastructure Names --
+# -- Infrastructure Names (dynamic suffix from subscription ID) --
+$_suffix = $SUBSCRIPTION_ID.Substring(0,8)
 $LAW_NAME           = "law-dns-poc"
-$EH_NAMESPACE       = "ehns-dns-poc-$(Get-Random -Minimum 100 -Maximum 999)"
-$KV_NAME            = "kv-dns-poc-zava2026"   # Default (matches Bicep)
+$EH_NAMESPACE       = "ehns-dns-poc"
+$KV_NAME            = "kv-dnspoc-$_suffix"  # Dynamic: unique per subscription
 $_existingKV = az keyvault list -g $RG_NAME --query "[?starts_with(name, 'kv-')].name | [0]" -o tsv 2>$null
 if ($_existingKV) { $KV_NAME = $_existingKV }
 $SP_NAME            = "sp-certbot-dns-poc"
 $TM_FAILOVER        = "tm-poc-failover"
 $TM_GEO             = "tm-poc-geo"
 $TM_WEIGHTED        = "tm-poc-weighted"
-$WEBAPP_US          = "webapp-poc-us-zava$(Get-Random -Minimum 1000 -Maximum 9999)"
-$WEBAPP_UK          = "webapp-poc-uk-zava$(Get-Random -Minimum 1000 -Maximum 9999)"
+$WEBAPP_US          = "webapp-poc-us-$_suffix"
+$WEBAPP_UK          = "webapp-poc-uk-$_suffix"
 
 # -- Feature Flags --
 $ENABLE_PRIVATE_DNS = $EnablePrivateDns.IsPresent

@@ -225,11 +225,15 @@ $CONTACT_EMAIL     = "admin@zavaenergy.com" # ICANN registration + Let's Encrypt
 # Ref: https://docs.certbot-dns-azure.co.uk/en/latest/
 # Ref: https://letsencrypt.org/getting-started/
 $SP_CERTBOT_NAME   = "sp-certbot-dns-poc"   # Service Principal for certbot
+# Generate unique suffix from subscription ID (deterministic per sub, unique across tenants)
+$_subId = az account show --query id -o tsv 2>$null
+$_suffix = $_subId.Substring(0,8)  # First 8 chars of subscription GUID
+
 $LAW_NAME          = "law-dns-poc"
 $EH_NAMESPACE      = "ehns-dns-poc"       # Must be globally unique
 $EH_NAME           = "dns-logs"
 $VNET_NAME         = "vnet-dns-poc"
-$KV_NAME           = "kv-dns-poc-zava2026"   # Default (matches Bicep)
+$KV_NAME           = "kv-dnspoc-$_suffix"  # Dynamic: unique per subscription
 $_existingKV = az keyvault list -g $RG_NAME --query "[?starts_with(name, 'kv-')].name | [0]" -o tsv 2>$null
 if ($_existingKV) { $KV_NAME = $_existingKV }
 $TM_FAILOVER       = "tm-poc-failover"    # Must be globally unique
@@ -237,8 +241,8 @@ $TM_GEO            = "tm-poc-geo"         # Must be globally unique
 $TM_WEIGHTED       = "tm-poc-weighted"    # Must be globally unique
 $ASP_US            = "asp-poc-us"
 $ASP_UK            = "asp-poc-uk"
-$WEBAPP_US         = "webapp-poc-us"      # Must be globally unique
-$WEBAPP_UK         = "webapp-poc-uk"      # Must be globally unique
+$WEBAPP_US         = "webapp-poc-us-$_suffix"  # Dynamic: unique per subscription
+$WEBAPP_UK         = "webapp-poc-uk-$_suffix"  # Dynamic: unique per subscription
 
 # -- Bind zone files (local paths after export from Bind server) --
 # Place exported zone files in ./zone-files/ directory before running.

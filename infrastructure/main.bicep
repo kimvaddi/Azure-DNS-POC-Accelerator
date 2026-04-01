@@ -53,8 +53,8 @@ param eventHubNamespaceName string = 'ehns-dns-poc'
 @description('Log Analytics workspace name')
 param lawName string = 'law-dns-poc'
 
-@description('Key Vault name for storing secrets')
-param keyVaultName string = 'kv-dns-poc-zava2026'
+@description('Key Vault name for storing secrets (auto-generated unique per subscription)')
+param keyVaultName string = 'kv-dnspoc-${substring(uniqueString(subscription().subscriptionId), 0, 8)}'
 
 @description('Tags to apply to all resources')
 param tags object = {
