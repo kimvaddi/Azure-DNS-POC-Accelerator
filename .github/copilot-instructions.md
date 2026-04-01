@@ -142,6 +142,7 @@ This POC supports four deployment paths — choose based on customer preference 
 - RBAC uses `DNS Zone Contributor` (admin) and a custom `DNS Record Operator` role (operator).
 - DCV testing covers **9 proof tests**: DigiCert `_dnsauth` and ACME `_acme-challenge` conventions — single domain, subdomain, wildcard (RFC 8555), multi-domain SAN (parallel challenges), full-cycle timing (create → propagate → cleanup), and certbot dry-run integration. Each test produces a PASS/FAIL verdict with timing data.
 - Logging path: DNS Zone → Diagnostic Settings → Event Hub → IBM QRadar (DSM connector).
+- **DNS QUERY LOGGING LIMITATION:** Azure DNS public zones do NOT support per-query logging (data plane). Activity Log captures management plane only (record CRUD operations with user identity + timestamp). For per-query logging, use [Azure DNS Private Resolver + DNS Security Policy](https://learn.microsoft.com/azure/dns/dns-traffic-log-how-to) which provides `DNSQueryLogs` table, or [Azure Firewall DNS Proxy](https://learn.microsoft.com/azure/firewall/dns-details). Ref: [Monitor Azure DNS](https://learn.microsoft.com/azure/dns/monitor-dns) | [Azure DNS Security Baseline](https://learn.microsoft.com/security/benchmark/azure/baselines/azure-dns-security-baseline)
 - Reporting: Azure Monitor Workbooks + Log Analytics for operational dashboards.
 - Zone Snapshots: `az network dns zone export` for point-in-time backups.
 - DNSSEC: Optional. `az network dns dnssec-config create` to sign, then publish DS record at registrar.

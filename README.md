@@ -171,6 +171,14 @@ Resource Group: rg-dns-poc
 |---|-----------|-----------|-------------|-------|---------|
 | 1 | Zone Migration (Bind import) | Section 1.4 | Section 2 | DNS zone only | ✅ 23/23 records |
 | 2 | Audit Logging (→ Event Hub → QRadar) | Section 3 | Section 6 | ✅ Full | ✅ 8 categories |
+
+> **DNS Logging Limitation:** Azure DNS public zones do NOT support per-query logging (data plane).
+> The Activity Log captures management plane operations only: WHO changed WHAT record, WHEN, from WHERE.
+> It does NOT capture: who queried what record (DNS query traffic).
+> This is an Azure platform limitation — not a POC gap. For per-query DNS logging, consider:
+> - [Azure DNS Private Resolver + DNS Security Policy](https://learn.microsoft.com/azure/dns/dns-traffic-log-how-to) — enables `DNSQueryLogs` for VNet traffic
+> - [Azure Firewall DNS Proxy](https://learn.microsoft.com/azure/firewall/dns-details) — logs all DNS queries through the firewall
+> - **Ref:** [Monitor Azure DNS](https://learn.microsoft.com/azure/dns/monitor-dns) | [Activity Log](https://learn.microsoft.com/azure/azure-monitor/essentials/activity-log) | [DNS Security Baseline](https://learn.microsoft.com/security/benchmark/azure/baselines/azure-dns-security-baseline)
 | 3 | Reporting (LAW + Workbooks) | Section 7.5 | Section 8 | ✅ LAW + diag | ✅ |
 | 4 | Zone Snapshots (export + re-import) | Section 8 | Section 7 | N/A (procedural) | ✅ |
 | 5 | Certificate Integration (DCV) | Section 5 | Section 5 | N/A (procedural) | ✅ 5/9 tests |
