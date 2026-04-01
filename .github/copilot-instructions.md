@@ -25,17 +25,42 @@ This workspace contains customer-facing engagement materials for **Zava Energy C
 - **When handling secrets:** Use the Key Vault zero-secret pattern — retrieve DigiCert API keys at runtime via `az keyvault secret show`, never pass as CLI parameters or expose in logs. See `Zava_DCV_Automation.ps1` for reference.
 - **When scripting cleanup:** Follow dependency order: DNSSEC config → Resource Locks → Resource Group. See `Zava_DNS_POC_Cleanup.ps1`.
 
-## Three Deployment Options
+## Four Deployment Options
 
-This POC supports three deployment paths — choose based on customer preference and environment:
+This POC supports four deployment paths — choose based on customer preference and environment:
 
 | Method | When to Use | Pros | Cons | Time |
 |--------|-------------|------|------|------|
-| **Bicep (IaC)** | Customer wants repeatable, declarative infrastructure | Fastest, idempotent, version-controlled | Requires Bicep knowledge, less visibility into individual steps | ~15 min |
-| **PowerShell** | Customer is Windows-based, wants step-by-step control | Battle-tested (14 issues fixed), extensive inline docs, can pause/resume | Manual execution, requires copy-paste discipline | ~45 min |
+| **E2E Push-Button** | Customer wants one-command deployment | Domain purchase → Bicep → DNSSEC → Let's Encrypt → Validation | Requires domain purchase (~$12/yr) | ~20 min |
+| **Bicep (IaC)** | Customer wants repeatable, declarative infrastructure | Fastest, idempotent, version-controlled | Requires Bicep knowledge, no domain/cert automation | ~15 min |
+| **PowerShell** | Customer is Windows-based, wants step-by-step control | Battle-tested (26+ findings fixed), extensive inline docs, can pause/resume | Manual execution, requires copy-paste discipline | ~45 min |
 | **Bash** | Customer is Linux/Mac-based, wants shell scripting | Includes 9-test DCV proof suite, full-cycle timing | Manual execution, longer than Bicep | ~60 min |
 
-**AI Agent Rule:** When asked "how do I deploy?", recommend Bicep for speed, PowerShell for Windows teams wanting visibility, Bash for Linux teams. See `infrastructure/README.md` (Bicep guide) and `README.md` (all three methods).
+**AI Agent Rule:** When asked "how do I deploy?", recommend E2E for fastest full demo, Bicep for infra-only, PowerShell for Windows teams wanting visibility, Bash for Linux teams.
+
+## Deployment Order (dependencies)
+
+```
+1. Domain Purchase (Section 0.5)  ← FIRST: creates DNS zone + NS delegation
+2. Foundation (Section 1)         ← RG, LAW, Event Hub, KV, VNet
+3. DNS Zones + Import (Section 2) ← depends on RG
+4. Audit Logging (Section 3)      ← depends on LAW + Event Hub
+5. RBAC (Section 4)               ← depends on DNS Zone
+6. DCV Tests (Section 5)          ← depends on DNS Zone
+7. Let's Encrypt (Section 5.5)    ← depends on DNS Zone + KV + domain purchase
+8. Traffic Manager (Section 6)    ← depends on RG (profiles only)
+9. Web Apps + Wiring (Section 7)  ← depends on TM + LAW + DNS Zone
+10. DNSSEC (Section 9)            ← depends on DNS Zone + domain purchase
+```
+
+## Feature Flags (all 3 script methods)
+
+| Flag | Default | What it controls |
+|------|---------|------------------|
+| `ENABLE_DOMAIN_PURCHASE` | `true` | Buy App Service Domain via `az appservice domain create` |
+| `ENABLE_LETSENCRYPT` | `true` | Let's Encrypt cert automation (certbot + certbot-dns-azure) |
+| `ENABLE_DNSSEC_SUBDOMAIN` | `true` | Child zone DNSSEC with DS record in parent |
+| `ENABLE_PRIVATE_DNS` | `false` | Private DNS zone + VNet (optional) |
 
 ## Workspace Structure
 
@@ -92,7 +117,11 @@ This POC supports three deployment paths — choose based on customer preference
 - **Audience is the customer team** (Jeremy, Matt) and internal Microsoft stakeholders (Kim). Write for DNS practitioners who are new to Azure, not Azure experts.
 - **Azure region:** `southcentralus` (closest to Zava HQ in San Antonio).
 - **Resource group:** `rg-dns-poc` inside Zava's existing Enterprise Landing Zone.
-- **POC domain:** `poc.zava-dnspoc.com` (public), `poc-internal.zava-dnspoc.local` (private).
+- **POC domain:** `poc.zava-dnspoc.com` (public), `poc-internal.zava-dnspoc.local` (private, optional).
+- **Root domain:** `zava-dnspoc.com` (purchased via App Service Domain).
+- **Child zone:** `demo.zava-dnspoc.com` (for DNSSEC chain of trust).
+- **Key Vault:** `kv-dns-poc-zava2026` (single instance shared across all deployment methods — discover-first pattern).
+- **Secondary region:** `westeurope` (webapp region for Traffic Manager geographic routing).
 - **Scripts use Azure CLI** (`az` commands). PowerShell alternatives are provided where noted.
 - Variables in the runbook use `UPPER_SNAKE_CASE` and must be set in Section 0 before execution.
 - Placeholders use angle brackets: `<subscription-id>`, `<tenant-id>`, etc.
@@ -123,6 +152,46 @@ This POC supports three deployment paths — choose based on customer preference
 - Bicep parameter format: prefer `.bicepparam` (native) over `.parameters.json`. Both are provided.
 - Pre-flight checks: Both deployment scripts validate Azure CLI version, login state, subscription, and region availability before executing. Agents should do the same.
 - Bash runbook includes **9-test DCV proof suite** (more rigorous than PowerShell DCV section) — prefer Bash for cert automation testing.
+
+## DNSSEC Approach
+
+- App Service Domains do NOT support publishing DS records at the registrar (GoDaddy limitation).
+- **Fix:** Create a child zone (`demo.zava-dnspoc.com`), sign it, publish DS record in parent zone (`zava-dnspoc.com`) which we control in Azure DNS.
+- Ref: https://learn.microsoft.com/azure/dns/dnssec-how-to
+
+## Let's Encrypt Integration
+
+- Uses `certbot` + `certbot-dns-azure` plugin with DNS-01 challenge.
+- SP credentials stored in Key Vault (zero-secret pattern).
+- Staging dry-run validates plumbing before production cert issuance.
+- Cert imported to Key Vault as PFX after PEM → PFX conversion.
+- Ref: https://docs.certbot-dns-azure.co.uk/en/latest/
+
+## Live Testing Findings (26 issues found + fixed)
+
+See deployment script headers for the full registry. Key findings from FDPO testing:
+- Key Vault `enablePurgeProtection: false` rejected — omit the property
+- Event Hub `captureDescription` requires `encoding` if present — remove empty block
+- `AppServiceFileAuditLogs` not supported on Linux B1 — removed from diagnostics
+- `uknorth` not valid for App Service — use `westeurope`
+- FDPO tenant blocks SP password credentials — use `--create-cert --keyvault`
+- `ConvertFrom-Json` crashes on WARNING text — filter non-JSON lines first
+- DS record fields from `record` string, not individual properties
+- JMESPath case-sensitive: `NSRecords` not `nsRecords`, `DSRecords` not `dsRecords`
+
+## Microsoft Learn References
+
+| Topic | URL |
+|-------|-----|
+| Domain Purchase | https://learn.microsoft.com/azure/app-service/manage-custom-dns-buy-domain |
+| DNS Delegation | https://learn.microsoft.com/azure/dns/dns-domain-delegation |
+| DNSSEC | https://learn.microsoft.com/azure/dns/dnssec-how-to |
+| Key Vault | https://learn.microsoft.com/azure/key-vault/general/best-practices |
+| Event Hub + SIEM | https://learn.microsoft.com/azure/azure-monitor/essentials/diagnostic-settings |
+| Traffic Manager | https://learn.microsoft.com/azure/traffic-manager/traffic-manager-routing-methods |
+| App Service TLS | https://learn.microsoft.com/azure/app-service/configure-ssl-certificate |
+| certbot-dns-azure | https://docs.certbot-dns-azure.co.uk/en/latest/ |
+| Custom RBAC | https://learn.microsoft.com/azure/role-based-access-control/custom-roles |
 
 ## Success Criteria Tiers
 
