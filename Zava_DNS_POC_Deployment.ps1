@@ -225,6 +225,7 @@ $CONTACT_EMAIL     = "admin@zavaenergy.com" # ICANN registration + Let's Encrypt
 # Ref: https://docs.certbot-dns-azure.co.uk/en/latest/
 # Ref: https://letsencrypt.org/getting-started/
 $SP_CERTBOT_NAME   = "sp-certbot-dns-poc"   # Service Principal for certbot
+$LE_CERT_NAME      = "le-cert"               # Certificate name in Key Vault (must match certbot import)
 # Generate unique suffix from subscription ID (deterministic per sub, unique across tenants)
 $_subId = az account show --query id -o tsv 2>$null
 if (-not $_subId -or $_subId.Length -lt 8) {
@@ -1445,6 +1446,22 @@ if ($ENABLE_LETSENCRYPT) {
         }
     }
 
+    # 5.5.1b Grant App Service resource provider access to Key Vault certificates
+    # Ref: https://learn.microsoft.com/azure/app-service/configure-ssl-certificate#import-a-certificate-from-key-vault
+    # App Service RP needs "Key Vault Certificate User" to import certs via az webapp config ssl import
+    $KV_SCOPE = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME/providers/Microsoft.KeyVault/vaults/$KV_NAME"
+    Write-Host "--- Granting App Service RP access to Key Vault certificates ---"
+    az role assignment create `
+      --role "Key Vault Certificate User" `
+      --assignee "abfa0a7c-a6b6-4736-8310-5855508787cd" `
+      --scope $KV_SCOPE `
+      -o none 2>$null
+    if ($?) {
+        Write-Host "  App Service RP granted Key Vault Certificate User role" -ForegroundColor Green
+    } else {
+        Write-Host "  Role may already exist (idempotent) — continuing" -ForegroundColor Yellow
+    }
+
     # 5.5.2 Generate certbot commands (manual execution in Cloud Shell / WSL)
     Write-Host "`n--- Let's Encrypt: Run these in Cloud Shell or WSL ---" -ForegroundColor Cyan
     Write-Host @"
@@ -1492,6 +1509,17 @@ rm -f /tmp/le-cert.pfx /tmp/azure-certbot.ini
     # 5.5.3 OR use standalone Bash script
     Write-Host "  Alternatively, run: ./letsencrypt-cert.sh --domain $DOMAIN --kv $KV_NAME" -ForegroundColor Cyan
     Write-Host "`n  VERIFY: az keyvault certificate list --vault-name $KV_NAME -o table" -ForegroundColor Yellow
+
+    # 5.5.4 Wait for certificate to be available in Key Vault
+    Write-Host "`n--- Checking for Let's Encrypt certificate in Key Vault ---" -ForegroundColor Cyan
+    $leCertExists = az keyvault certificate show --vault-name $KV_NAME --name $LE_CERT_NAME --query "name" -o tsv 2>$null
+    if ($leCertExists) {
+        Write-Host "  Certificate '$LE_CERT_NAME' found in Key Vault — will be used in Section 7.8" -ForegroundColor Green
+    } else {
+        Write-Host "  Certificate '$LE_CERT_NAME' NOT yet in Key Vault" -ForegroundColor Yellow
+        Write-Host "  Run the certbot commands above (or ./letsencrypt-cert.sh) BEFORE proceeding to Section 7.8"
+        Write-Host "  Section 7.8 will fall back to App Service Managed Certificates if LE cert is missing"
+    }
 } else {
     Write-Host "`n--- Skipping Let's Encrypt (ENABLE_LETSENCRYPT = `$false) ---" -ForegroundColor DarkGray
     Write-Host "  Set `$ENABLE_LETSENCRYPT = `$true in Section 0 to enable"
@@ -1657,14 +1685,26 @@ nslookup -type=CNAME weighted.$DOMAIN $NS
 
 # ============================================================================
 # SECTION 7.8: CUSTOM DOMAIN + TLS BINDING (Production-Grade Wiring)
-# Binds: Custom domain to web apps + App Service Managed TLS Certificate
-# Dependencies: Section 2.5 (DNS delegation MUST be complete first!)
+# Binds: Custom domain to web apps + Let's Encrypt TLS Certificate from Key Vault
+# Dependencies: Section 2.5 (DNS delegation), Section 5.5 (Let's Encrypt cert in KV)
 #
-# This matches the kimvaddi.com reference architecture:
+# CERTIFICATE STRATEGY (per MS Learn best practice):
+#   - PRIMARY: Import Let's Encrypt wildcard cert from Key Vault → both web apps
+#     Command: az webapp config ssl import --key-vault --key-vault-certificate-name
+#     Ref: https://learn.microsoft.com/azure/app-service/configure-ssl-certificate#import-a-certificate-from-key-vault
+#   - FALLBACK: App Service Managed Certificate (if LE cert not yet in KV)
+#
+# WHY KEY VAULT IMPORT:
+#   - Single wildcard cert (*.$DOMAIN) covers ALL subdomains (failover, geo, weighted)
+#   - App Service auto-syncs with Key Vault — cert renewals propagate within 24hrs
+#   - Demonstrates enterprise cert management pattern (DigiCert → KV → App Service)
+#   - Key Vault audit trail shows who accessed which cert and when
+#
+# STEPS:
 #   1. Create asuid TXT record with webapp's customDomainVerificationId
-#   2. Bind custom domain hostname to both web apps
-#   3. Create App Service Managed TLS certificate
-#   4. Bind TLS cert with SNI
+#   2. Bind custom domain hostname to BOTH web apps (US + UK)
+#   3. Import Let's Encrypt cert from Key Vault (or create managed cert as fallback)
+#   4. Bind TLS cert with SNI to BOTH web apps
 #
 # PREREQUISITE: The customer MUST have completed NS delegation at their
 # registrar (Section 2.5) before this section will work. Azure App Service
@@ -1717,53 +1757,118 @@ if ($delegationOk) {
         Write-Host "  Failed to bind — check DNS delegation and TXT record" -ForegroundColor Red
     }
 
-    # 7.8.4 Create App Service Managed TLS Certificate
-    # Azure auto-issues and auto-renews this certificate — no DigiCert needed for App Service.
-    Write-Host "--- Creating managed TLS certificate ---"
-    az webapp config ssl create -g $RG_NAME `
-      -n $WEBAPP_US `
+    # 7.8.3b Bind custom domain to UK webapp (required for TM failover)
+    # Both web apps need the custom domain for Traffic Manager to serve either one.
+    Write-Host "--- Binding custom domain to $WEBAPP_UK ---"
+    az network dns record-set txt add-record -g $RG_NAME -z $DOMAIN `
+      -n "asuid.failover" -v $VERIFY_ID_UK -o none 2>$null
+    az webapp config hostname add -g $RG_NAME `
+      --webapp-name $WEBAPP_UK `
       --hostname $CUSTOM_HOSTNAME -o none 2>&1
     if ($?) {
-        Write-Host "  Managed TLS cert created for $CUSTOM_HOSTNAME" -ForegroundColor Green
+        Write-Host "  Bound: $CUSTOM_HOSTNAME → $WEBAPP_UK" -ForegroundColor Green
     } else {
-        Write-Host "  TLS cert creation failed — domain binding may not be verified yet" -ForegroundColor Yellow
-        Write-Host "  Wait a few minutes for DNS propagation and retry:"
-        Write-Host "    az webapp config ssl create -g $RG_NAME -n $WEBAPP_US --hostname $CUSTOM_HOSTNAME"
+        Write-Host "  Failed to bind UK webapp — check DNS delegation and TXT record" -ForegroundColor Red
     }
 
-    # 7.8.5 Bind TLS cert with SNI (Server Name Indication)
-    $THUMBPRINT = (az webapp config ssl list -g $RG_NAME `
-      --query "[?subjectName=='$CUSTOM_HOSTNAME'].thumbprint" -o tsv 2>$null)
-    if ($THUMBPRINT) {
-        Write-Host "--- Binding TLS cert (SNI) ---"
+    # 7.8.4 Import TLS certificate — prefer Let's Encrypt from Key Vault, fallback to managed cert
+    # Ref: https://learn.microsoft.com/azure/app-service/configure-ssl-certificate#import-a-certificate-from-key-vault
+    $leCertInKV = az keyvault certificate show --vault-name $KV_NAME --name $LE_CERT_NAME --query "name" -o tsv 2>$null
+
+    if ($leCertInKV -and $ENABLE_LETSENCRYPT) {
+        # ── PRIMARY PATH: Import Let's Encrypt wildcard cert from Key Vault ──
+        Write-Host "--- Importing Let's Encrypt certificate from Key Vault ---" -ForegroundColor Cyan
+        Write-Host "  Source: Key Vault '$KV_NAME' → Certificate '$LE_CERT_NAME'"
+
+        # Import to US webapp
+        Write-Host "  Importing cert to $WEBAPP_US..."
+        az webapp config ssl import -g $RG_NAME -n $WEBAPP_US `
+          --key-vault $KV_NAME `
+          --key-vault-certificate-name $LE_CERT_NAME `
+          -o none 2>&1
+        if ($?) {
+            Write-Host "  LE cert imported to $WEBAPP_US" -ForegroundColor Green
+        } else {
+            Write-Host "  Import failed for $WEBAPP_US — check Key Vault Certificate User RBAC" -ForegroundColor Red
+            Write-Host "  Fix: az role assignment create --role 'Key Vault Certificate User' --assignee 'abfa0a7c-a6b6-4736-8310-5855508787cd' --scope `$KV_SCOPE"
+        }
+
+        # Import to UK webapp
+        Write-Host "  Importing cert to $WEBAPP_UK..."
+        az webapp config ssl import -g $RG_NAME -n $WEBAPP_UK `
+          --key-vault $KV_NAME `
+          --key-vault-certificate-name $LE_CERT_NAME `
+          -o none 2>&1
+        if ($?) {
+            Write-Host "  LE cert imported to $WEBAPP_UK" -ForegroundColor Green
+        } else {
+            Write-Host "  Import failed for $WEBAPP_UK — check Key Vault Certificate User RBAC" -ForegroundColor Red
+        }
+
+        Write-Host "  NOTE: App Service auto-syncs with Key Vault — cert renewals propagate within 24hrs" -ForegroundColor DarkGray
+    } else {
+        # ── FALLBACK PATH: App Service Managed Certificate ──
+        Write-Host "--- Let's Encrypt cert not in Key Vault — using App Service Managed Certificate ---" -ForegroundColor Yellow
+        Write-Host "  To use LE cert: run certbot (Section 5.5), then re-run this section"
+
+        Write-Host "  Creating managed cert for $WEBAPP_US..."
+        az webapp config ssl create -g $RG_NAME `
+          -n $WEBAPP_US `
+          --hostname $CUSTOM_HOSTNAME -o none 2>&1
+        if ($?) {
+            Write-Host "  Managed TLS cert created for $CUSTOM_HOSTNAME → $WEBAPP_US" -ForegroundColor Green
+        } else {
+            Write-Host "  Managed cert failed — wait for DNS propagation and retry" -ForegroundColor Yellow
+        }
+
+        Write-Host "  Creating managed cert for $WEBAPP_UK..."
+        az webapp config ssl create -g $RG_NAME `
+          -n $WEBAPP_UK `
+          --hostname $CUSTOM_HOSTNAME -o none 2>&1
+        if ($?) {
+            Write-Host "  Managed TLS cert created for $CUSTOM_HOSTNAME → $WEBAPP_UK" -ForegroundColor Green
+        } else {
+            Write-Host "  Managed cert failed for UK webapp" -ForegroundColor Yellow
+        }
+    }
+
+    # 7.8.5 Bind TLS cert with SNI to BOTH web apps
+    # Get the thumbprint of whichever cert was imported/created
+    $THUMBPRINT_US = (az webapp config ssl list -g $RG_NAME `
+      --query "[?subjectName=='$CUSTOM_HOSTNAME' || contains(subjectName,'*.$DOMAIN')].thumbprint | [0]" -o tsv 2>$null)
+    if ($THUMBPRINT_US) {
+        Write-Host "--- Binding TLS cert (SNI) to $WEBAPP_US ---"
         az webapp config ssl bind -g $RG_NAME `
           -n $WEBAPP_US `
-          --certificate-thumbprint $THUMBPRINT `
+          --certificate-thumbprint $THUMBPRINT_US `
           --ssl-type SNI -o none 2>&1
-        Write-Host "  TLS bound: $CUSTOM_HOSTNAME (SNI, thumbprint: $($THUMBPRINT.Substring(0,8))...)"
+        Write-Host "  TLS bound: $CUSTOM_HOSTNAME → $WEBAPP_US (SNI, thumbprint: $($THUMBPRINT_US.Substring(0,8))...)" -ForegroundColor Green
     } else {
-        Write-Host "  No TLS cert found yet — may still be provisioning" -ForegroundColor Yellow
+        Write-Host "  No TLS cert found for US webapp — may still be provisioning" -ForegroundColor Yellow
     }
 
-    # VERIFY
-    Write-Host "`n--- VERIFY: Custom domain + TLS ---" -ForegroundColor Green
+    $THUMBPRINT_UK = (az webapp config ssl list -g $RG_NAME `
+      --query "[?subjectName=='$CUSTOM_HOSTNAME' || contains(subjectName,'*.$DOMAIN')].thumbprint | [0]" -o tsv 2>$null)
+    if ($THUMBPRINT_UK) {
+        Write-Host "--- Binding TLS cert (SNI) to $WEBAPP_UK ---"
+        az webapp config ssl bind -g $RG_NAME `
+          -n $WEBAPP_UK `
+          --certificate-thumbprint $THUMBPRINT_UK `
+          --ssl-type SNI -o none 2>&1
+        Write-Host "  TLS bound: $CUSTOM_HOSTNAME → $WEBAPP_UK (SNI, thumbprint: $($THUMBPRINT_UK.Substring(0,8))...)" -ForegroundColor Green
+    } else {
+        Write-Host "  No TLS cert found for UK webapp — may still be provisioning" -ForegroundColor Yellow
+    }
+
+    # VERIFY — both web apps should show SniEnabled
+    Write-Host "`n--- VERIFY: Custom domain + TLS (both web apps) ---" -ForegroundColor Green
+    Write-Host "US webapp:"
     az webapp config hostname list -g $RG_NAME --webapp-name $WEBAPP_US `
       --query "[].{hostname:name, sslState:sslState}" -o table
+    Write-Host "UK webapp:"
+    az webapp config hostname list -g $RG_NAME --webapp-name $WEBAPP_UK `
+      --query "[].{hostname:name, sslState:sslState}" -o table
 }
-
-# ── NOTE: To bind the SAME custom domain to the UK webapp (for TM failover) ──
-# Both web apps need the custom domain for Traffic Manager to serve either one.
-# Repeat steps 7.8.3-7.8.5 for $WEBAPP_UK using the same $CUSTOM_HOSTNAME.
-# The asuid TXT record (step 7.8.2) works for both since it's zone-level.
-#
-# if ($delegationOk) {
-#     az webapp config hostname add -g $RG_NAME --webapp-name $WEBAPP_UK --hostname $CUSTOM_HOSTNAME -o none
-#     az webapp config ssl create -g $RG_NAME -n $WEBAPP_UK --hostname $CUSTOM_HOSTNAME -o none
-#     $THUMBPRINT_UK = (az webapp config ssl list -g $RG_NAME --query "[?subjectName=='$CUSTOM_HOSTNAME'].thumbprint" -o tsv 2>$null)
-#     if ($THUMBPRINT_UK) {
-#         az webapp config ssl bind -g $RG_NAME -n $WEBAPP_UK --certificate-thumbprint $THUMBPRINT_UK --ssl-type SNI -o none
-#     }
-# }
 
 
 # ============================================================================
