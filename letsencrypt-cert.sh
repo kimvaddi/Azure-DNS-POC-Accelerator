@@ -127,25 +127,38 @@ echo "  ✅ DNS Zone: $ZONE_CHECK"
 echo ""
 
 # ============================================================================
-# STEP 1: RETRIEVE SP CREDENTIALS FROM KEY VAULT
+# STEP 1: DETERMINE AUTH METHOD (CLI credentials preferred, SP as fallback)
 # ============================================================================
 
-echo "=== Step 1: Retrieving SP credentials from Key Vault ==="
+echo "=== Step 1: Configuring authentication ==="
+
+# Option A: Azure CLI credentials (recommended — simplest, works with FDPO tenants)
+# Option B: Service Principal cert credentials (for CI/CD automation)
+USE_CLI_CREDS=true
 
 CLIENT_ID=$(az keyvault secret show --vault-name "$KV_NAME" --name "certbot-sp-client-id" --query "value" -o tsv 2>/dev/null)
-CLIENT_SECRET=$(az keyvault secret show --vault-name "$KV_NAME" --name "certbot-sp-client-secret" --query "value" -o tsv 2>/dev/null)
 TENANT_ID=$(az keyvault secret show --vault-name "$KV_NAME" --name "certbot-sp-tenant-id" --query "value" -o tsv 2>/dev/null)
 
-if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ] || [ -z "$TENANT_ID" ]; then
-    echo "❌ Missing SP credentials in Key Vault. Expected secrets:"
-    echo "   - certbot-sp-client-id"
-    echo "   - certbot-sp-client-secret"
-    echo "   - certbot-sp-tenant-id"
-    echo "   Run Zava_DNS_POC_E2E.ps1 -Phase Cert first to create the SP."
-    exit 1
+if [ "$USE_CLI_CREDS" = "true" ]; then
+    # Verify az login is active
+    az account show > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        echo "❌ Azure CLI not logged in. Run 'az login' first."
+        exit 1
+    fi
+    echo "  ✅ Using Azure CLI credentials (az login session)"
+else
+    CLIENT_SECRET=$(az keyvault secret show --vault-name "$KV_NAME" --name "certbot-sp-client-secret" --query "value" -o tsv 2>/dev/null)
+    if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ] || [ -z "$TENANT_ID" ]; then
+        echo "❌ Missing SP credentials in Key Vault. Expected secrets:"
+        echo "   - certbot-sp-client-id"
+        echo "   - certbot-sp-client-secret (or use --create-cert for cert-based auth)"
+        echo "   - certbot-sp-tenant-id"
+        echo "   Set USE_CLI_CREDS=true to use Azure CLI credentials instead."
+        exit 1
+    fi
+    echo "  ✅ SP credentials retrieved (not displayed)"
 fi
-
-echo "  ✅ SP credentials retrieved (not displayed)"
 
 # ============================================================================
 # STEP 2: GENERATE CERTBOT CONFIG (temp file, 600 permissions)
@@ -157,17 +170,23 @@ INI_PATH=$(mktemp /tmp/azure-certbot-XXXXXX.ini)
 ZONE_RESOURCE_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.Network/dnszones/${DOMAIN}"
 
 cat > "$INI_PATH" << EOF
-dns_azure_sp_client_id = ${CLIENT_ID}
-dns_azure_sp_client_secret = ${CLIENT_SECRET}
-dns_azure_tenant_id = ${TENANT_ID}
+$(if [ "$USE_CLI_CREDS" = "true" ]; then
+echo "dns_azure_use_cli_credentials = true"
+else
+echo "dns_azure_sp_client_id = ${CLIENT_ID}"
+echo "dns_azure_sp_client_secret = ${CLIENT_SECRET}"
+echo "dns_azure_tenant_id = ${TENANT_ID}"
+fi)
 dns_azure_environment = AzurePublicCloud
 dns_azure_zone1 = ${DOMAIN}:${ZONE_RESOURCE_ID}
 EOF
 
 chmod 600 "$INI_PATH"
 
-# Clear secrets from shell
-unset CLIENT_ID CLIENT_SECRET TENANT_ID
+# Clear secrets from shell (only relevant for SP auth)
+if [ "$USE_CLI_CREDS" != "true" ]; then
+    unset CLIENT_ID CLIENT_SECRET TENANT_ID
+fi
 
 echo "  ✅ Config written to $INI_PATH (mode 600)"
 

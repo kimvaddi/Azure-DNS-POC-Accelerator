@@ -1462,28 +1462,34 @@ if ($ENABLE_LETSENCRYPT) {
         Write-Host "  Role may already exist (idempotent) — continuing" -ForegroundColor Yellow
     }
 
-    # 5.5.2 Generate certbot commands (manual execution in Cloud Shell / WSL)
-    Write-Host "`n--- Let's Encrypt: Run these in Cloud Shell or WSL ---" -ForegroundColor Cyan
+    # 5.5.2 Generate certbot commands (manual execution in Cloud Shell / WSL / elevated PowerShell)
+    Write-Host "`n--- Let's Encrypt: Run these in Cloud Shell, WSL, or elevated PowerShell ---" -ForegroundColor Cyan
     Write-Host @"
 
 # Install certbot + Azure DNS plugin
 pip install certbot certbot-dns-azure
 
-# Retrieve SP credentials from Key Vault
-CLIENT_ID=`$(az keyvault secret show --vault-name $KV_NAME --name certbot-sp-client-id --query value -o tsv)
-CLIENT_SECRET=`$(az keyvault secret show --vault-name $KV_NAME --name certbot-sp-client-secret --query value -o tsv)
-TENANT_ID=`$(az keyvault secret show --vault-name $KV_NAME --name certbot-sp-tenant-id --query value -o tsv)
-
-# Generate config (temp file with restricted permissions)
+# ── OPTION A: Use Azure CLI credentials (RECOMMENDED — simplest) ──
+# Requires: already logged in via 'az login'. Works on Windows, Linux, and Cloud Shell.
+# FDPO tenant blocks SP password credentials, so CLI auth avoids the cert-credential complexity.
 cat > /tmp/azure-certbot.ini << EOF
-dns_azure_sp_client_id = `$CLIENT_ID
-dns_azure_sp_client_secret = `$CLIENT_SECRET
-dns_azure_tenant_id = `$TENANT_ID
+dns_azure_use_cli_credentials = true
 dns_azure_environment = AzurePublicCloud
 dns_azure_zone1 = ${DOMAIN}:/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.Network/dnszones/${DOMAIN}
 EOF
 chmod 600 /tmp/azure-certbot.ini
-unset CLIENT_ID CLIENT_SECRET TENANT_ID
+
+# ── OPTION B: Use Service Principal cert credentials (for CI/CD automation) ──
+# Uncomment the block below and comment out Option A if using SP cert auth.
+# Download SP cert from KV first: az keyvault secret show --vault-name $KV_NAME --name certbot-sp-cert --query value -o tsv > /tmp/sp-cert.pem
+# cat > /tmp/azure-certbot.ini << EOF
+# dns_azure_sp_client_id = `$(az keyvault secret show --vault-name $KV_NAME --name certbot-sp-client-id --query value -o tsv)
+# dns_azure_sp_client_certificate_path = /tmp/sp-cert.pem
+# dns_azure_tenant_id = `$(az keyvault secret show --vault-name $KV_NAME --name certbot-sp-tenant-id --query value -o tsv)
+# dns_azure_environment = AzurePublicCloud
+# dns_azure_zone1 = ${DOMAIN}:/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.Network/dnszones/${DOMAIN}
+# EOF
+# chmod 600 /tmp/azure-certbot.ini
 
 # Stage 1: Dry-run (test plumbing — no real cert)
 certbot certonly --authenticator dns-azure \
@@ -1501,8 +1507,14 @@ certbot certonly --authenticator dns-azure \
 # Stage 3: Import to Key Vault
 openssl pkcs12 -export -in /etc/letsencrypt/live/$DOMAIN/fullchain.pem \
   -inkey /etc/letsencrypt/live/$DOMAIN/privkey.pem -out /tmp/le-cert.pfx -passout pass:
-az keyvault certificate import --vault-name $KV_NAME --name le-cert --file /tmp/le-cert.pfx
+az keyvault certificate import --vault-name $KV_NAME --name $LE_CERT_NAME --file /tmp/le-cert.pfx
 rm -f /tmp/le-cert.pfx /tmp/azure-certbot.ini
+
+# ── Windows (elevated PowerShell): Same commands but use Windows paths ──
+# certbot certonly --authenticator dns-azure --dns-azure-config C:\temp\azure-certbot.ini `
+#   --dns-azure-propagation-seconds 60 -d $DOMAIN -d *.$DOMAIN `
+#   --non-interactive --agree-tos -m $CONTACT_EMAIL `
+#   --config-dir C:\temp\certbot\config --work-dir C:\temp\certbot\work --logs-dir C:\temp\certbot\logs
 
 "@ -ForegroundColor Yellow
 
