@@ -1,15 +1,16 @@
 {
-    "nameFirst": "Kim",
-    "nameLast": "Vaddi",
+    "address1": "One Microsoft Way",
+    "address2": "",
+    "city": "Redmond",
+    "country": "US",
+    "postal_code": "98052",
+    "state": "WA",
     "email": "kimvaddi@microsoft.com",
-    "phone": "+1.2105551234",
+    "fax": "",
+    "job_title": "Azure Specialist",
+    "name_first": "Kim",
+    "name_last": "Vaddi",
+    "name_middle": "",
     "organization": "Microsoft Corporation",
-    "jobTitle": "Azure Specialist",
-    "addressMailing": {
-        "address1": "One Microsoft Way",
-        "city": "Redmond",
-        "state": "WA",
-        "country": "US",
-        "postalCode": "98052"
-    }
+    "phone": "+1.2105551234"
 }
