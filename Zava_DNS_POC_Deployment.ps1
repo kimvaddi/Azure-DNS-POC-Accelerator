@@ -472,15 +472,24 @@ Write-Host "`n--- VERIFY: All foundation resources ---" -ForegroundColor Green
 az resource list --resource-group $RG_NAME `
   --query "[].{name:name, type:type}" -o table
 
-# 0.9 Store connection strings in Key Vault (zero-secret pattern)
-# Dependencies: Key Vault (0.7), Event Hub (0.4), RBAC propagation (0.8)
-Write-Host "`n--- Storing connection strings in Key Vault ---"
+# 0.9 Store Event Hub connection string in Key Vault (zero-secret pattern)
+# Dependencies: Key Vault (0.7) + Event Hub (0.4) + RBAC propagation (0.8)
+# NOTE: Uses RootManageSharedAccessKey (auto-created with namespace).
+#       Custom SAS policies (SendPolicy, QRadarListenPolicy) are created in Section 3.
+#       Those connection strings are stored in KV at the end of Section 3.
+Write-Host "`n--- Storing Event Hub connection string in Key Vault ---"
 $EH_SEND_CS = az eventhubs namespace authorization-rule keys list -g $RG_NAME `
   --namespace-name $EH_NAMESPACE --name RootManageSharedAccessKey --query primaryConnectionString -o tsv 2>$null
 if ($EH_SEND_CS) {
-    az keyvault secret set --vault-name $KV_NAME --name "eventhub-connection-string" --value $EH_SEND_CS -o none 2>$null
-    Write-Host "  Stored: eventhub-connection-string"
+    az keyvault secret set --vault-name $KV_NAME --name "eventhub-connection-string" --value "$EH_SEND_CS" -o none 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "  Stored: eventhub-connection-string" -ForegroundColor Green
+    } else {
+        Write-Host "  Failed to store — KV RBAC may still be propagating (retry in Section 3)" -ForegroundColor Yellow
+    }
     $EH_SEND_CS = $null  # Clear from memory
+} else {
+    Write-Host "  Event Hub not ready yet — connection string will be stored in Section 3" -ForegroundColor Yellow
 }
 
 
