@@ -532,7 +532,35 @@ Write-Host "`n--- Bind Zone File Import ---" -ForegroundColor Cyan
 if (-not (Test-Path $ZONE_FILES_DIR)) {
     New-Item -ItemType Directory -Path $ZONE_FILES_DIR -Force | Out-Null
     Write-Host "  Created directory: $ZONE_FILES_DIR"
-    Write-Host "  Place your exported Bind zone files here before importing."
+}
+
+# Check if zone files exist — prompt operator if missing
+$hasZoneFiles = (Test-Path $ZONE_FILE_1) -or (Test-Path $ZONE_FILE_2) -or (Test-Path $ZONE_FILE_3)
+if (-not $hasZoneFiles) {
+    Write-Host ""
+    Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Yellow
+    Write-Host "  ║  CUSTOMER ACTION REQUIRED: Bind Zone Files                  ║" -ForegroundColor Yellow
+    Write-Host "  ╠══════════════════════════════════════════════════════════════╣" -ForegroundColor Yellow
+    Write-Host "  ║  No zone files found in $ZONE_FILES_DIR" -ForegroundColor Yellow
+    Write-Host "  ║                                                              ║" -ForegroundColor Yellow
+    Write-Host "  ║  To import Bind zones, export from your Bind server:        ║" -ForegroundColor Yellow
+    Write-Host "  ║    named-checkzone <zone> <path> > Zava-zone1.zone          ║" -ForegroundColor Yellow
+    Write-Host "  ║                                                              ║" -ForegroundColor Yellow
+    Write-Host "  ║  Then place the .zone files in: $ZONE_FILES_DIR  ║" -ForegroundColor Yellow
+    Write-Host "  ║                                                              ║" -ForegroundColor Yellow
+    Write-Host "  ║  Or use the included sample: sample-bind-zone.txt           ║" -ForegroundColor Yellow
+    Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Yellow
+    Write-Host ""
+    $response = Read-Host "  Press ENTER after placing zone files, or type SKIP to continue without import"
+    if ($response -eq "SKIP") {
+        Write-Host "  Skipping Bind zone import." -ForegroundColor DarkGray
+    } else {
+        # Re-check after prompt
+        $hasZoneFiles = (Test-Path $ZONE_FILE_1) -or (Test-Path $ZONE_FILE_2) -or (Test-Path $ZONE_FILE_3)
+        if (-not $hasZoneFiles) {
+            Write-Host "  Still no zone files found — skipping import." -ForegroundColor Yellow
+        }
+    }
 }
 
 # Helper function: Import a single zone file with validation
