@@ -1418,37 +1418,8 @@ Write-Host "DCV records cleaned up."
 if ($ENABLE_LETSENCRYPT) {
     Write-Host "`n=== STEP 5.5: LET'S ENCRYPT CERTIFICATE ===" -ForegroundColor Cyan
 
-    # 5.5.1 Create Service Principal for certbot
-    Write-Host "--- Creating Service Principal for certbot ---"
-    $existingSP = az ad sp list --display-name $SP_CERTBOT_NAME --query "[0].appId" -o tsv 2>$null
-    if ($existingSP) {
-        Write-Host "  SP already exists: $existingSP — reusing" -ForegroundColor Yellow
-    } else {
-        $DNS_ZONE_SCOPE = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME/providers/Microsoft.Network/dnsZones/$DOMAIN"
-        # Use --create-cert --keyvault to avoid FDPO tenant password credential policy block
-        $spResult = az ad sp create-for-rbac --name $SP_CERTBOT_NAME `
-            --role "DNS Zone Contributor" --scopes $DNS_ZONE_SCOPE `
-            --create-cert --keyvault $KV_NAME --cert "certbot-sp-cert" `
-            --output json 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            $sp = $spResult | Where-Object { $_ -notmatch '^WARNING' } | ConvertFrom-Json
-            Write-Host "  SP created: $($sp.appId)" -ForegroundColor Green
-
-            # Store in Key Vault (zero-secret pattern)
-            # Ref: https://learn.microsoft.com/azure/key-vault/general/best-practices
-            az keyvault secret set --vault-name $KV_NAME --name "certbot-sp-client-id" --value $sp.appId --output none 2>$null
-            az keyvault secret set --vault-name $KV_NAME --name "certbot-sp-client-secret" --value $sp.password --output none 2>$null
-            az keyvault secret set --vault-name $KV_NAME --name "certbot-sp-tenant-id" --value $sp.tenant --output none 2>$null
-            $sp = $null; $spResult = $null  # Clear from memory
-            Write-Host "  Credentials stored in Key Vault: $KV_NAME" -ForegroundColor Green
-        } else {
-            Write-Host "  SP creation failed — check permissions" -ForegroundColor Red
-        }
-    }
-
-    # 5.5.1b Grant App Service resource provider access to Key Vault certificates
+    # 5.5.1 Grant App Service RP access to Key Vault certificates
     # Ref: https://learn.microsoft.com/azure/app-service/configure-ssl-certificate#import-a-certificate-from-key-vault
-    # App Service RP needs "Key Vault Certificate User" to import certs via az webapp config ssl import
     $KV_SCOPE = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME/providers/Microsoft.KeyVault/vaults/$KV_NAME"
     Write-Host "--- Granting App Service RP access to Key Vault certificates ---"
     az role assignment create `
@@ -1456,81 +1427,141 @@ if ($ENABLE_LETSENCRYPT) {
       --assignee "abfa0a7c-a6b6-4736-8310-5855508787cd" `
       --scope $KV_SCOPE `
       -o none 2>$null
-    if ($?) {
-        Write-Host "  App Service RP granted Key Vault Certificate User role" -ForegroundColor Green
+    Write-Host "  App Service RP granted Key Vault Certificate User role" -ForegroundColor Green
+
+    # 5.5.2 Install Posh-ACME (Windows-native Let's Encrypt — no certbot/WSL/admin needed)
+    # Adopted from devmauser branch: Posh-ACME + Azure plugin (pure PowerShell)
+    # Ref: https://github.com/rmbolger/Posh-ACME
+    # Ref: https://poshac.me/docs/v4/Plugins/Azure/
+    Write-Host "--- Installing Posh-ACME module ---"
+    if (-not (Get-Module -ListAvailable -Name Posh-ACME)) {
+        Install-Module -Name Posh-ACME -Scope CurrentUser -Force -AllowClobber
+        Write-Host "  Posh-ACME installed" -ForegroundColor Green
     } else {
-        Write-Host "  Role may already exist (idempotent) — continuing" -ForegroundColor Yellow
+        Write-Host "  Posh-ACME already installed" -ForegroundColor Yellow
+    }
+    Import-Module Posh-ACME -Force
+
+    # 5.5.3 Issue Let's Encrypt certificate via Posh-ACME + Azure DNS plugin
+    # Uses ARM access token from current az login session (zero-secret pattern)
+    Write-Host "--- Requesting Let's Encrypt certificate ---"
+    Write-Host "  Domain: $DOMAIN + *.$DOMAIN (wildcard)"
+    Write-Host "  Auth: Azure CLI access token (no SP password needed)"
+
+    # Stage 1: Set ACME server (staging first for validation)
+    $dryRunSuccess = $false
+    try {
+        Set-PAServer LE_STAGE
+        Write-Host "  Using LE Staging server (dry-run validation)..."
+
+        # Get ARM access token from current az login session
+        $armToken = (az account get-access-token --resource https://management.azure.com --query accessToken -o tsv)
+        if (-not $armToken -or $armToken.Length -lt 50) {
+            throw "Failed to get ARM access token — run 'az login' first"
+        }
+        Write-Host "  ARM token acquired (length: $($armToken.Length))" -ForegroundColor DarkGray
+
+        $pluginArgs = @{
+            AZSubscriptionId = $SUBSCRIPTION_ID
+            AZAccessToken    = $armToken
+        }
+
+        # Create or reuse ACME account
+        $existingAcct = Get-PAAccount -List -Contact $CONTACT_EMAIL -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($existingAcct) {
+            Set-PAAccount $existingAcct.Id
+            Write-Host "  Reusing ACME account: $($existingAcct.Id)" -ForegroundColor Yellow
+        } else {
+            New-PAAccount -AcceptTOS -Contact $CONTACT_EMAIL
+            Write-Host "  ACME account created" -ForegroundColor Green
+        }
+
+        # Request staging cert (validates DNS-01 challenge plumbing)
+        Write-Host "  Requesting STAGING certificate (validates DNS-01 + Azure DNS)..."
+        $stagingCert = New-PACertificate -Domain $DOMAIN,"*.$DOMAIN" -Plugin Azure -PluginArgs $pluginArgs -ErrorAction Stop
+        if ($stagingCert) {
+            Write-Host "  STAGING dry-run PASSED — DNS-01 challenge works" -ForegroundColor Green
+            $dryRunSuccess = $true
+        }
+    } catch {
+        Write-Host "  STAGING dry-run FAILED: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "  Check: DNS delegation active? KV permissions? az login valid?" -ForegroundColor Yellow
     }
 
-    # 5.5.2 Generate certbot commands (manual execution in Cloud Shell / WSL / elevated PowerShell)
-    Write-Host "`n--- Let's Encrypt: Run these in Cloud Shell, WSL, or elevated PowerShell ---" -ForegroundColor Cyan
-    Write-Host @"
+    # Stage 2: Production cert (only if staging passed)
+    if ($dryRunSuccess) {
+        try {
+            Set-PAServer LE_PROD
+            Write-Host "`n  Switching to LE PRODUCTION server..."
 
-# Install certbot + Azure DNS plugin
-pip install certbot certbot-dns-azure
+            # Refresh token (staging may have taken minutes)
+            $armToken = (az account get-access-token --resource https://management.azure.com --query accessToken -o tsv)
+            $pluginArgs = @{
+                AZSubscriptionId = $SUBSCRIPTION_ID
+                AZAccessToken    = $armToken
+            }
 
-# ── OPTION A: Use Azure CLI credentials (RECOMMENDED — simplest) ──
-# Requires: already logged in via 'az login'. Works on Windows, Linux, and Cloud Shell.
-# FDPO tenant blocks SP password credentials, so CLI auth avoids the cert-credential complexity.
-cat > /tmp/azure-certbot.ini << EOF
-dns_azure_use_cli_credentials = true
-dns_azure_environment = AzurePublicCloud
-dns_azure_zone1 = ${DOMAIN}:/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.Network/dnszones/${DOMAIN}
-EOF
-chmod 600 /tmp/azure-certbot.ini
+            # Create/reuse production account
+            $existingProdAcct = Get-PAAccount -List -Contact $CONTACT_EMAIL -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($existingProdAcct) {
+                Set-PAAccount $existingProdAcct.Id
+            } else {
+                New-PAAccount -AcceptTOS -Contact $CONTACT_EMAIL
+            }
 
-# ── OPTION B: Use Service Principal cert credentials (for CI/CD automation) ──
-# Uncomment the block below and comment out Option A if using SP cert auth.
-# Download SP cert from KV first: az keyvault secret show --vault-name $KV_NAME --name certbot-sp-cert --query value -o tsv > /tmp/sp-cert.pem
-# cat > /tmp/azure-certbot.ini << EOF
-# dns_azure_sp_client_id = `$(az keyvault secret show --vault-name $KV_NAME --name certbot-sp-client-id --query value -o tsv)
-# dns_azure_sp_client_certificate_path = /tmp/sp-cert.pem
-# dns_azure_tenant_id = `$(az keyvault secret show --vault-name $KV_NAME --name certbot-sp-tenant-id --query value -o tsv)
-# dns_azure_environment = AzurePublicCloud
-# dns_azure_zone1 = ${DOMAIN}:/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.Network/dnszones/${DOMAIN}
-# EOF
-# chmod 600 /tmp/azure-certbot.ini
+            Write-Host "  Requesting PRODUCTION certificate..."
+            $prodCert = New-PACertificate -Domain $DOMAIN,"*.$DOMAIN" -Plugin Azure -PluginArgs $pluginArgs -ErrorAction Stop
 
-# Stage 1: Dry-run (test plumbing — no real cert)
-certbot certonly --authenticator dns-azure \
-  --dns-azure-config /tmp/azure-certbot.ini \
-  --dns-azure-propagation-seconds 60 \
-  --server https://acme-staging-v02.api.letsencrypt.org/directory \
-  -d $DOMAIN -d "*.$DOMAIN" --dry-run --non-interactive --agree-tos -m $CONTACT_EMAIL
+            if ($prodCert -and $prodCert.PfxFile) {
+                Write-Host "  Certificate ISSUED" -ForegroundColor Green
+                Write-Host "    Subject:   $($prodCert.Subject)"
+                Write-Host "    Expires:   $($prodCert.NotAfter)"
+                Write-Host "    Thumbprint: $($prodCert.Thumbprint)"
+                Write-Host "    PFX path:  $($prodCert.PfxFile)"
 
-# Stage 2: Production cert (if dry-run passes)
-certbot certonly --authenticator dns-azure \
-  --dns-azure-config /tmp/azure-certbot.ini \
-  --dns-azure-propagation-seconds 60 \
-  -d $DOMAIN -d "*.$DOMAIN" --non-interactive --agree-tos -m $CONTACT_EMAIL
+                # 5.5.4 Import PFX to Key Vault
+                Write-Host "`n--- Importing certificate to Key Vault ---"
+                az keyvault certificate import `
+                  --vault-name $KV_NAME `
+                  --name $LE_CERT_NAME `
+                  --file $prodCert.PfxFile `
+                  -o none 2>&1
+                if ($?) {
+                    Write-Host "  Certificate '$LE_CERT_NAME' imported to Key Vault: $KV_NAME" -ForegroundColor Green
+                } else {
+                    Write-Host "  KV import failed — trying with password..." -ForegroundColor Yellow
+                    # Posh-ACME may set a password on the PFX
+                    az keyvault certificate import `
+                      --vault-name $KV_NAME `
+                      --name $LE_CERT_NAME `
+                      --file $prodCert.PfxFile `
+                      --password "poshacme" `
+                      -o none 2>&1
+                }
+            } else {
+                Write-Host "  Production cert request returned no PFX — check Posh-ACME logs" -ForegroundColor Red
+            }
+        } catch {
+            Write-Host "  PRODUCTION cert FAILED: $($_.Exception.Message)" -ForegroundColor Red
+        }
+    } else {
+        Write-Host "`n  Skipping production cert — staging dry-run did not pass" -ForegroundColor Yellow
+        Write-Host "  Fix the staging issue above, then re-run this section"
+    }
 
-# Stage 3: Import to Key Vault
-openssl pkcs12 -export -in /etc/letsencrypt/live/$DOMAIN/fullchain.pem \
-  -inkey /etc/letsencrypt/live/$DOMAIN/privkey.pem -out /tmp/le-cert.pfx -passout pass:
-az keyvault certificate import --vault-name $KV_NAME --name $LE_CERT_NAME --file /tmp/le-cert.pfx
-rm -f /tmp/le-cert.pfx /tmp/azure-certbot.ini
+    # Clear token from memory
+    $armToken = $null
 
-# ── Windows (elevated PowerShell): Same commands but use Windows paths ──
-# certbot certonly --authenticator dns-azure --dns-azure-config C:\temp\azure-certbot.ini `
-#   --dns-azure-propagation-seconds 60 -d $DOMAIN -d *.$DOMAIN `
-#   --non-interactive --agree-tos -m $CONTACT_EMAIL `
-#   --config-dir C:\temp\certbot\config --work-dir C:\temp\certbot\work --logs-dir C:\temp\certbot\logs
-
-"@ -ForegroundColor Yellow
-
-    # 5.5.3 OR use standalone Bash script
-    Write-Host "  Alternatively, run: ./letsencrypt-cert.sh --domain $DOMAIN --kv $KV_NAME" -ForegroundColor Cyan
-    Write-Host "`n  VERIFY: az keyvault certificate list --vault-name $KV_NAME -o table" -ForegroundColor Yellow
-
-    # 5.5.4 Wait for certificate to be available in Key Vault
+    # 5.5.5 Verify certificate in Key Vault
     Write-Host "`n--- Checking for Let's Encrypt certificate in Key Vault ---" -ForegroundColor Cyan
     $leCertExists = az keyvault certificate show --vault-name $KV_NAME --name $LE_CERT_NAME --query "name" -o tsv 2>$null
     if ($leCertExists) {
         Write-Host "  Certificate '$LE_CERT_NAME' found in Key Vault — will be used in Section 7.8" -ForegroundColor Green
+        az keyvault certificate show --vault-name $KV_NAME --name $LE_CERT_NAME `
+          --query "{name:name, expires:attributes.expires, thumbprint:x509ThumbprintHex}" -o table
     } else {
         Write-Host "  Certificate '$LE_CERT_NAME' NOT yet in Key Vault" -ForegroundColor Yellow
-        Write-Host "  Run the certbot commands above (or ./letsencrypt-cert.sh) BEFORE proceeding to Section 7.8"
-        Write-Host "  Section 7.8 will fall back to App Service Managed Certificates if LE cert is missing"
+        Write-Host "  Section 7.8 will fall back to App Service Managed Certificates"
     }
 } else {
     Write-Host "`n--- Skipping Let's Encrypt (ENABLE_LETSENCRYPT = `$false) ---" -ForegroundColor DarkGray
@@ -1728,7 +1759,8 @@ nslookup -type=CNAME weighted.$DOMAIN $NS
 
 Write-Host "`n=== STEP 7.8: CUSTOM DOMAIN + TLS BINDING ===" -ForegroundColor Cyan
 
-$CUSTOM_HOSTNAME = "failover.$DOMAIN"  # The subdomain to bind with custom domain + TLS
+# All 3 TM subdomains need custom domain + TLS (adopted from devmauser multi-domain pattern)
+$CUSTOM_HOSTNAMES = @("failover.$DOMAIN", "geo.$DOMAIN", "weighted.$DOMAIN")
 
 # Check if delegation is working before attempting custom domain binding
 Write-Host "--- Checking if DNS delegation is active ---"
@@ -1750,130 +1782,84 @@ if ($delegationOk) {
     Write-Host "  US webapp verification ID: $($VERIFY_ID_US.Substring(0,16))..."
     Write-Host "  UK webapp verification ID: $($VERIFY_ID_UK.Substring(0,16))..."
 
-    # 7.8.2 Create the asuid TXT record for domain verification
-    # This proves to App Service that you control the DNS zone.
-    # Record name: asuid.<subdomain> | Value: webapp's customDomainVerificationId
-    Write-Host "--- Creating domain verification TXT record ---"
-    az network dns record-set txt add-record -g $RG_NAME -z $DOMAIN `
-      -n "asuid.failover" -v $VERIFY_ID_US -o none
-    Write-Host "  Created: asuid.failover.$DOMAIN TXT (verification for US webapp)"
-
-    # 7.8.3 Bind custom domain to US webapp (primary)
-    Write-Host "--- Binding custom domain to $WEBAPP_US ---"
-    az webapp config hostname add -g $RG_NAME `
-      --webapp-name $WEBAPP_US `
-      --hostname $CUSTOM_HOSTNAME -o none 2>&1
-    if ($?) {
-        Write-Host "  Bound: $CUSTOM_HOSTNAME → $WEBAPP_US" -ForegroundColor Green
-    } else {
-        Write-Host "  Failed to bind — check DNS delegation and TXT record" -ForegroundColor Red
-    }
-
-    # 7.8.3b Bind custom domain to UK webapp (required for TM failover)
-    # Both web apps need the custom domain for Traffic Manager to serve either one.
-    Write-Host "--- Binding custom domain to $WEBAPP_UK ---"
-    az network dns record-set txt add-record -g $RG_NAME -z $DOMAIN `
-      -n "asuid.failover" -v $VERIFY_ID_UK -o none 2>$null
-    az webapp config hostname add -g $RG_NAME `
-      --webapp-name $WEBAPP_UK `
-      --hostname $CUSTOM_HOSTNAME -o none 2>&1
-    if ($?) {
-        Write-Host "  Bound: $CUSTOM_HOSTNAME → $WEBAPP_UK" -ForegroundColor Green
-    } else {
-        Write-Host "  Failed to bind UK webapp — check DNS delegation and TXT record" -ForegroundColor Red
-    }
-
-    # 7.8.4 Import TLS certificate — prefer Let's Encrypt from Key Vault, fallback to managed cert
-    # Ref: https://learn.microsoft.com/azure/app-service/configure-ssl-certificate#import-a-certificate-from-key-vault
+    # 7.8.2 Check for LE wildcard cert in Key Vault (determines cert strategy)
     $leCertInKV = az keyvault certificate show --vault-name $KV_NAME --name $LE_CERT_NAME --query "name" -o tsv 2>$null
-
-    if ($leCertInKV -and $ENABLE_LETSENCRYPT) {
-        # ── PRIMARY PATH: Import Let's Encrypt wildcard cert from Key Vault ──
-        Write-Host "--- Importing Let's Encrypt certificate from Key Vault ---" -ForegroundColor Cyan
-        Write-Host "  Source: Key Vault '$KV_NAME' → Certificate '$LE_CERT_NAME'"
-
-        # Import to US webapp
-        Write-Host "  Importing cert to $WEBAPP_US..."
-        az webapp config ssl import -g $RG_NAME -n $WEBAPP_US `
-          --key-vault $KV_NAME `
-          --key-vault-certificate-name $LE_CERT_NAME `
-          -o none 2>&1
-        if ($?) {
-            Write-Host "  LE cert imported to $WEBAPP_US" -ForegroundColor Green
-        } else {
-            Write-Host "  Import failed for $WEBAPP_US — check Key Vault Certificate User RBAC" -ForegroundColor Red
-            Write-Host "  Fix: az role assignment create --role 'Key Vault Certificate User' --assignee 'abfa0a7c-a6b6-4736-8310-5855508787cd' --scope `$KV_SCOPE"
-        }
-
-        # Import to UK webapp
-        Write-Host "  Importing cert to $WEBAPP_UK..."
-        az webapp config ssl import -g $RG_NAME -n $WEBAPP_UK `
-          --key-vault $KV_NAME `
-          --key-vault-certificate-name $LE_CERT_NAME `
-          -o none 2>&1
-        if ($?) {
-            Write-Host "  LE cert imported to $WEBAPP_UK" -ForegroundColor Green
-        } else {
-            Write-Host "  Import failed for $WEBAPP_UK — check Key Vault Certificate User RBAC" -ForegroundColor Red
-        }
-
-        Write-Host "  NOTE: App Service auto-syncs with Key Vault — cert renewals propagate within 24hrs" -ForegroundColor DarkGray
+    $useWildcard = ($leCertInKV -and $ENABLE_LETSENCRYPT)
+    if ($useWildcard) {
+        Write-Host "  LE wildcard cert found in KV — will use for ALL hostnames" -ForegroundColor Green
     } else {
-        # ── FALLBACK PATH: App Service Managed Certificate ──
-        Write-Host "--- Let's Encrypt cert not in Key Vault — using App Service Managed Certificate ---" -ForegroundColor Yellow
-        Write-Host "  To use LE cert: run certbot (Section 5.5), then re-run this section"
+        Write-Host "  LE cert not in KV — will use App Service Managed Certificates" -ForegroundColor Yellow
+    }
 
-        Write-Host "  Creating managed cert for $WEBAPP_US..."
-        az webapp config ssl create -g $RG_NAME `
-          -n $WEBAPP_US `
-          --hostname $CUSTOM_HOSTNAME -o none 2>&1
-        if ($?) {
-            Write-Host "  Managed TLS cert created for $CUSTOM_HOSTNAME → $WEBAPP_US" -ForegroundColor Green
-        } else {
-            Write-Host "  Managed cert failed — wait for DNS propagation and retry" -ForegroundColor Yellow
+    # 7.8.3 Loop over ALL custom hostnames (failover, geo, weighted) × BOTH web apps
+    # Adopted from devmauser multi-domain pattern: wildcard cert covers all subdomains
+    foreach ($hostname in $CUSTOM_HOSTNAMES) {
+        $subdomain = ($hostname -split '\.')[0]  # e.g., "failover", "geo", "weighted"
+        Write-Host "`n--- Wiring $hostname ---" -ForegroundColor Cyan
+
+        # Create asuid TXT verification records for both web apps
+        az network dns record-set txt add-record -g $RG_NAME -z $DOMAIN `
+          -n "asuid.$subdomain" -v $VERIFY_ID_US -o none 2>$null
+        az network dns record-set txt add-record -g $RG_NAME -z $DOMAIN `
+          -n "asuid.$subdomain" -v $VERIFY_ID_UK -o none 2>$null
+        Write-Host "  Created: asuid.$subdomain.$DOMAIN TXT records"
+
+        # Bind custom domain to BOTH web apps
+        foreach ($app in @($WEBAPP_US, $WEBAPP_UK)) {
+            Write-Host "  Binding $hostname → $app..."
+            az webapp config hostname add -g $RG_NAME --webapp-name $app --hostname $hostname -o none 2>$null
+            if ($?) {
+                Write-Host "    Bound" -ForegroundColor Green
+            } else {
+                Write-Host "    Bind failed (may already exist)" -ForegroundColor Yellow
+            }
         }
 
-        Write-Host "  Creating managed cert for $WEBAPP_UK..."
-        az webapp config ssl create -g $RG_NAME `
-          -n $WEBAPP_UK `
-          --hostname $CUSTOM_HOSTNAME -o none 2>&1
-        if ($?) {
-            Write-Host "  Managed TLS cert created for $CUSTOM_HOSTNAME → $WEBAPP_UK" -ForegroundColor Green
+        # Import/create TLS certificate
+        if ($useWildcard) {
+            # ── PRIMARY: Import LE wildcard cert from Key Vault ──
+            foreach ($app in @($WEBAPP_US, $WEBAPP_UK)) {
+                Write-Host "  Importing LE cert → $app..."
+                az webapp config ssl import -g $RG_NAME -n $app `
+                  --key-vault $KV_NAME `
+                  --key-vault-certificate-name $LE_CERT_NAME `
+                  -o none 2>$null
+                if ($?) {
+                    Write-Host "    LE cert imported" -ForegroundColor Green
+                } else {
+                    Write-Host "    Import failed — check KV Certificate User RBAC" -ForegroundColor Red
+                }
+            }
         } else {
-            Write-Host "  Managed cert failed for UK webapp" -ForegroundColor Yellow
+            # ── FALLBACK: App Service Managed Certificate ──
+            foreach ($app in @($WEBAPP_US, $WEBAPP_UK)) {
+                Write-Host "  Creating managed cert for $app..."
+                az webapp config ssl create -g $RG_NAME -n $app --hostname $hostname -o none 2>$null
+                if ($?) {
+                    Write-Host "    Managed cert created" -ForegroundColor Green
+                } else {
+                    Write-Host "    Managed cert failed — DNS propagation may be pending" -ForegroundColor Yellow
+                }
+            }
+        }
+
+        # Bind TLS cert with SNI to both web apps
+        foreach ($app in @($WEBAPP_US, $WEBAPP_UK)) {
+            $thumbprint = (az webapp config ssl list -g $RG_NAME `
+              --query "[?subjectName=='$hostname' || contains(subjectName,'*.$DOMAIN')].thumbprint | [0]" -o tsv 2>$null)
+            if ($thumbprint) {
+                az webapp config ssl bind -g $RG_NAME -n $app `
+                  --certificate-thumbprint $thumbprint --ssl-type SNI `
+                  --hostname $hostname -o none 2>$null
+                Write-Host "  TLS bound: $hostname → $app (SNI)" -ForegroundColor Green
+            } else {
+                Write-Host "  No cert found for $hostname on $app — may still be provisioning" -ForegroundColor Yellow
+            }
         }
     }
 
-    # 7.8.5 Bind TLS cert with SNI to BOTH web apps
-    # Get the thumbprint of whichever cert was imported/created
-    $THUMBPRINT_US = (az webapp config ssl list -g $RG_NAME `
-      --query "[?subjectName=='$CUSTOM_HOSTNAME' || contains(subjectName,'*.$DOMAIN')].thumbprint | [0]" -o tsv 2>$null)
-    if ($THUMBPRINT_US) {
-        Write-Host "--- Binding TLS cert (SNI) to $WEBAPP_US ---"
-        az webapp config ssl bind -g $RG_NAME `
-          -n $WEBAPP_US `
-          --certificate-thumbprint $THUMBPRINT_US `
-          --ssl-type SNI -o none 2>&1
-        Write-Host "  TLS bound: $CUSTOM_HOSTNAME → $WEBAPP_US (SNI, thumbprint: $($THUMBPRINT_US.Substring(0,8))...)" -ForegroundColor Green
-    } else {
-        Write-Host "  No TLS cert found for US webapp — may still be provisioning" -ForegroundColor Yellow
-    }
-
-    $THUMBPRINT_UK = (az webapp config ssl list -g $RG_NAME `
-      --query "[?subjectName=='$CUSTOM_HOSTNAME' || contains(subjectName,'*.$DOMAIN')].thumbprint | [0]" -o tsv 2>$null)
-    if ($THUMBPRINT_UK) {
-        Write-Host "--- Binding TLS cert (SNI) to $WEBAPP_UK ---"
-        az webapp config ssl bind -g $RG_NAME `
-          -n $WEBAPP_UK `
-          --certificate-thumbprint $THUMBPRINT_UK `
-          --ssl-type SNI -o none 2>&1
-        Write-Host "  TLS bound: $CUSTOM_HOSTNAME → $WEBAPP_UK (SNI, thumbprint: $($THUMBPRINT_UK.Substring(0,8))...)" -ForegroundColor Green
-    } else {
-        Write-Host "  No TLS cert found for UK webapp — may still be provisioning" -ForegroundColor Yellow
-    }
-
-    # VERIFY — both web apps should show SniEnabled
-    Write-Host "`n--- VERIFY: Custom domain + TLS (both web apps) ---" -ForegroundColor Green
+    # VERIFY — all hostnames + both web apps should show SniEnabled
+    Write-Host "`n--- VERIFY: Custom domain + TLS (all hostnames, both web apps) ---" -ForegroundColor Green
     Write-Host "US webapp:"
     az webapp config hostname list -g $RG_NAME --webapp-name $WEBAPP_US `
       --query "[].{hostname:name, sslState:sslState}" -o table
