@@ -7,6 +7,8 @@
 *.cer
 *connection-string*
 *secrets*
+domain-contact-info.json
+E2E_Test_Report_*.json
 
 # Local zone snapshot exports
 snapshot-*.zone
@@ -20,6 +22,7 @@ Zava_DNS_POC_Scoping_Session_Agenda.md
 Zava_Azure_DNS_POC_Plan.md
 Zava_DCV_Walkthrough_Guide.md
 REMEDIATION_PLAN.md
+AUDIT_REPORT_2026-03-29.md
 
 
 
