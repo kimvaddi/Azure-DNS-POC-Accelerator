@@ -29,38 +29,32 @@ resource customRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' = {
     permissions: [
       {
         actions: [
-          // Read operations (always needed)
-          'Microsoft.Network/dnsZones/read',
-          'Microsoft.Network/dnsZones/recordSets/read',
-          'Microsoft.Network/dnsZones/recordSets/A/read',
-          'Microsoft.Network/dnsZones/recordSets/AAAA/read',
-          'Microsoft.Network/dnsZones/recordSets/CNAME/read',
-          'Microsoft.Network/dnsZones/recordSets/MX/read',
-          'Microsoft.Network/dnsZones/recordSets/NS/read',
-          'Microsoft.Network/dnsZones/recordSets/PTR/read',
-          'Microsoft.Network/dnsZones/recordSets/SRV/read',
-          'Microsoft.Network/dnsZones/recordSets/TXT/read',
-          'Microsoft.Network/dnsZones/recordSets/SOA/read',
-          'Microsoft.Network/dnsZones/recordSets/CAA/read',
-          
-          // Write operations (create/update — NOT delete)
-          'Microsoft.Network/dnsZones/recordSets/A/write',
-          'Microsoft.Network/dnsZones/recordSets/AAAA/write',
-          'Microsoft.Network/dnsZones/recordSets/CNAME/write',
-          'Microsoft.Network/dnsZones/recordSets/MX/write',
-          'Microsoft.Network/dnsZones/recordSets/NS/write',
-          'Microsoft.Network/dnsZones/recordSets/PTR/write',
-          'Microsoft.Network/dnsZones/recordSets/SRV/write',
-          'Microsoft.Network/dnsZones/recordSets/TXT/write',
-          'Microsoft.Network/dnsZones/recordSets/CAA/write',
-          
-          // Operations like GET, LIST at zone level
-          'Microsoft.Network/dnsZones/*/read',
+          'Microsoft.Network/dnsZones/read'
+          'Microsoft.Network/dnsZones/recordSets/read'
+          'Microsoft.Network/dnsZones/recordSets/A/read'
+          'Microsoft.Network/dnsZones/recordSets/AAAA/read'
+          'Microsoft.Network/dnsZones/recordSets/CNAME/read'
+          'Microsoft.Network/dnsZones/recordSets/MX/read'
+          'Microsoft.Network/dnsZones/recordSets/NS/read'
+          'Microsoft.Network/dnsZones/recordSets/PTR/read'
+          'Microsoft.Network/dnsZones/recordSets/SRV/read'
+          'Microsoft.Network/dnsZones/recordSets/TXT/read'
+          'Microsoft.Network/dnsZones/recordSets/SOA/read'
+          'Microsoft.Network/dnsZones/recordSets/CAA/read'
+          'Microsoft.Network/dnsZones/recordSets/A/write'
+          'Microsoft.Network/dnsZones/recordSets/AAAA/write'
+          'Microsoft.Network/dnsZones/recordSets/CNAME/write'
+          'Microsoft.Network/dnsZones/recordSets/MX/write'
+          'Microsoft.Network/dnsZones/recordSets/NS/write'
+          'Microsoft.Network/dnsZones/recordSets/PTR/write'
+          'Microsoft.Network/dnsZones/recordSets/SRV/write'
+          'Microsoft.Network/dnsZones/recordSets/TXT/write'
+          'Microsoft.Network/dnsZones/recordSets/CAA/write'
+          'Microsoft.Network/dnsZones/*/read'
           'Microsoft.Authorization/*/read'
         ]
         notActions: [
-          // Explicitly deny delete operations
-          'Microsoft.Network/dnsZones/recordSets/delete',
+          'Microsoft.Network/dnsZones/recordSets/delete'
           'Microsoft.Network/dnsZones/recordSets/*/delete'
         ]
       }

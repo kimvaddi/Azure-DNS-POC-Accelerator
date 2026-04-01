@@ -461,6 +461,68 @@ module keyVaultSecrets 'modules/key-vault-secrets.bicep' = {
 }
 
 // ============================================================================
+// CUSTOM RBAC ROLE — DNS Record Writer (from devmauser)
+// ============================================================================
+// Scope: Subscription-level role, minimal privileges for DCV automation
+// Ref: https://learn.microsoft.com/azure/role-based-access-control/custom-roles
+
+module customDnsRole 'modules/custom-role-dns-writer.bicep' = {
+  scope: subscription()
+  name: 'deploy-custom-dns-role'
+  params: {
+    roleName: 'DNS Record Writer - Zava POC'
+    roleDescription: 'Create, read, and update DNS records for DCV automation. Cannot delete records or zones.'
+  }
+}
+
+// ============================================================================
+// DNS OBSERVABILITY — Monitoring Workbook (from devmauser)
+// ============================================================================
+// Azure Monitor workbook for DNS zone operations and metrics
+
+module dnsObservability 'modules/public-dns-observability.bicep' = {
+  scope: rg
+  name: 'deploy-dns-observability'
+  params: {
+    zoneName: domain
+    location: location
+    workspaceId: logAnalytics.outputs.workspaceId
+    tags: tags
+  }
+  dependsOn: [
+    publicDnsZone
+  ]
+}
+
+// ============================================================================
+// DNS TXT RECORDS — Sample records for POC (from devmauser)
+// ============================================================================
+// Deploys standard TXT records (SPF, DMARC) declaratively
+
+module dnsTxtRecords 'modules/dns-txt-records.bicep' = {
+  scope: rg
+  name: 'deploy-dns-txt-records'
+  params: {
+    zoneName: domain
+    txtRecords: [
+      {
+        name: '@'
+        ttl: 3600
+        values: ['v=spf1 include:spf.protection.outlook.com -all']
+      }
+      {
+        name: '_dmarc'
+        ttl: 3600
+        values: ['v=DMARC1; p=quarantine; rua=mailto:dmarc@zavaenergy.com']
+      }
+    ]
+  }
+  dependsOn: [
+    publicDnsZone
+  ]
+}
+
+// ============================================================================
 // OUTPUTS
 // ============================================================================
 
