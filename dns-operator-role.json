@@ -1,0 +1,28 @@
+{
+  "Name": "DNS Record Operator",
+  "Description": "Can manage DNS record sets (A, AAAA, CNAME, MX, TXT, SRV, CAA, PTR) but cannot create, delete, or import zones. Cannot modify SOA/NS records or DNSSEC.",
+  "Actions": [
+    "Microsoft.Network/dnsZones/read",
+    "Microsoft.Network/dnsZones/*/read",
+    "Microsoft.Network/dnsZones/A/*",
+    "Microsoft.Network/dnsZones/AAAA/*",
+    "Microsoft.Network/dnsZones/CNAME/*",
+    "Microsoft.Network/dnsZones/MX/*",
+    "Microsoft.Network/dnsZones/TXT/*",
+    "Microsoft.Network/dnsZones/SRV/*",
+    "Microsoft.Network/dnsZones/CAA/*",
+    "Microsoft.Network/dnsZones/PTR/*",
+    "Microsoft.Network/dnsZones/recordsets/read",
+    "Microsoft.Resources/subscriptions/resourceGroups/read"
+  ],
+  "NotActions": [
+    "Microsoft.Network/dnsZones/write",
+    "Microsoft.Network/dnsZones/delete",
+    "Microsoft.Network/dnsZones/SOA/write",
+    "Microsoft.Network/dnsZones/NS/write",
+    "Microsoft.Network/dnsZones/NS/delete",
+    "Microsoft.Network/dnsZones/dnssecConfigs/default/write",
+    "Microsoft.Network/dnsZones/dnssecConfigs/default/delete"
+  ],
+  "AssignableScopes": ["/subscriptions/<subscription-id>"]
+}

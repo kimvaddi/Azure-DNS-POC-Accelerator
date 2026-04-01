@@ -146,6 +146,28 @@ AzureDiagnostics
 
 ## 🧪 Test Scenarios
 
+### Scenario 0: RBAC Role Verification
+```powershell
+# List custom roles
+az role definition list --custom-role-only true --query "[?contains(roleName,'DNS')]" -o table
+
+# List role assignments on DNS zone
+az role assignment list \
+  --scope "/subscriptions/<sub-id>/resourceGroups/rg-dns-poc/providers/Microsoft.Network/dnsZones/poc.zava-dnspoc.com" \
+  --query "[].{principal:principalName, role:roleDefinitionName}" -o table
+
+# Test as Operator — should SUCCEED
+az network dns record-set a add-record -g rg-dns-poc -z poc.zava-dnspoc.com -n "rbac-test" -a "10.99.99.99"
+
+# Test as Operator — should FAIL (AuthorizationFailed)
+az network dns zone delete -g rg-dns-poc -n poc.zava-dnspoc.com --yes
+
+# Cleanup
+az network dns record-set a delete -g rg-dns-poc -z poc.zava-dnspoc.com -n "rbac-test" --yes
+
+# Full RBAC demo: .\Zava_RBAC_Delegation.ps1
+```
+
 ### Scenario 1: DNS Failover
 ```powershell
 # 1. Baseline

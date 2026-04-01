@@ -23,6 +23,9 @@ Zava_Azure_DNS_POC_Plan.md
 Zava_DCV_Walkthrough_Guide.md
 REMEDIATION_PLAN.md
 AUDIT_REPORT_2026-03-29.md
+DNS_POC_Solution_Accelerator_Discovery.md
+DNS_POC_Core Ask from the Customer.txt
+Zava DNS POC Scope _3_25_2026.txt
 
 
 
@@ -45,8 +48,8 @@ desktop.ini
 # PowerShell temp files
 *.log
 
-# Generated role definition (contains subscription ID)
-dns-operator-role.json
+# Generated role definition — now safe (uses <subscription-id> placeholder)
+# dns-operator-role.json
 
 # DCV automation generated files (contain secrets)
 azure-certbot.ini
