@@ -109,6 +109,42 @@ function Test-AciProviderRegistration {
     }
 }
 
+function Get-WestEuropeContainerRegistry {
+    param([string]$ResourceGroup)
+
+    try {
+        Write-Step "Checking for existing container registries in $AciLocation..."
+        
+        # Query for ACR resources in westeurope in the same resource group
+        $registries = az acr list --resource-group $ResourceGroup `
+            --query "[?location=='$AciLocation']" `
+            --output json 2>$null
+        
+        if ($LASTEXITCODE -eq 0 -and $registries) {
+            $regList = $registries | ConvertFrom-Json -ErrorAction SilentlyContinue
+            
+            if ($regList -and ($regList | Measure-Object).Count -gt 0) {
+                if ($regList -is [array]) {
+                    $registry = $regList[0]
+                } else {
+                    $registry = $regList
+                }
+                
+                Write-Ok "Found existing container registry: $($registry.name) in $AciLocation"
+                Write-Host ("    Login server: {0}" -f $registry.loginServer) -ForegroundColor Gray
+                return $registry
+            }
+        }
+        
+        Write-Warn "No container registry found in $AciLocation. Using public image."
+        return $null
+    } catch {
+        Write-Warn "Could not check for container registries: $($_.Exception.Message)"
+        Write-Warn "Will proceed with public image (mcr.microsoft.com)"
+        return $null
+    }
+}
+
 function ConvertFrom-JsonLoose {
     param([string]$RawText)
 
@@ -618,6 +654,11 @@ $domain = ''
 $ResourceGroup = Get-DeploymentResourceGroup -Override $ResourceGroup
 $resolvedDomain = Get-DeploymentDomain -Override $Domain
 
+# Pre-check: Look for existing container registry in westeurope
+Write-Host ""
+$existingRegistry = Get-WestEuropeContainerRegistry -ResourceGroup $ResourceGroup
+Write-Host ""
+
 # Scenario selection menu
 if (-not $Scenario) {
     Write-Host "  Usage:" -ForegroundColor Yellow
@@ -672,6 +713,12 @@ if (-not $domain) {
 
 Write-Host "  Domain        : $domain" -ForegroundColor Cyan
 Write-Host "  Resource group: $ResourceGroup" -ForegroundColor Cyan
+Write-Host "  ACI Location  : $AciLocation" -ForegroundColor Cyan
+if ($existingRegistry) {
+    Write-Host "  Container Reg : $($existingRegistry.name)" -ForegroundColor Green
+} else {
+    Write-Host "  Container Reg : Using public image (mcr.microsoft.com)" -ForegroundColor Gray
+}
 Write-Host "  Iterations    : $Iterations (weighted uses max($Iterations, 30))" -ForegroundColor Cyan
 if ($SkipAci) { Write-Warn "ACI probes disabled — running local probes only." }
 Write-Host ""
