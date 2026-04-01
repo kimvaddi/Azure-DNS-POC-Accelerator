@@ -227,10 +227,15 @@ $CONTACT_EMAIL     = "admin@zavaenergy.com" # ICANN registration + Let's Encrypt
 $SP_CERTBOT_NAME   = "sp-certbot-dns-poc"   # Service Principal for certbot
 # Generate unique suffix from subscription ID (deterministic per sub, unique across tenants)
 $_subId = az account show --query id -o tsv 2>$null
+if (-not $_subId -or $_subId.Length -lt 8) {
+    Write-Host "ERROR: Could not get subscription ID. Run 'az login' first." -ForegroundColor Red
+    exit 1
+}
 $_suffix = $_subId.Substring(0,8)  # First 8 chars of subscription GUID
+Write-Host "  Subscription suffix: $_suffix (used for globally-unique names)" -ForegroundColor DarkGray
 
 $LAW_NAME          = "law-dns-poc"
-$EH_NAMESPACE      = "ehns-dns-poc"       # Must be globally unique
+$EH_NAMESPACE      = "ehns-dnspoc-$_suffix"  # Dynamic: unique per subscription
 $EH_NAME           = "dns-logs"
 $VNET_NAME         = "vnet-dns-poc"
 $KV_NAME           = "kv-dnspoc-$_suffix"  # Dynamic: unique per subscription
