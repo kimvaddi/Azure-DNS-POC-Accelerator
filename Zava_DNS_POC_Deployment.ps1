@@ -1257,39 +1257,53 @@ Write-Host @"
 
 # ============================================================================
 # SECTION 4: RBAC & DELEGATION (Step 4)
-# Deploys: Custom "DNS Record Operator" role
-# Dependencies: Section 1 (RG)
+# Deploys: Custom "DNS Record Operator" role + resource lock
+# Dependencies: Section 1 (RG), DNS Zone
 #
-# Two roles for POC:
-#   - DNS Zone Contributor (built-in): Full zone + record management
-#   - DNS Record Operator (custom): Record management only, no zone create/delete
+# Two-role model (MS Learn validated):
+#   - DNS Zone Contributor (built-in): Full zone + record management — assign to DNS admins
+#   - DNS Record Operator (custom): Record CRUD only, no zone lifecycle — assign to operators
+#
+# Ref: https://learn.microsoft.com/azure/dns/dns-protect-zones-recordsets
+# Ref: https://learn.microsoft.com/azure/dns/secure-dns#privileged-access
+# Ref: https://learn.microsoft.com/azure/role-based-access-control/custom-roles
+#
+# Standalone script with full tests: .\Zava_RBAC_Delegation.ps1
 # ============================================================================
 
 Write-Host "`n=== STEP 4: RBAC & DELEGATION ===" -ForegroundColor Cyan
 
 $SUB_ID = (az account show --query "id" -o tsv)
 
-# 4.1 Create custom role definition
+# 4.1 Create custom role definition (13 Actions, 7 NotActions)
 $roleJson = @"
 {
   "Name": "DNS Record Operator",
-  "Description": "Can manage DNS record sets but not create/delete zones",
+  "Description": "Can manage DNS record sets (A, AAAA, CNAME, MX, TXT, SRV, CAA, PTR) but cannot create, delete, or import zones. Cannot modify SOA/NS records or DNSSEC.",
   "Actions": [
     "Microsoft.Network/dnsZones/read",
     "Microsoft.Network/dnsZones/*/read",
+    "Microsoft.Network/dnsZones/recordsets/read",
     "Microsoft.Network/dnsZones/A/*",
     "Microsoft.Network/dnsZones/AAAA/*",
     "Microsoft.Network/dnsZones/CNAME/*",
     "Microsoft.Network/dnsZones/MX/*",
     "Microsoft.Network/dnsZones/TXT/*",
     "Microsoft.Network/dnsZones/SRV/*",
-    "Microsoft.Network/dnsZones/recordsets/*"
+    "Microsoft.Network/dnsZones/CAA/*",
+    "Microsoft.Network/dnsZones/PTR/*",
+    "Microsoft.Resources/subscriptions/resourceGroups/read"
   ],
   "NotActions": [
     "Microsoft.Network/dnsZones/write",
-    "Microsoft.Network/dnsZones/delete"
+    "Microsoft.Network/dnsZones/delete",
+    "Microsoft.Network/dnsZones/SOA/write",
+    "Microsoft.Network/dnsZones/NS/write",
+    "Microsoft.Network/dnsZones/NS/delete",
+    "Microsoft.Network/dnsZones/dnssecConfigs/default/write",
+    "Microsoft.Network/dnsZones/dnssecConfigs/default/delete"
   ],
-  "AssignableScopes": ["/subscriptions/$SUB_ID/resourceGroups/$RG_NAME"]
+  "AssignableScopes": ["/subscriptions/$SUB_ID"]
 }
 "@
 $roleFile = ".\dns-operator-role.json"
@@ -1297,18 +1311,38 @@ $roleJson | Out-File -FilePath $roleFile -Encoding utf8NoBOM
 
 Write-Host "--- Creating custom 'DNS Record Operator' role ---"
 az role definition create --role-definition $roleFile `
-  --query "{roleName:roleName}" -o table
+  --query "{roleName:roleName}" -o table 2>$null
+if ($LASTEXITCODE -ne 0) {
+    # Role may already exist — try updating
+    Write-Host "  Role may exist — updating definition..." -ForegroundColor Yellow
+    az role definition update --role-definition $roleFile -o none 2>$null
+}
 
-# 4.2 Assign roles (uncomment and set UPNs for actual testing)
+# Custom roles take ~60s to propagate
+Write-Host "  Waiting 60s for RBAC propagation..." -ForegroundColor DarkGray
+Start-Sleep -Seconds 60
+
+# 4.2 Apply resource lock on DNS zone (prevents accidental deletion)
+Write-Host "--- Applying CanNotDelete lock to $DOMAIN ---"
+az lock create --name "protect-dns-zone" `
+  --resource-group $RG_NAME `
+  --resource-type "Microsoft.Network/dnsZones" `
+  --resource-name $DOMAIN `
+  --lock-type CanNotDelete `
+  --notes "Prevent accidental deletion of POC DNS zone" `
+  -o none 2>$null
+Write-Host "  ✅ CanNotDelete lock applied" -ForegroundColor Green
+
+# 4.3 Assign roles (uncomment and set UPNs for actual testing)
 # $OPERATOR_UPN = "operator@yourtenant.onmicrosoft.com"
 # $ADMIN_UPN    = "admin@yourtenant.onmicrosoft.com"
 #
-# # Assign Operator role (records only)
+# # Assign Operator role (records only, scoped to DNS zone)
 # az role assignment create --assignee $OPERATOR_UPN `
 #   --role "DNS Record Operator" `
-#   --scope "/subscriptions/$SUB_ID/resourceGroups/$RG_NAME"
+#   --scope "/subscriptions/$SUB_ID/resourceGroups/$RG_NAME/providers/Microsoft.Network/dnsZones/$DOMAIN"
 #
-# # Assign Admin role (full zone control)
+# # Assign Admin role (full zone control, scoped to RG)
 # az role assignment create --assignee $ADMIN_UPN `
 #   --role "DNS Zone Contributor" `
 #   --scope "/subscriptions/$SUB_ID/resourceGroups/$RG_NAME"

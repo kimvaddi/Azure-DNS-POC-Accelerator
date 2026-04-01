@@ -314,7 +314,7 @@ The POC includes automated Domain Control Validation testing (9 proof tests) plu
 
 The POC implements a **two-role model** for DNS access control, following MS Learn least-privilege guidance:
 
-| | Admin (DNS Zone Contributor) | Operator (DNS Record Operator) |
+| | DNS Zone Contributor (built-in) | DNS Record Operator (custom) |
 |---|---|---|
 | **Type** | Built-in (Microsoft-managed) | **Custom** (created by script) |
 | **Scope** | Resource Group (all zones) | Individual DNS Zone |

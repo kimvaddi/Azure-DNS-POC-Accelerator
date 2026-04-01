@@ -508,8 +508,8 @@ sed -i "s/SUBSCRIPTION_ID_PLACEHOLDER/$SUBSCRIPTION_ID/g" dns-record-operator-ro
 echo "Creating custom role: DNS Record Operator..."
 az role definition create --role-definition dns-record-operator-role.json --output table
 
-# 4.2 Assign ADMIN role (DNS Zone Contributor — built-in)
-echo "Assigning DNS Zone Contributor to Admin user..."
+# 4.2 Assign DNS Zone Contributor role (built-in — for DNS admins)
+echo "Assigning DNS Zone Contributor to DNS admin user..."
 az role assignment create \
   --assignee "$ADMIN_USER_OBJECT_ID" \
   --role "DNS Zone Contributor" \

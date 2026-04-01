@@ -7,8 +7,8 @@
 # Date:     April 1, 2026
 #
 # Two roles:
-#   - DNS Zone Contributor (built-in): Full zone + record management (Admin)
-#   - DNS Record Operator (custom):    Record management only (Operator)
+#   - DNS Zone Contributor (built-in): Full zone + record management — assign to DNS admins
+#   - DNS Record Operator (custom): Record CRUD only, no zone lifecycle — assign to operators
 #
 # Prerequisites:
 #   - Resource group 'rg-dns-poc' exists
@@ -52,7 +52,7 @@ Write-Host @"
 ║              RBAC & DELEGATION — Role Comparison                     ║
 ╠══════════════════════════════════════════════════════════════════════╣
 ║                                                                      ║
-║  Admin (DNS Zone Contributor — built-in):                            ║
+║  DNS Zone Contributor (built-in role):                               ║
 ║    ✅ Create/delete DNS zones                                        ║
 ║    ✅ Create/update/delete ALL record types                          ║
 ║    ✅ Import/export zones                                            ║
@@ -401,7 +401,8 @@ Write-Host @"
 ║              RBAC COMPARISON — POC SCORECARD                         ║
 ╠══════════════════════════════════════════════════════════════════════╣
 ║                                                                      ║
-║  Action                    │ Admin (Zone Contributor) │ Operator     ║
+║  Action                    │ DNS Zone Contributor    │ DNS Record   ║
+║                            │ (built-in)              │ Operator     ║
 ║  ──────────────────────────┼─────────────────────────┼────────────  ║
 ║  Read zones                │ ✅                       │ ✅           ║
 ║  List records              │ ✅                       │ ✅           ║

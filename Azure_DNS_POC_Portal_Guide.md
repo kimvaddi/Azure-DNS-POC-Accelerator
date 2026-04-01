@@ -206,7 +206,7 @@ In the `poc.zava-dnspoc.com` zone, click **+ Record set** for each:
 
 ### 10a: Built-in DNS Zone Contributor
 1. Go to the `poc.zava-dnspoc.com` DNS zone → **Access control (IAM)**
-2. **+ Add role assignment** → `DNS Zone Contributor` → Assign to admin user
+2. **+ Add role assignment** → `DNS Zone Contributor` → Assign to DNS admin user
 
 ### 10b: Custom Role (DNS Record Operator)
 > Custom roles cannot be created in the portal UI from scratch. Use Cloud Shell:

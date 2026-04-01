@@ -10,7 +10,7 @@
         <mxCell id="WfZHfwuRHXWrhoHdEw4W-2" parent="1" style="whiteSpace=wrap;strokeWidth=2;verticalAlign=top;" value="SECURITY &amp; RBAC LAYER" vertex="1">
           <mxGeometry height="340" width="335" x="1009" y="1634" as="geometry" />
         </mxCell>
-        <mxCell id="WfZHfwuRHXWrhoHdEw4W-3" parent="WfZHfwuRHXWrhoHdEw4W-2" style="whiteSpace=wrap;strokeWidth=2;" value="🔑 RBAC Roles&#xa;───────────&#xa;Built-in:&#xa;• DNS Zone Contributor (Admin)&#xa;Custom:&#xa;• DNS Record Operator&#xa; - Can manage records&#xa; - Cannot create/delete zones" vertex="1">
+        <mxCell id="WfZHfwuRHXWrhoHdEw4W-3" parent="WfZHfwuRHXWrhoHdEw4W-2" style="whiteSpace=wrap;strokeWidth=2;" value="🔑 RBAC Roles&#xa;───────────&#xa;Built-in:&#xa;• DNS Zone Contributor (full zone control)&#xa;Custom:&#xa;• DNS Record Operator&#xa; - Can manage records&#xa; - Cannot create/delete zones" vertex="1">
           <mxGeometry height="270" width="260" x="46" y="43" as="geometry" />
         </mxCell>
         <mxCell id="WfZHfwuRHXWrhoHdEw4W-4" parent="1" style="whiteSpace=wrap;strokeWidth=2;" value="OBSERVABILITY &amp; SIEM LAYER" vertex="1">
