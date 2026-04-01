@@ -50,6 +50,11 @@ param storageAccountName string = 'stqradarpoc${uniqueString(subscription().subs
 @description('Event Hub namespace name')
 param eventHubNamespaceName string = 'ehns-dns-poc'
 
+@description('Traffic Manager profile names (must be globally unique DNS labels)')
+param tmFailoverName string = 'tm-poc-failover-${substring(uniqueString(subscription().subscriptionId), 0, 8)}'
+param tmGeoName string = 'tm-poc-geo-${substring(uniqueString(subscription().subscriptionId), 0, 8)}'
+param tmWeightedName string = 'tm-poc-weighted-${substring(uniqueString(subscription().subscriptionId), 0, 8)}'
+
 @description('Log Analytics workspace name')
 param lawName string = 'law-dns-poc'
 
@@ -264,10 +269,10 @@ module trafficManagerFailover 'modules/traffic-manager.bicep' = {
   scope: rg
   name: 'deploy-tm-failover'
   params: {
-    profileName: 'tm-poc-failover'
+    profileName: tmFailoverName
     routingMethod: 'Priority'
     dnsConfig: {
-      relativeName: 'tm-poc-failover'
+      relativeName: tmFailoverName
       ttl: 30
     }
     monitorConfig: {
@@ -301,10 +306,10 @@ module trafficManagerGeo 'modules/traffic-manager.bicep' = {
   scope: rg
   name: 'deploy-tm-geo'
   params: {
-    profileName: 'tm-poc-geo'
+    profileName: tmGeoName
     routingMethod: 'Geographic'
     dnsConfig: {
-      relativeName: 'tm-poc-geo'
+      relativeName: tmGeoName
       ttl: 30
     }
     monitorConfig: {
@@ -338,10 +343,10 @@ module trafficManagerWeighted 'modules/traffic-manager.bicep' = {
   scope: rg
   name: 'deploy-tm-weighted'
   params: {
-    profileName: 'tm-poc-weighted'
+    profileName: tmWeightedName
     routingMethod: 'Weighted'
     dnsConfig: {
-      relativeName: 'tm-poc-weighted'
+      relativeName: tmWeightedName
       ttl: 30
     }
     monitorConfig: {

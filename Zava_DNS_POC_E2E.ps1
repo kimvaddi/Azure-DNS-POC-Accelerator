@@ -103,9 +103,9 @@ $KV_NAME            = "kv-dnspoc-$_suffix"  # Dynamic: unique per subscription
 $_existingKV = az keyvault list -g $RG_NAME --query "[?starts_with(name, 'kv-')].name | [0]" -o tsv 2>$null
 if ($_existingKV) { $KV_NAME = $_existingKV }
 $SP_NAME            = "sp-certbot-dns-poc"
-$TM_FAILOVER        = "tm-poc-failover"
-$TM_GEO             = "tm-poc-geo"
-$TM_WEIGHTED        = "tm-poc-weighted"
+$TM_FAILOVER        = "tm-poc-failover-$_suffix"
+$TM_GEO             = "tm-poc-geo-$_suffix"
+$TM_WEIGHTED        = "tm-poc-weighted-$_suffix"
 $WEBAPP_US          = "webapp-poc-us-$_suffix"
 $WEBAPP_UK          = "webapp-poc-uk-$_suffix"
 
