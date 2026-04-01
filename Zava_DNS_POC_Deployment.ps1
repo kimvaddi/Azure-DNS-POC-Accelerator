@@ -1173,8 +1173,8 @@ $EH_LISTEN_CONN = (az eventhubs eventhub authorization-rule keys list `
   --query "primaryConnectionString" -o tsv)
 
 # 3.7.2 Get Event Hub Send connection string  
-$EH_SEND_CONN = (az eventhubs namespace authorization-rule keys list `
-  -g $RG_NAME --namespace-name $EH_NAMESPACE `
+$EH_SEND_CONN = (az eventhubs eventhub authorization-rule keys list `
+  -g $RG_NAME --namespace-name $EH_NAMESPACE --eventhub-name $EH_NAME `
   --name SendPolicy `
   --query "primaryConnectionString" -o tsv)
 
@@ -1188,7 +1188,7 @@ Write-Host "  Storing EventHubListenConnectionString..." -NoNewline
 az keyvault secret set `
   --vault-name $KV_NAME `
   --name "EventHubListenConnectionString" `
-  --value $EH_LISTEN_CONN `
+  --value "$EH_LISTEN_CONN" `
   --content-type "text/plain" `
   -o none
 Write-Host " ✅" -ForegroundColor Green
@@ -1197,7 +1197,7 @@ Write-Host "  Storing EventHubSendConnectionString..." -NoNewline
 az keyvault secret set `
   --vault-name $KV_NAME `
   --name "EventHubSendConnectionString" `
-  --value $EH_SEND_CONN `
+  --value "$EH_SEND_CONN" `
   --content-type "text/plain" `
   -o none
 Write-Host " ✅" -ForegroundColor Green
@@ -1206,7 +1206,7 @@ Write-Host "  Storing StorageAccountConnectionString..." -NoNewline
 az keyvault secret set `
   --vault-name $KV_NAME `
   --name "StorageAccountConnectionString" `
-  --value $STORAGE_CONN `
+  --value "$STORAGE_CONN" `
   --content-type "text/plain" `
   -o none
 Write-Host " ✅" -ForegroundColor Green
