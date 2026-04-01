@@ -29,8 +29,8 @@ param(
     [ValidateSet('Failover', 'Geo', 'Weighted', 'All', '')]
     [string]$Scenario = '',
 
-    [Parameter(HelpMessage = 'Resource group where Traffic Manager profiles live')]
-    [string]$ResourceGroup = 'rg-dns-poc',
+    [Parameter(HelpMessage = 'Resource group where Traffic Manager profiles live. Auto-discovered from current deployment if omitted.')]
+    [string]$ResourceGroup = '',
 
     [Parameter(HelpMessage = 'Domain (e.g. zava-dnspoc-001.com). Auto-discovered from deployment-output.json if omitted.')]
     [string]$Domain = '',
@@ -191,6 +191,75 @@ function Get-DeploymentDomain {
 
     # 3. Prompt when discovery did not find a domain.
     return (Read-Host "  Enter domain (e.g. zava-dnspoc-001.com)").Trim()
+}
+
+function Get-DeploymentResourceGroup {
+    param([string]$Override)
+    if ($Override) { return $Override }
+
+    function Resolve-ResourceGroupFromObject {
+        param([object]$Obj)
+
+        if (-not $Obj) { return $null }
+
+        $candidate = $null
+        try { $candidate = $Obj.resourceGroupName.value } catch {}
+        if (-not $candidate) {
+            try { $candidate = $Obj.resourceGroupName } catch {}
+        }
+        if (-not $candidate) {
+            try { $candidate = $Obj.properties.outputs.resourceGroupName.value } catch {}
+        }
+
+        return $candidate
+    }
+
+    # 1. Fixed file saved by deploy.ps1
+    $fixed = Join-Path $PSScriptRoot 'infrastructure\deployment-output.json'
+    if (Test-Path $fixed) {
+        $raw = Get-Content $fixed -Raw
+        $data = ConvertFrom-JsonLoose -RawText $raw
+        if ($data) {
+            $rg = Resolve-ResourceGroupFromObject -Obj $data
+            if ($rg) {
+                Write-Host "  Resource group auto-discovered: $rg  (from infrastructure/deployment-output.json)" -ForegroundColor Gray
+                return $rg
+            }
+        }
+    }
+
+    # 2. Most recent timestamped output file
+    $latest = Get-ChildItem -Path $PSScriptRoot -Filter 'deployment-outputs-*.json' -Recurse -ErrorAction SilentlyContinue |
+              Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($latest) {
+        $raw = Get-Content $latest.FullName -Raw
+        $data = ConvertFrom-JsonLoose -RawText $raw
+        if ($data) {
+            $rg = Resolve-ResourceGroupFromObject -Obj $data
+            if ($rg) {
+                Write-Host "  Resource group auto-discovered: $rg  (from $($latest.Name))" -ForegroundColor Gray
+                return $rg
+            }
+        }
+    }
+
+    # 3. Query latest successful subscription deployment outputs in Azure.
+    try {
+        $latestDeploymentName = az deployment sub list --query "sort_by([?properties.provisioningState=='Succeeded'], &properties.timestamp)[-1].name" -o tsv 2>$null
+        if ($latestDeploymentName) {
+            $rg = az deployment sub show --name $latestDeploymentName --query "properties.outputs.resourceGroupName.value" -o tsv 2>$null
+            if ($rg) {
+                Write-Host "  Resource group auto-discovered: $rg  (from Azure deployment $latestDeploymentName)" -ForegroundColor Gray
+                return $rg
+            }
+        }
+    }
+    catch {
+        # Ignore Azure query failures and fall through to prompt.
+    }
+
+    # 4. Prompt when discovery did not find a resource group.
+    return (Read-Host "  Enter resource group (e.g. rg-dnspoc-001)").Trim()
 }
 
 # ============================================================================
@@ -546,6 +615,7 @@ try {
 }
 
 $domain = ''
+$ResourceGroup = Get-DeploymentResourceGroup -Override $ResourceGroup
 $resolvedDomain = Get-DeploymentDomain -Override $Domain
 
 # Scenario selection menu
