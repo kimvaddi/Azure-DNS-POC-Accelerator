@@ -536,20 +536,28 @@ if (-not (Test-Path $ZONE_FILES_DIR)) {
 
 # Check if zone files exist — prompt operator if missing
 $hasZoneFiles = (Test-Path $ZONE_FILE_1) -or (Test-Path $ZONE_FILE_2) -or (Test-Path $ZONE_FILE_3)
+$fullZonePath = (Resolve-Path $ZONE_FILES_DIR -ErrorAction SilentlyContinue) ?? (Join-Path $PWD $ZONE_FILES_DIR)
 if (-not $hasZoneFiles) {
     Write-Host ""
-    Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Yellow
-    Write-Host "  ║  CUSTOMER ACTION REQUIRED: Bind Zone Files                  ║" -ForegroundColor Yellow
-    Write-Host "  ╠══════════════════════════════════════════════════════════════╣" -ForegroundColor Yellow
-    Write-Host "  ║  No zone files found in $ZONE_FILES_DIR" -ForegroundColor Yellow
-    Write-Host "  ║                                                              ║" -ForegroundColor Yellow
-    Write-Host "  ║  To import Bind zones, export from your Bind server:        ║" -ForegroundColor Yellow
-    Write-Host "  ║    named-checkzone <zone> <path> > Zava-zone1.zone          ║" -ForegroundColor Yellow
-    Write-Host "  ║                                                              ║" -ForegroundColor Yellow
-    Write-Host "  ║  Then place the .zone files in: $ZONE_FILES_DIR  ║" -ForegroundColor Yellow
-    Write-Host "  ║                                                              ║" -ForegroundColor Yellow
-    Write-Host "  ║  Or use the included sample: sample-bind-zone.txt           ║" -ForegroundColor Yellow
-    Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Yellow
+    Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Yellow
+    Write-Host "  ║  CUSTOMER ACTION REQUIRED: Bind Zone Files                          ║" -ForegroundColor Yellow
+    Write-Host "  ╠══════════════════════════════════════════════════════════════════════╣" -ForegroundColor Yellow
+    Write-Host "  ║                                                                      ║" -ForegroundColor Yellow
+    Write-Host "  ║  No zone files found. Place exported Bind zone files here:          ║" -ForegroundColor Yellow
+    Write-Host "  ║                                                                      ║" -ForegroundColor Yellow
+    Write-Host "  ║  $fullZonePath" -ForegroundColor Cyan
+    Write-Host "  ║                                                                      ║" -ForegroundColor Yellow
+    Write-Host "  ║  Expected files:                                                    ║" -ForegroundColor Yellow
+    Write-Host "  ║    $ZONE_FILE_1" -ForegroundColor White
+    Write-Host "  ║    $ZONE_FILE_2" -ForegroundColor White
+    Write-Host "  ║                                                                      ║" -ForegroundColor Yellow
+    Write-Host "  ║  How to export from Bind:                                           ║" -ForegroundColor Yellow
+    Write-Host "  ║    named-checkzone <zone> <path> > Zava-zone1.zone                  ║" -ForegroundColor White
+    Write-Host "  ║                                                                      ║" -ForegroundColor Yellow
+    Write-Host "  ║  Or copy the included sample:                                       ║" -ForegroundColor Yellow
+    Write-Host "  ║    copy sample-bind-zone.txt $ZONE_FILES_DIR\Zava-zone1.zone" -ForegroundColor White
+    Write-Host "  ║                                                                      ║" -ForegroundColor Yellow
+    Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Yellow
     Write-Host ""
     $response = Read-Host "  Press ENTER after placing zone files, or type SKIP to continue without import"
     if ($response -eq "SKIP") {
