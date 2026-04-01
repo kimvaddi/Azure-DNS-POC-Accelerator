@@ -1340,38 +1340,40 @@ az role definition list --custom-role-only true -o json 2>$null |
 Write-Host "`n=== STEP 5: DCV CERTIFICATE VALIDATION ===" -ForegroundColor Cyan
 
 $NS = (az network dns zone show -g $RG_NAME -n $DOMAIN --query "nameServers[0]" -o tsv).Trim('.')
+Write-Host "  Using nameserver: $NS"
+
+# Helper: Create TXT record, wait for propagation, then verify via both Azure CLI and nslookup
+function Test-DcvRecord {
+    param([string]$Name, [string]$Value, [string]$Label)
+    Write-Host "--- $Label ---"
+    az network dns record-set txt add-record -g $RG_NAME -z $DOMAIN -n $Name -v $Value -o none 2>$null
+    Start-Sleep -Seconds 5  # Brief wait for Azure DNS to commit
+    # Verify via Azure CLI (always works, doesn't depend on DNS propagation)
+    $azResult = az network dns record-set txt show -g $RG_NAME -z $DOMAIN -n $Name --query "TXTRecords[0].value[0]" -o tsv 2>$null
+    if ($azResult) {
+        Write-Host "  ✅ Azure CLI verify: $azResult" -ForegroundColor Green
+    } else {
+        Write-Host "  ⚠️  Azure CLI verify: record not found (may need more time)" -ForegroundColor Yellow
+    }
+    # Also try nslookup against Azure NS (may fail without domain purchase/NS delegation)
+    nslookup -type=TXT "$Name.$DOMAIN" $NS 2>$null | Select-String "text" | ForEach-Object { Write-Host "  nslookup: $_" }
+}
 
 # 5.1 DigiCert _dnsauth — Root domain
-# Replace the token with the actual DCV value from DigiCert CertCentral
 $DCV_TOKEN = "digicert-dcv-replace-with-real-token"
-Write-Host "--- Test 1: _dnsauth (root domain) ---"
-az network dns record-set txt add-record -g $RG_NAME -z $DOMAIN `
-  -n "_dnsauth" -v $DCV_TOKEN -o none
-nslookup -type=TXT _dnsauth.$DOMAIN $NS
+Test-DcvRecord -Name "_dnsauth" -Value $DCV_TOKEN -Label "Test 1: _dnsauth (root domain)"
 
 # 5.2 DigiCert _dnsauth — Subdomain (e.g., www)
-Write-Host "--- Test 2: _dnsauth.www (subdomain) ---"
-az network dns record-set txt add-record -g $RG_NAME -z $DOMAIN `
-  -n "_dnsauth.www" -v "digicert-subdomain-token" -o none
-nslookup -type=TXT _dnsauth.www.$DOMAIN $NS
+Test-DcvRecord -Name "_dnsauth.www" -Value "digicert-subdomain-token" -Label "Test 2: _dnsauth.www (subdomain)"
 
 # 5.3 DigiCert _dnsauth — Wildcard (same as root _dnsauth)
-Write-Host "--- Test 3: _dnsauth (wildcard — uses root) ---"
-az network dns record-set txt add-record -g $RG_NAME -z $DOMAIN `
-  -n "_dnsauth" -v "digicert-wildcard-token" -o none
-nslookup -type=TXT _dnsauth.$DOMAIN $NS
+Test-DcvRecord -Name "_dnsauth" -Value "digicert-wildcard-token" -Label "Test 3: _dnsauth (wildcard — uses root)"
 
 # 5.4 ACME _acme-challenge — Root domain
-Write-Host "--- Test 4: _acme-challenge (ACME convention) ---"
-az network dns record-set txt add-record -g $RG_NAME -z $DOMAIN `
-  -n "_acme-challenge" -v "acme-test-token" -o none
-nslookup -type=TXT _acme-challenge.$DOMAIN $NS
+Test-DcvRecord -Name "_acme-challenge" -Value "acme-test-token" -Label "Test 4: _acme-challenge (ACME convention)"
 
 # 5.5 ACME _acme-challenge — Subdomain
-Write-Host "--- Test 5: _acme-challenge.www (ACME subdomain) ---"
-az network dns record-set txt add-record -g $RG_NAME -z $DOMAIN `
-  -n "_acme-challenge.www" -v "acme-subdomain-token" -o none
-nslookup -type=TXT _acme-challenge.www.$DOMAIN $NS
+Test-DcvRecord -Name "_acme-challenge.www" -Value "acme-subdomain-token" -Label "Test 5: _acme-challenge.www (ACME subdomain)"
 
 # 5.6 Cleanup all DCV records
 Write-Host "--- Cleanup: Removing all DCV test records ---"
@@ -1417,10 +1419,13 @@ if ($ENABLE_LETSENCRYPT) {
         Write-Host "  SP already exists: $existingSP — reusing" -ForegroundColor Yellow
     } else {
         $DNS_ZONE_SCOPE = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME/providers/Microsoft.Network/dnsZones/$DOMAIN"
+        # Use --create-cert --keyvault to avoid FDPO tenant password credential policy block
         $spResult = az ad sp create-for-rbac --name $SP_CERTBOT_NAME `
-            --role "DNS Zone Contributor" --scopes $DNS_ZONE_SCOPE --output json 2>&1
+            --role "DNS Zone Contributor" --scopes $DNS_ZONE_SCOPE `
+            --create-cert --keyvault $KV_NAME --cert "certbot-sp-cert" `
+            --output json 2>&1
         if ($LASTEXITCODE -eq 0) {
-            $sp = $spResult | ConvertFrom-Json
+            $sp = $spResult | Where-Object { $_ -notmatch '^WARNING' } | ConvertFrom-Json
             Write-Host "  SP created: $($sp.appId)" -ForegroundColor Green
 
             # Store in Key Vault (zero-secret pattern)
