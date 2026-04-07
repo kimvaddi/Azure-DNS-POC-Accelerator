@@ -162,6 +162,49 @@ function Restore-DnsZoneLock {
     az lock create -g $TargetResourceGroup -n lock-dns-zone --lock-type CanNotDelete --resource-name $TargetDnsZoneName --resource-type Microsoft.Network/dnsZones --notes "Prevent accidental deletion of POC DNS zone" --only-show-errors -o none | Out-Null
 }
 
+function Test-WebAppHostnameBound {
+    param(
+        [string]$TargetResourceGroup,
+        [string]$WebAppName,
+        [string]$Hostname
+    )
+
+    $boundHosts = az webapp config hostname list --resource-group $TargetResourceGroup --webapp-name $WebAppName --query "[].name" -o tsv 2>$null
+    return ($boundHosts -contains $Hostname)
+}
+
+function Ensure-WebAppHostnameBound {
+    param(
+        [string]$TargetResourceGroup,
+        [string]$WebAppName,
+        [string]$Hostname,
+        [int]$MaxAttempts = 12,
+        [int]$RetrySeconds = 20
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        if (Test-WebAppHostnameBound -TargetResourceGroup $TargetResourceGroup -WebAppName $WebAppName -Hostname $Hostname) {
+            return $true
+        }
+
+        $bindHostnameOutput = az webapp config hostname add --resource-group $TargetResourceGroup --webapp-name $WebAppName --hostname $Hostname --only-show-errors -o none 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            if (Test-WebAppHostnameBound -TargetResourceGroup $TargetResourceGroup -WebAppName $WebAppName -Hostname $Hostname) {
+                return $true
+            }
+        }
+
+        if ($attempt -lt $MaxAttempts) {
+            Write-WarningMessage "Hostname '$Hostname' is not ready on '$WebAppName' yet (attempt $attempt/$MaxAttempts). Waiting $RetrySeconds seconds and retrying. Details: $bindHostnameOutput"
+            Start-Sleep -Seconds $RetrySeconds
+        } else {
+            Write-WarningMessage "Failed to bind hostname '$Hostname' on '$WebAppName' after $MaxAttempts attempts. Ensure Web App custom-domain DNS delegation/verification is complete (CNAME/A and asuid TXT), then rerun TLS setup. Last error: $bindHostnameOutput"
+        }
+    }
+
+    return $false
+}
+
 if (-not $ContactEmail) {
     $ContactEmail = "dnsadmin@$DnsZoneName"
 }
@@ -276,8 +319,20 @@ try {
         }
 
         foreach ($domain in $CustomDomains) {
-            az webapp config ssl bind --resource-group $ResourceGroup --name $app --certificate-thumbprint $thumbprint --ssl-type SNI --hostname $domain --only-show-errors -o none | Out-Null
-            Write-Success "Bound SNI TLS for '$domain' on '$app'"
+            # Ensure hostname binding exists before TLS binding.
+            # This can take time while public DNS delegation/verification propagates.
+            $isHostnameReady = Ensure-WebAppHostnameBound -TargetResourceGroup $ResourceGroup -WebAppName $app -Hostname $domain
+            if (-not $isHostnameReady) {
+                Write-Warning "Skipping TLS bind for '$domain' on '$app' — hostname binding is still pending Web App DNS delegation/verification."
+                continue
+            }
+
+            $bindOut = az webapp config ssl bind --resource-group $ResourceGroup --name $app --certificate-thumbprint $thumbprint --ssl-type SNI --hostname $domain --only-show-errors -o none 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Write-Success "Bound SNI TLS for '$domain' on '$app'"
+            } else {
+                Write-Warning "Could not bind SNI TLS for '$domain' on '$app': $bindOut"
+            }
         }
     }
 

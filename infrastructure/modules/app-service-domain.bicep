@@ -71,8 +71,8 @@ resource appDomain 'Microsoft.DomainRegistration/domains@2022-09-01' = {
     contactTech: contact
     privacy: privacy
     autoRenew: autoRenew
-          consent: {
-            agreementKeys: ['DNRA', 'DNPA']
+    consent: {
+      agreementKeys: privacy ? ['DNRA', 'DNPA'] : ['DNRA']
       agreedAt: consentAgreedAt
       agreedBy: consentAgreedBy
     }

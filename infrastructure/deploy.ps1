@@ -145,7 +145,7 @@ if ($Help) {
     Write-Host "  .\deploy.ps1 [options]"
     Write-Host ""
     Write-Host "Options:"
-    Write-Host "  -Location <string>               Azure deployment location (default: southcentralus)"
+    Write-Host "  -Location <string>               Azure deployment location (default/prompt: southcentralus)"
     Write-Host "  -DeploymentName <string>         Deployment record name"
     Write-Host "  -TemplateFile <path>             Bicep template path"
     Write-Host "  -ParametersFile <path>           Bicep parameter file path"
@@ -166,6 +166,15 @@ if ($Help) {
     Write-Host ""
     Write-Host "Full help: Get-Help .\deploy.ps1 -Detailed"
     exit 0
+}
+
+# Prompt for region when -Location is omitted in interactive sessions.
+if (-not $PSBoundParameters.ContainsKey('Location') -and [Environment]::UserInteractive) {
+    $enteredLocation = Read-Host "Azure deployment location (press Enter for southcentralus)"
+    if (-not [string]::IsNullOrWhiteSpace($enteredLocation)) {
+        $Location = $enteredLocation.Trim()
+    }
+    Write-Host "Using deployment location: $Location" -ForegroundColor Cyan
 }
 
 function Test-ValidDnsZoneName {
@@ -451,6 +460,126 @@ privateZone=$privateDomain
         Write-Success "Friendly landing page deployed to $AppName"
 }
 
+function Test-DomainRegisteredInRegistry {
+    <#
+    .SYNOPSIS
+    Queries the RDAP registry (Verisign .com authoritative) to see if a domain is already registered.
+    Returns $true if registered (unavailable), $false if not found (potentially purchasable).
+    This is more reliable than checkDomainAvailability which only queries GoDaddy's reseller API.
+    #>
+    param([string]$DomainName)
+    try {
+        $null = Invoke-RestMethod -Uri "https://rdap.verisign.com/com/v1/domain/$DomainName" `
+            -TimeoutSec 10 -ErrorAction Stop
+        return $true   # 200 OK = domain exists in registry = taken
+    } catch {
+        $code = $_.Exception.Response.StatusCode.value__
+        if ($code -eq 404) { return $false }   # Not in registry = available
+        # Any other error (timeout, network) = unknown, don't block
+        return $false
+    }
+}
+
+function Test-AppServiceDomainPurchasable {
+    <#
+    .SYNOPSIS
+    Tests whether a domain can be purchased via GoDaddy by doing a real ARM deployment
+    of just the DNS zone + domain registration. The purchase is made directly in the
+    final rg-dnspoc-NNN resource group — no separate precheck RG — so the domain lands
+    in the right place from the start (Azure does not support moving App Service Domains
+    between resource groups).
+
+    ARM 'validate' does NOT call GoDaddy's backend — it only checks template schema.
+    Only an actual 'create' surfaces UNAVAILABLE_DOMAIN from GoDaddy. If the purchase
+    succeeds the RG name is returned so the full deployment can target it. If GoDaddy
+    rejects the domain the RG is deleted and the next candidate is tried.
+
+    Returns a hashtable: { Purchasable, ResourceGroup, DnsZoneId, Reason }
+    #>
+    param(
+        [string]$SubscriptionId,
+        [string]$DomainName,
+        [string]$Location,
+        [string]$ConsentAgreedBy,
+        [string]$ConsentAgreedAt
+    )
+
+    # Derive the final resource group name from the domain (same logic as Get-ResourceGroupNameFromDomain).
+    $seq = ($DomainName -replace '[^0-9]','').TrimStart('0')
+    if (-not $seq) { $seq = '0' }
+    $targetRg = "rg-dnspoc-$($seq.PadLeft(3,'0'))"
+
+    # Ensure a clean RG (delete any leftover from a prior run).
+    $existing = az group exists --name $targetRg 2>$null
+    if ($existing -eq 'true') {
+        $null = az group delete --name $targetRg --yes --only-show-errors 2>&1
+    }
+    $null = az group create --name $targetRg --location $Location --only-show-errors 2>&1
+
+    # Create the DNS zone first — required by DomainRegistration.
+    $null = az network dns zone create --resource-group $targetRg --name $DomainName --only-show-errors 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        $null = az group delete --name $targetRg --yes --no-wait --only-show-errors 2>&1
+        return @{ Purchasable=$false; ResourceGroup=$null; DnsZoneId=$null; Reason='Failed to create DNS zone in target RG' }
+    }
+
+    $dnsZoneId = "/subscriptions/$SubscriptionId/resourceGroups/$targetRg/providers/Microsoft.Network/dnszones/$DomainName"
+    $contactInfo = @{
+        addressMailing = @{ address1='1 Microsoft Way'; city='Redmond'; state='WA'; postalCode='98052'; country='US' }
+        email     = 'dnsadmin@zava.com'
+        nameFirst = 'DNS'; nameLast = 'Admin'; phone = '+1.4258829080'
+    }
+    $armTemplate = @{
+        '$schema'      = 'https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#'
+        contentVersion = '1.0.0.0'
+        resources      = @(@{
+            type='Microsoft.DomainRegistration/domains'; apiVersion='2022-09-01'
+            name=$DomainName; location='global'
+            properties=@{
+                autoRenew=$false; dnsType='AzureDns'; dnsZoneId=$dnsZoneId; privacy=$false
+                consent=@{ agreementKeys=@('DNRA'); agreedBy=$ConsentAgreedBy; agreedAt=$ConsentAgreedAt }
+                contactAdmin=$contactInfo; contactBilling=$contactInfo
+                contactRegistrant=$contactInfo; contactTech=$contactInfo
+            }
+        })
+    } | ConvertTo-Json -Depth 15
+
+    $tempFile = [System.IO.Path]::Combine(
+        [System.IO.Path]::GetTempPath(),
+        "dnspoc-purchase-$([System.Guid]::NewGuid().ToString('N').Substring(0,8)).json"
+    )
+    Set-Content -Path $tempFile -Value $armTemplate -Encoding UTF8
+
+    try {
+        $out = az deployment group create `
+            --resource-group $targetRg `
+            --template-file $tempFile --output json 2>&1
+        $text = $out -join ' '
+
+        if ($LASTEXITCODE -eq 0) {
+            # Purchase succeeded — domain and DNS zone are now in the final RG.
+            return @{ Purchasable=$true; ResourceGroup=$targetRg; DnsZoneId=$dnsZoneId; Reason='Domain purchased successfully' }
+        }
+
+        # GoDaddy/reseller domain rejection — domain is not purchasable.
+        if ($text -match 'UNAVAILABLE_DOMAIN' -or
+            $text -match "isn'?t available for purchase" -or
+            $text -match 'is not available for purchase' -or
+            $text -match 'DomainResellerWebService' -or
+            $text -match 'Cannot find DomainRegistrationResourceGroup') {
+            $null = az group delete --name $targetRg --yes --no-wait --only-show-errors 2>&1
+            return @{ Purchasable=$false; ResourceGroup=$null; DnsZoneId=$null; Reason='GoDaddy rejected the domain purchase' }
+        }
+
+        # Any other failure — clean up and treat as non-purchasable to be safe.
+        $snippet = $text.Substring(0, [Math]::Min(200, $text.Length))
+        $null = az group delete --name $targetRg --yes --no-wait --only-show-errors 2>&1
+        return @{ Purchasable=$false; ResourceGroup=$null; DnsZoneId=$null; Reason="Deployment failed (non-GoDaddy reason): $snippet" }
+    } finally {
+        Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Get-ParameterOverrideValue {
     param(
         [string[]]$Parameters,
@@ -582,6 +711,62 @@ if (-not (Test-Path $ParametersFile)) {
 }
 
 # ============================================================================
+# REDEPLOY: SELECT EXISTING DEPLOYMENT
+# ============================================================================
+# When -Redeploy is passed, show all existing POC deployments BEFORE domain
+# discovery so the user can target a specific RG. If an RG with a known DNS
+# zone is chosen, $discoveredDomain is set here and the Pre-flight domain
+# purchase check is skipped entirely.
+
+$redeploySelectedDomain = $false
+
+if ($Redeploy) {
+    Write-Step "Select Existing Deployment to Redeploy"
+    Write-Host "  Scanning for existing POC deployments in the subscription..." -ForegroundColor Gray
+
+    $pocRgs = az group list --query "[?starts_with(name,'rg-dnspoc-') && !contains(name,'precheck')].{name:name, state:properties.provisioningState, location:location}" -o json 2>$null | ConvertFrom-Json
+
+    if (-not $pocRgs -or $pocRgs.Count -eq 0) {
+        Write-Host "  No existing POC deployments found — proceeding as a fresh deployment." -ForegroundColor Yellow
+    } else {
+        Write-Host ""
+        Write-Host "  Existing POC deployments:" -ForegroundColor Cyan
+        $idx = 1
+        foreach ($rg in $pocRgs) {
+            $zoneName = az network dns zone list --resource-group $rg.name --query "[0].name" -o tsv 2>$null
+            $zoneLabel = if ($zoneName) { "  domain: $zoneName" } else { "  (no DNS zone)" }
+            Write-Host ("  [{0}] {1,-35} [{2}]  $zoneLabel" -f $idx, $rg.name, $rg.state)
+            $idx++
+        }
+        Write-Host ""
+
+        $selection = Read-Host "  Enter number to target (or press Enter to use current: $ResourceGroupName)"
+        if ($selection -match '^\d+$') {
+            $pick = [int]$selection - 1
+            if ($pick -ge 0 -and $pick -lt $pocRgs.Count) {
+                $selectedRg = $pocRgs[$pick]
+                $ResourceGroupName = $selectedRg.name
+                $zoneName = az network dns zone list --resource-group $ResourceGroupName --query "[0].name" -o tsv 2>$null
+                if ($zoneName) {
+                    $discoveredDomain = $zoneName
+                    $redeploySelectedDomain = $true
+                    Write-Success "Selected: $ResourceGroupName  (domain: $discoveredDomain — Pre-flight check skipped)"
+                } else {
+                    Write-Success "Selected: $ResourceGroupName  (no DNS zone found — domain will be discovered)"
+                }
+                $AdditionalParameters = @($AdditionalParameters | Where-Object { $_ -notmatch '^rgName=' })
+                $AdditionalParameters += "rgName=$ResourceGroupName"
+            } else {
+                Write-Warning "  Invalid selection — using current: $ResourceGroupName"
+            }
+        } else {
+            Write-Host "  Using current target: $ResourceGroupName" -ForegroundColor Gray
+        }
+    }
+    Write-Host ""
+}
+
+# ============================================================================
 # DOMAIN AVAILABILITY DISCOVERY
 # ============================================================================
 $subscriptionId = (az account show --query id --output tsv)
@@ -623,57 +808,136 @@ if ($DomainSelectionMode -eq 'CustomerInput') {
         $discoveredDomain = $preferredExistingZone
         $reusedExistingDeploymentDomain = $true
         Write-Success "Existing public DNS zone selected: $discoveredDomain"
+    } elseif ($redeploySelectedDomain) {
+        # Domain was already resolved from the selected redeploy RG — skip Pre-flight.
+        Write-Host "  Skipping Pre-flight: domain '$discoveredDomain' resolved from selected deployment." -ForegroundColor Gray
     } else {
-        # Check zava-dnspoc-001.com through zava-dnspoc-999.com and use the first
-        # available name. Availability is verified against the App Service Domain API
-        # (which checks both GoDaddy registration status and Azure subscription).
-        Write-Step "Discovering Available App Service Domain"
+        # -----------------------------------------------------------------------
+        # PRE-CHECK: Verify this subscription can purchase App Service Domains
+        # at all before iterating through candidate names. Does a REAL purchase
+        # attempt (not validate) so GoDaddy's backend actually responds.
+        # Each candidate gets its own temp RG. If purchase succeeds → reuse that
+        # RG and domain for the full deployment. If GoDaddy rejects → try next.
+        # -----------------------------------------------------------------------
 
+        # Gather public IP + consent timestamp once.
+        try {
+            $publicIp = (Invoke-RestMethod -Uri 'https://api.ipify.org?format=json' -TimeoutSec 10).ip
+        } catch {
+            $publicIp = '0.0.0.0'
+        }
+        $consentTimestamp = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
         $bearerToken = (az account get-access-token --query accessToken -o tsv)
-        for ($i = 1; $i -le 999; $i++) {
+
+        Write-Step "Pre-flight: Domain Purchase Availability Check"
+        Write-Host "  Testing real domain purchase eligibility (RDAP → Azure API → GoDaddy)..." -ForegroundColor Gray
+        Write-Host "  Note: The GoDaddy check performs an actual purchase attempt in a temp resource group." -ForegroundColor Gray
+
+        $preCheckResult = $null
+
+        # Randomise the candidate pool (1–999) so parallel runs and retries
+        # don't collide on the same suffix, and there is no need to scan
+        # sequentially through numbers with GoDaddy holds.
+        $candidateNumbers = 1..999 | Get-Random -Count 999
+
+        foreach ($i in $candidateNumbers) {
             $candidate = '{0}-{1:D3}.com' -f $domainBase, $i
             Write-Host "  Checking: $candidate ..."
 
-            $checkUri  = "https://management.azure.com/subscriptions/$subscriptionId/providers/Microsoft.DomainRegistration/checkDomainAvailability?api-version=2022-03-01"
-            $checkBody = @{ name = $candidate } | ConvertTo-Json -Compress
+            # Stage 1: RDAP — authoritative .com registry (Verisign).
+            Write-Host "  [1/3] RDAP registry ..." -ForegroundColor Gray
+            if (Test-DomainRegisteredInRegistry -DomainName $candidate) {
+                Write-Host "  -> Registered in .com registry. Skipping." -ForegroundColor Yellow
+                continue
+            }
+            Write-Host "  -> Not in registry." -ForegroundColor Green
+
+            # Stage 2: Azure checkDomainAvailability (fast pre-filter).
+            Write-Host "  [2/3] Azure availability API ..." -ForegroundColor Gray
+            $checkUri = "https://management.azure.com/subscriptions/$subscriptionId/providers/Microsoft.DomainRegistration/checkDomainAvailability?api-version=2022-03-01"
             try {
                 $checkResult = Invoke-RestMethod -Uri $checkUri -Method POST `
                     -Headers @{ Authorization = "Bearer $bearerToken"; "Content-Type" = "application/json" } `
-                    -Body $checkBody -ErrorAction Stop
+                    -Body (@{ name = $candidate } | ConvertTo-Json -Compress) -ErrorAction Stop
+                if ($checkResult.available -ne $true) {
+                    Write-Host "  -> Not available ($($checkResult.reason)). Skipping." -ForegroundColor Yellow
+                    continue
+                }
+                Write-Host "  -> Available." -ForegroundColor Green
             } catch {
-                Write-Warning "  Availability check failed for $candidate — skipping."
+                Write-Host "  -> API check failed — continuing to GoDaddy check." -ForegroundColor Gray
+            }
+
+            # Stage 3: Real GoDaddy purchase attempt via ARM create (not validate).
+            # This is the only reliable way to detect GoDaddy-level holds.
+            Write-Host "  [3/3] GoDaddy — real purchase attempt ..." -ForegroundColor Gray
+            $purchaseTest = Test-AppServiceDomainPurchasable `
+                -SubscriptionId $subscriptionId `
+                -DomainName $candidate `
+                -Location $Location `
+                -ConsentAgreedBy $publicIp `
+                -ConsentAgreedAt $consentTimestamp
+
+            if (-not $purchaseTest.Purchasable) {
+                Write-Host "  -> GoDaddy says not available — skipping to next." -ForegroundColor Yellow
                 continue
             }
-            if ($checkResult.available -eq $true) {
-                $discoveredDomain = $candidate
-                Write-Success "Available domain found: $discoveredDomain"
-                break
-            } else {
-                Write-Host "  Not available ($($checkResult.reason)). Trying next..." -ForegroundColor Yellow
-            }
+
+            Write-Host "  -> GoDaddy approved purchase." -ForegroundColor Green
+            Write-Success "Pre-flight passed: '$candidate' purchased successfully."
+            $discoveredDomain = $candidate
+            $preCheckResult = $purchaseTest
+            break
         }
     }
 }
 
 if (-not $discoveredDomain) {
     if ($DomainSelectionMode -eq 'Auto') {
-        Write-Error "No available domain found in range $domainBase-001.com to $domainBase-999.com"
+        Write-Error "No purchasable domain found after checking all 999 candidates in range $domainBase-001.com to $domainBase-999.com (random order)."
+        Write-Host ""
+        Write-Host "Possible causes:" -ForegroundColor Yellow
+        Write-Host "  - Previous failed purchase attempts left GoDaddy internal holds on candidate domains." -ForegroundColor Yellow
+        Write-Host "  - Your Azure subscription type (e.g. lab/MCA) may not support App Service domain purchases." -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "Recommended actions:" -ForegroundColor Cyan
+        Write-Host "  1. Set deployAppServiceDomain=false in main.bicepparam to skip domain purchase." -ForegroundColor Cyan
+        Write-Host "     The Azure DNS zone still gets created and all POC workstreams function normally." -ForegroundColor Cyan
+        Write-Host "  2. Or supply a domain you already own:" -ForegroundColor Cyan
+        Write-Host "     -DomainSelectionMode CustomerInput -CustomerDomain <your-domain.com>" -ForegroundColor Cyan
     } else {
         Write-Error "No domain selected. Provide -CustomerDomain when using DomainSelectionMode=CustomerInput."
     }
     exit 1
 }
 
-# Capture operator public IP for the domain registration consent record.
-# Falls back to 0.0.0.0 if the lookup fails (e.g., in a restricted network).
-try {
-    $publicIp = (Invoke-RestMethod -Uri 'https://api.ipify.org?format=json' -TimeoutSec 10).ip
-    Write-Success "Operator public IP: $publicIp"
-} catch {
-    $publicIp = '0.0.0.0'
-    Write-Warning "Could not determine public IP; using 0.0.0.0 for consent record."
+# If domain was found via pre-check purchase, the domain is ALREADY registered
+# in the temp pre-check RG. The full deployment must go into the properly-named
+# rg-dnspoc-NNN RG — NOT the precheck RG. The domain registration resource stays
+# in the precheck RG (Azure allows the DNS zone and domain to be in different RGs).
+# We pass deployAppServiceDomain=false so the full deployment doesn't try to
+# re-purchase the domain that's already been bought.
+if ($preCheckResult -and $preCheckResult.ResourceGroup) {
+    Write-Host "  Domain purchased in: $($preCheckResult.ResourceGroup)" -ForegroundColor Cyan
+    Write-Host "  Setting deployAppServiceDomain=false — purchase already complete." -ForegroundColor Cyan
+    $AdditionalParameters = @($AdditionalParameters | Where-Object { $_ -notmatch '^deployAppServiceDomain=' })
+    $AdditionalParameters += 'deployAppServiceDomain=false'
+    # ResourceGroupName will be derived from the domain name below (rg-dnspoc-NNN),
+    # so do NOT override it here — let Get-ResourceGroupNameFromDomain run normally.
 }
-$consentTimestamp = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+
+# If domain was found via Auto scan, publicIp and consentTimestamp were set in the loop above.
+# If domain came from CustomerInput or existing zone reuse, capture them now.
+if (-not $publicIp) {
+    try {
+        $publicIp = (Invoke-RestMethod -Uri 'https://api.ipify.org?format=json' -TimeoutSec 10).ip
+        Write-Success "Operator public IP: $publicIp"
+    } catch {
+        $publicIp = '0.0.0.0'
+        Write-Warning "Could not determine public IP; using 0.0.0.0 for consent record."
+    }
+    $consentTimestamp = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+}
 
 # Merge domain overrides into AdditionalParameters so every az deployment
 # command (validate, what-if, create) uses the discovered domain.
@@ -735,8 +999,7 @@ Write-Host "Consent time   : $consentTimestamp`n"
 if ($Redeploy) {
     Write-Step "Deleting Existing Deployment (-Redeploy)"
 
-    Write-Host "Removing all resource locks in '$ResourceGroupName' (to allow group deletion)..."
-    $allLockIds = az lock list --resource-group $ResourceGroupName --query "[].id" -o tsv 2>$null
+    $allLockIds= az lock list --resource-group $ResourceGroupName --query "[].id" -o tsv 2>$null
     if ($allLockIds) {
         foreach ($lockId in $allLockIds) {
             az lock delete --ids $lockId 2>$null
@@ -816,7 +1079,7 @@ if ($AdditionalParameters.Count -gt 0) { $validateArgs += @('--parameters') + $A
 
 $rawValidation = az @validateArgs --output json 2>&1
 if ($LASTEXITCODE -ne 0) {
-    Write-Host $rawValidation -ForegroundColor Red
+    ($rawValidation | Where-Object { $_ -notmatch '^Bicep CLI' }) | Write-Host -ForegroundColor Red
     Write-Error "Validation failed (exit code $LASTEXITCODE)"
     exit 1
 }
@@ -829,9 +1092,8 @@ try {
     }
     Write-Success "Template validation passed"
 } catch {
-    # Likely warnings mixed into output — if az exited 0, treat as success
-    Write-Host "Validation output (raw):" -ForegroundColor Yellow
-    Write-Host $rawValidation
+    # Bicep CLI warnings/info messages may be mixed into the output,
+    # preventing clean JSON parse — if az exited 0, treat as success.
     Write-Success "Template validation passed (az exit code: 0)"
 }
 
@@ -976,8 +1238,31 @@ Write-Host "  Geographic: $($outputs.trafficManagerGeoFqdn.value)"
 Write-Host "  Weighted: $($outputs.trafficManagerWeightedFqdn.value)`n"
 
 Write-Host "App Service Domain:"
-Write-Host "  Name  : $($outputs.appServiceDomainName.value)"
-Write-Host "  Status: $($outputs.appServiceDomainStatus.value)"`n
+# Query domain name/status from ARM outputs first, then fall back to direct RG query.
+$displayDomainName   = $outputs.appServiceDomainName.value
+$displayDomainStatus = $outputs.appServiceDomainStatus.value
+
+if (-not $displayDomainName) {
+    # Domain was purchased via pre-check (deployAppServiceDomain=false) — query the
+    # deployment RG directly since the resource is there, not in ARM outputs.
+    $domainResource = az resource list `
+        --resource-group $ResourceGroupName `
+        --resource-type 'Microsoft.DomainRegistration/domains' `
+        --query "[0].{name:name, state:properties.registrationStatus}" `
+        -o json 2>$null | ConvertFrom-Json
+    if ($domainResource) {
+        $displayDomainName   = $domainResource.name
+        $displayDomainStatus = $domainResource.state
+    }
+}
+
+if (-not $displayDomainName) {
+    $displayDomainName   = $discoveredDomain
+    $displayDomainStatus = '(purchased — status query unavailable)'
+}
+
+Write-Host "  Name  : $displayDomainName"
+Write-Host "  Status: $displayDomainStatus`n"
 
 Write-Host "Web Apps:"
 Write-Host "  US Region: $($outputs.webAppUSUrl.value)"
@@ -1015,6 +1300,28 @@ foreach ($key in $testUrls.PSObject.Properties.Name) {
 # ============================================================================
 
 Write-Step "Post-Deployment Actions Required"
+
+# ── Precheck RG cleanup ────────────────────────────────────────────────────
+# Remove all rg-dnspoc-precheck-* resource groups left over from domain
+# availability scans. The winning domain is now in the main deployment RG
+# Domain purchases now go directly into rg-dnspoc-NNN, so any rg-dnspoc-precheck-*
+# groups are leftover from prior runs and can all be deleted safely.
+$precheckRgs = az group list --query "[?starts_with(name,'rg-dnspoc-precheck-')].name" -o tsv 2>$null
+if ($precheckRgs) {
+    Write-Host "Cleaning up pre-check resource groups..." -ForegroundColor Gray
+    foreach ($prg in $precheckRgs) {
+        Write-Host "  Deleting $prg ..." -ForegroundColor Gray
+        $precheckLocks = az lock list --resource-group $prg --query "[].id" -o tsv 2>$null
+        if ($precheckLocks) {
+            foreach ($lid in $precheckLocks) { az lock delete --ids $lid 2>$null }
+        }
+        az group delete --name $prg --yes --no-wait --only-show-errors 2>$null
+    }
+    Write-Success "Pre-check resource groups queued for deletion."
+} else {
+    Write-Host "  No pre-check resource groups found." -ForegroundColor Gray
+}
+Write-Host ""
 
 Write-Host "1. UPDATE DNS REGISTRAR" -ForegroundColor Yellow
 Write-Host "   Update NS records for '$($outputs.publicDnsZoneName.value)' to:`n"

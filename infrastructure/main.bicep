@@ -60,18 +60,18 @@ param domainConsentAgreedAt string = utcNow()
 @description('Public IP address of the deployment operator for domain registration consent. Overridden by deploy.ps1 at runtime.')
 param domainConsentAgreedBy string = '127.0.0.1'
 
-@description('Web app name for US region (globally unique — suffix auto-derived from subscription ID)')
-param webAppNameUS string = 'webapp-poc-us-${uniqueString(subscription().subscriptionId)}'
+@description('Web app name for US region (globally unique — suffix auto-derived from subscription ID + RG name)')
+param webAppNameUS string = 'webapp-poc-us-${uniqueString(subscription().subscriptionId, rgName)}'
 
-@description('Web app name for UK/Asia region (globally unique — suffix auto-derived from subscription ID)')
-param webAppNameUK string = 'webapp-poc-uk-${uniqueString(subscription().subscriptionId)}'
+@description('Web app name for UK/Asia region (globally unique — suffix auto-derived from subscription ID + RG name)')
+param webAppNameUK string = 'webapp-poc-uk-${uniqueString(subscription().subscriptionId, rgName)}'
 
 @description('Storage account name for QRadar checkpoint tracking (globally unique)')
 @maxLength(24)
-param storageAccountName string = 'stqradarpoc${uniqueString(subscription().subscriptionId)}'
+param storageAccountName string = 'stqradarpoc${take(uniqueString(subscription().subscriptionId, rgName), 11)}'
 
-@description('Event Hub namespace name (globally unique — suffix auto-derived from subscription ID)')
-param eventHubNamespaceName string = 'ehns-dns-poc-${uniqueString(subscription().subscriptionId)}'
+@description('Event Hub namespace name (globally unique — suffix auto-derived from subscription ID + RG name)')
+param eventHubNamespaceName string = 'ehns-dns-poc-${uniqueString(subscription().subscriptionId, rgName)}'
 
 @description('Log Analytics workspace name')
 param lawName string = 'law-dns-poc'
@@ -81,6 +81,9 @@ param deployWebApps bool = false
 
 @description('Deploy DNS aliases for existing Traffic Manager profiles even when web apps are not being deployed in this run')
 param deployTrafficManagerDnsAliases bool = false
+
+@description('Bind custom hostnames (e.g. webfailover.<domain>) to App Service. Requires public DNS delegation — set to false during initial deployment until NS records are delegated.')
+param deployCustomDomainBindings bool = false
 
 @description('App Service Plan SKU for both web regions (B1, S1, P1v2, etc.)')
 param appServicePlanSku string = 'B1'
@@ -126,8 +129,8 @@ var regionDisplayNames = {
   westeurope: 'West Europe'
 }
 
-// Shared unique suffix derived from subscription ID — same value every deployment on the same sub
-var uniqueSuffix = uniqueString(subscription().subscriptionId)
+// Shared unique suffix derived from subscription ID + RG name — unique per deployment target RG
+var uniqueSuffix = uniqueString(subscription().subscriptionId, rgName)
 var locationPrimaryDisplayName = regionDisplayNames[?locationPrimary] ?? locationPrimary
 var locationSecondaryDisplayName = regionDisplayNames[?locationSecondary] ?? locationSecondary
 var trafficManagerFailoverProfileName = 'tm-poc-failover'
@@ -265,7 +268,7 @@ module appServiceDomain 'modules/app-service-domain.bicep' = if (deployAppServic
     consentAgreedAt: domainConsentAgreedAt
     consentAgreedBy: domainConsentAgreedBy
     autoRenew: false
-    privacy: true
+    privacy: false
     tags: tags
   }
 }
@@ -279,6 +282,9 @@ module publicDnsObservability 'modules/public-dns-observability.bicep' = {
     workspaceId: logAnalytics.outputs.workspaceId
     tags: tags
   }
+  dependsOn: [
+    appServiceDomain
+  ]
 }
 
 resource existingTrafficManagerFailover 'Microsoft.Network/trafficmanagerprofiles@2022-04-01' existing = if (deployTrafficManagerDnsAliases && !deployWebApps) {
@@ -315,6 +321,9 @@ module privateDnsZone 'modules/private-dns-zone.bicep' = if (deployPrivateDnsZon
     ]
     tags: tags
   }
+  dependsOn: [
+    appServiceDomain
+  ]
 }
 
 // ============================================================================
@@ -333,6 +342,9 @@ module appServicePlanUS 'modules/app-service-plan.bicep' = if (deployWebApps) {
     osType: 'Windows'
     tags: tags
   }
+  dependsOn: [
+    appServiceDomain
+  ]
 }
 
 module appServicePlanUK 'modules/app-service-plan.bicep' = if (deployWebApps) {
@@ -346,6 +358,9 @@ module appServicePlanUK 'modules/app-service-plan.bicep' = if (deployWebApps) {
     osType: 'Windows'
     tags: tags
   }
+  dependsOn: [
+    appServiceDomain
+  ]
 }
 
 // ============================================================================
@@ -557,6 +572,7 @@ module dnsRecords 'modules/dns-cname-records.bicep' = if (deployWebApps || deplo
   }
   dependsOn: [
     publicDnsZone
+    appServiceDomain
   ]
 }
 
@@ -573,10 +589,11 @@ module dnsVerificationTxtRecords 'modules/dns-txt-records.bicep' = if (deployWeb
   }
   dependsOn: [
     publicDnsZone
+    appServiceDomain
   ]
 }
 
-module webAppUSCustomerDomainBindings 'modules/web-app-hostname-bindings.bicep' = if (deployWebApps) {
+module webAppUSCustomerDomainBindings 'modules/web-app-hostname-bindings.bicep' = if (deployWebApps && deployCustomDomainBindings) {
   scope: rg
   name: 'deploy-webapp-us-hostname-bindings'
   params: {
@@ -592,7 +609,7 @@ module webAppUSCustomerDomainBindings 'modules/web-app-hostname-bindings.bicep' 
   ]
 }
 
-module webAppUKCustomerDomainBindings 'modules/web-app-hostname-bindings.bicep' = if (deployWebApps) {
+module webAppUKCustomerDomainBindings 'modules/web-app-hostname-bindings.bicep' = if (deployWebApps && deployCustomDomainBindings) {
   scope: rg
   name: 'deploy-webapp-uk-hostname-bindings'
   params: {
@@ -648,6 +665,9 @@ module activityLogDiagnostics 'modules/activity-log-diagnostics.bicep' = {
     eventHubName: 'dns-logs'
     workspaceId: logAnalytics.outputs.workspaceId
   }
+  dependsOn: [
+    appServiceDomain
+  ]
 }
 
 // ============================================================================
@@ -666,10 +686,11 @@ module dnsZoneLockNoAcme 'modules/resource-lock.bicep' = if (enableDnsZoneLock &
   }
   dependsOn: [
     publicDnsZone
+    appServiceDomain
   ]
 }
 
-module dnsZoneLockAfterAcme 'modules/resource-lock.bicep' = if (enableDnsZoneLock && enableLetsEncryptAutomation) {
+module dnsZoneLockAfterAcme'modules/resource-lock.bicep' = if (enableDnsZoneLock && enableLetsEncryptAutomation) {
   scope: rg
   name: 'deploy-dns-zone-lock-after-acme'
   params: {
