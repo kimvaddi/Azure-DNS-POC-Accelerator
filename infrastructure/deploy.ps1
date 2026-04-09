@@ -72,7 +72,7 @@ Get-Help .\deploy.ps1 -Detailed
 
 param(
     [Parameter(Mandatory=$false)]
-    [string]$Location = "southcentralus",
+    [string]$Location = '',
     
     [Parameter(Mandatory=$false)]
     [string]$DeploymentName = "Zava-dns-poc-$(Get-Date -Format 'yyyyMMdd-HHmmss')",
@@ -138,6 +138,29 @@ function Write-Error {
     Write-Host "✗ $Message" -ForegroundColor Red
 }
 
+function Get-DefaultLocationFromParametersFile {
+    param(
+        [string]$Path,
+        [string]$Fallback = 'centralus'
+    )
+
+    if (-not $Path -or -not (Test-Path $Path)) {
+        return $Fallback
+    }
+
+    $line = Select-String -Path $Path -Pattern "^\s*param\s+location\s*=\s*'([^']+)'" | Select-Object -First 1
+    if ($line -and $line.Matches.Count -gt 0) {
+        return $line.Matches[0].Groups[1].Value
+    }
+
+    return $Fallback
+}
+
+$defaultLocation = Get-DefaultLocationFromParametersFile -Path $ParametersFile
+if ([string]::IsNullOrWhiteSpace($Location)) {
+    $Location = $defaultLocation
+}
+
 if ($Help) {
     Write-Host "Zava DNS POC deployment script"
     Write-Host ""
@@ -145,7 +168,7 @@ if ($Help) {
     Write-Host "  .\deploy.ps1 [options]"
     Write-Host ""
     Write-Host "Options:"
-    Write-Host "  -Location <string>               Azure deployment location (default/prompt: southcentralus)"
+    Write-Host "  -Location <string>               Azure deployment location (default: from parameters file)"
     Write-Host "  -DeploymentName <string>         Deployment record name"
     Write-Host "  -TemplateFile <path>             Bicep template path"
     Write-Host "  -ParametersFile <path>           Bicep parameter file path"
@@ -170,7 +193,7 @@ if ($Help) {
 
 # Prompt for region when -Location is omitted in interactive sessions.
 if (-not $PSBoundParameters.ContainsKey('Location') -and [Environment]::UserInteractive) {
-    $enteredLocation = Read-Host "Azure deployment location (press Enter for southcentralus)"
+    $enteredLocation = Read-Host "Azure deployment location (press Enter for $defaultLocation)"
     if (-not [string]::IsNullOrWhiteSpace($enteredLocation)) {
         $Location = $enteredLocation.Trim()
     }
@@ -774,6 +797,7 @@ $domainBase = 'zava-dnspoc'
 $discoveredDomain = $null
 $useCustomerDomain = $false
 $reusedExistingDeploymentDomain = $false
+$nonDestructiveDomainCheck = $ValidateOnly -or $WhatIf
 
 if ($DomainSelectionMode -eq 'CustomerInput') {
     if (-not $CustomerDomain) {
@@ -830,8 +854,13 @@ if ($DomainSelectionMode -eq 'CustomerInput') {
         $bearerToken = (az account get-access-token --query accessToken -o tsv)
 
         Write-Step "Pre-flight: Domain Purchase Availability Check"
-        Write-Host "  Testing real domain purchase eligibility (RDAP → Azure API → GoDaddy)..." -ForegroundColor Gray
-        Write-Host "  Note: The GoDaddy check performs an actual purchase attempt in a temp resource group." -ForegroundColor Gray
+        if ($nonDestructiveDomainCheck) {
+            Write-Host "  Running non-destructive availability checks only (ValidateOnly/WhatIf mode)." -ForegroundColor Gray
+            Write-Host "  GoDaddy purchase attempt is skipped in preview modes." -ForegroundColor Gray
+        } else {
+            Write-Host "  Testing real domain purchase eligibility (RDAP → Azure API → GoDaddy)..." -ForegroundColor Gray
+            Write-Host "  Note: The GoDaddy check performs an actual purchase attempt in a temp resource group." -ForegroundColor Gray
+        }
 
         $preCheckResult = $null
 
@@ -866,6 +895,13 @@ if ($DomainSelectionMode -eq 'CustomerInput') {
                 Write-Host "  -> Available." -ForegroundColor Green
             } catch {
                 Write-Host "  -> API check failed — continuing to GoDaddy check." -ForegroundColor Gray
+            }
+
+            if ($nonDestructiveDomainCheck) {
+                Write-Host "  [3/3] Skipping GoDaddy purchase check (preview mode)." -ForegroundColor Gray
+                Write-Success "Pre-flight passed (preview mode): '$candidate' appears available."
+                $discoveredDomain = $candidate
+                break
             }
 
             # Stage 3: Real GoDaddy purchase attempt via ARM create (not validate).
@@ -987,10 +1023,26 @@ $AdditionalParameters = @($AdditionalParameters | Where-Object { $_ -notmatch '^
 $AdditionalParameters += "rgName=$ResourceGroupName"
 Write-Success "Resource group selected: $ResourceGroupName"
 
+# If the target resource group already exists, force deployment/template location
+# to match its immutable Azure region.
+$existingRgLocation = az group show --name $ResourceGroupName --query location --output tsv 2>$null
+if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($existingRgLocation)) {
+    if ($existingRgLocation -ne $Location) {
+        Write-Warning "Resource group '$ResourceGroupName' already exists in '$existingRgLocation'. Using that location instead of '$Location'."
+        $Location = $existingRgLocation
+    }
+}
+
 Write-Host "`nUsing domain   : $discoveredDomain" -ForegroundColor Cyan
 Write-Host "Using RG       : $ResourceGroupName" -ForegroundColor Cyan
 Write-Host "Consent IP     : $publicIp"
 Write-Host "Consent time   : $consentTimestamp`n"
+
+# Keep template resource-group location aligned with deployment location.
+# This avoids InvalidResourceGroupLocation when rerunning against an existing RG.
+$AdditionalParameters = @($AdditionalParameters | Where-Object { $_ -notmatch '^location=' })
+$AdditionalParameters += "location=$Location"
+Write-Success "Template location override set: location=$Location"
 
 # ============================================================================
 # DELETE EXISTING DEPLOYMENT (Redeploy mode)

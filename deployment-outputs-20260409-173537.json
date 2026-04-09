@@ -1,0 +1,165 @@
+{
+  "appServiceDomainId": {
+    "type": "String",
+    "value": ""
+  },
+  "appServiceDomainName": {
+    "type": "String",
+    "value": ""
+  },
+  "appServiceDomainStatus": {
+    "type": "String",
+    "value": ""
+  },
+  "dnsTestUrls": {
+    "type": "Object",
+    "value": {
+      "webfailover": "https://webfailover.zava-dnspoc-643.com",
+      "webgeo": "https://webgeo.zava-dnspoc-643.com",
+      "webweighted": "https://webweighted.zava-dnspoc-643.com"
+    }
+  },
+  "eventHubListenConnectionString": {
+    "type": "SecureString"
+  },
+  "eventHubName": {
+    "type": "String",
+    "value": "dns-logs"
+  },
+  "eventHubNamespaceId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-dnspoc-643/providers/Microsoft.EventHub/namespaces/ehns-dns-poc-nv5wzejqpwjek"
+  },
+  "eventHubSendConnectionString": {
+    "type": "SecureString"
+  },
+  "letsEncryptCertificateThumbprint": {
+    "type": "String",
+    "value": ""
+  },
+  "logAnalyticsWorkspaceId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-dnspoc-643/providers/Microsoft.OperationalInsights/workspaces/law-dns-poc"
+  },
+  "logAnalyticsWorkspaceName": {
+    "type": "String",
+    "value": "law-dns-poc"
+  },
+  "privateDnsZoneId": {
+    "type": "String",
+    "value": ""
+  },
+  "privateDnsZoneName": {
+    "type": "String",
+    "value": "poc-internal.zava.local"
+  },
+  "publicDnsNameServers": {
+    "type": "Array",
+    "value": [
+      "ns1-09.azure-dns.com.",
+      "ns2-09.azure-dns.net.",
+      "ns3-09.azure-dns.org.",
+      "ns4-09.azure-dns.info."
+    ]
+  },
+  "publicDnsWorkbookId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-dnspoc-643/providers/Microsoft.Insights/workbooks/7d008736-697f-5630-a0f2-f65279f1dff1"
+  },
+  "publicDnsWorkbookName": {
+    "type": "String",
+    "value": "Public DNS Monitoring - zava-dnspoc-643.com"
+  },
+  "publicDnsWorkbookUrl": {
+    "type": "String",
+    "value": "https://portal.azure.com/#view/AppInsightsExtension/UsageNotebookBlade/ComponentId/Azure%20Monitor/ConfigurationId/%2Fsubscriptions%2F78216abe-8139-4b45-8715-6bab2010101e%2FresourceGroups%2Frg-dnspoc-643%2Fproviders%2FMicrosoft.Insights%2Fworkbooks%2F7d008736-697f-5630-a0f2-f65279f1dff1/Type/workbook/WorkbookTemplateName/Public%20DNS%20Monitoring%20-%20zava-dnspoc-643.com"
+  },
+  "publicDnsZoneId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-dnspoc-643/providers/Microsoft.Network/dnsZones/zava-dnspoc-643.com"
+  },
+  "publicDnsZoneName": {
+    "type": "String",
+    "value": "zava-dnspoc-643.com"
+  },
+  "resourceGroupId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-dnspoc-643"
+  },
+  "resourceGroupName": {
+    "type": "String",
+    "value": "rg-dnspoc-643"
+  },
+  "storageAccountId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-dnspoc-643/providers/Microsoft.Storage/storageAccounts/stqradarpocnv5wzejqpwj"
+  },
+  "storageAccountName": {
+    "type": "String",
+    "value": "stqradarpocnv5wzejqpwj"
+  },
+  "tlsKeyVaultName": {
+    "type": "String",
+    "value": "kvdnsnv5wzejqpwjek"
+  },
+  "trafficManagerFailoverFqdn": {
+    "type": "String",
+    "value": "tm-poc-failover-nv5wzejqpwjek.trafficmanager.net"
+  },
+  "trafficManagerGeoFqdn": {
+    "type": "String",
+    "value": "tm-poc-geo-nv5wzejqpwjek.trafficmanager.net"
+  },
+  "trafficManagerWeightedFqdn": {
+    "type": "String",
+    "value": "tm-poc-weighted-nv5wzejqpwjek.trafficmanager.net"
+  },
+  "vnetId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-dnspoc-643/providers/Microsoft.Network/virtualNetworks/vnet-dns-poc"
+  },
+  "vnetName": {
+    "type": "String",
+    "value": "vnet-dns-poc"
+  },
+  "webAppUKHostName": {
+    "type": "String",
+    "value": "webapp-poc-uk-nv5wzejqpwjek.azurewebsites.net"
+  },
+  "webAppUKId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-dnspoc-643/providers/Microsoft.Web/sites/webapp-poc-uk-nv5wzejqpwjek"
+  },
+  "webAppUKName": {
+    "type": "String",
+    "value": "webapp-poc-uk-nv5wzejqpwjek"
+  },
+  "webAppUKRegionUrl": {
+    "type": "String",
+    "value": "https://webapp-poc-uk-nv5wzejqpwjek.azurewebsites.net/region.txt"
+  },
+  "webAppUKUrl": {
+    "type": "String",
+    "value": "https://webapp-poc-uk-nv5wzejqpwjek.azurewebsites.net"
+  },
+  "webAppUSHostName": {
+    "type": "String",
+    "value": "webapp-poc-us-nv5wzejqpwjek.azurewebsites.net"
+  },
+  "webAppUSId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-dnspoc-643/providers/Microsoft.Web/sites/webapp-poc-us-nv5wzejqpwjek"
+  },
+  "webAppUSName": {
+    "type": "String",
+    "value": "webapp-poc-us-nv5wzejqpwjek"
+  },
+  "webAppUSRegionUrl": {
+    "type": "String",
+    "value": "https://webapp-poc-us-nv5wzejqpwjek.azurewebsites.net/region.txt"
+  },
+  "webAppUSUrl": {
+    "type": "String",
+    "value": "https://webapp-poc-us-nv5wzejqpwjek.azurewebsites.net"
+  }
+}

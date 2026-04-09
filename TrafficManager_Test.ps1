@@ -566,9 +566,9 @@ function Test-Failover {
 
     # === Results ===
     Write-Banner "FAILOVER RESULTS" Green
-    Show-Distribution $normalLocal  "Step 1 — Normal (expected: US primary)"        "South Central US [southcentralus]"
-    Show-Distribution $failLocal    "Step 3 — After US disabled (expected: UK)"     "West Europe [westeurope]"
-    Show-Distribution $restoreLocal "Step 4 — After restore (expected: US back)"    "South Central US [southcentralus]"
+    Show-Distribution $normalLocal  "Step 1 — Normal (expected: primary region)"     "Primary region"
+    Show-Distribution $failLocal    "Step 3 — After primary disabled (expected: secondary)" "Secondary region"
+    Show-Distribution $restoreLocal "Step 4 — After restore (expected: primary back)" "Primary region"
     Write-Host ""
 }
 
@@ -596,8 +596,8 @@ function Test-Geographic {
     $aciLogs      = Invoke-AciProbe  -Url $url -N $N
 
     Write-Banner "GEOGRAPHIC RESULTS" Green
-    Show-Distribution $localResults "Local probe (expected: US app)"          "South Central US [southcentralus]"
-    if ($aciLogs) { Show-AciResults $aciLogs "ACI probe, West Europe (expected: EU/UK app)"  "West Europe [westeurope]" }
+    Show-Distribution $localResults "Local probe (expected: primary app)"      "Primary region"
+    if ($aciLogs) { Show-AciResults $aciLogs "ACI probe, secondary region"      "Secondary region" }
     Write-Host ""
 }
 

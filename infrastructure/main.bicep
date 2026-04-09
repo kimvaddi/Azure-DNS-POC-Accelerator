@@ -131,6 +131,8 @@ var regionDisplayNames = {
 
 // Shared unique suffix derived from subscription ID + RG name — unique per deployment target RG
 var uniqueSuffix = uniqueString(subscription().subscriptionId, rgName)
+// Include location so subscription-scope nested deployments don't collide across regions.
+var subDeploymentSuffix = uniqueString(subscription().subscriptionId, rgName, location)
 var locationPrimaryDisplayName = regionDisplayNames[?locationPrimary] ?? locationPrimary
 var locationSecondaryDisplayName = regionDisplayNames[?locationSecondary] ?? locationSecondary
 var trafficManagerFailoverProfileName = 'tm-poc-failover'
@@ -658,7 +660,7 @@ module letsEncryptAutomation 'modules/lets-encrypt-automation.bicep' = if (deplo
 
 module activityLogDiagnostics 'modules/activity-log-diagnostics.bicep' = {
   scope: subscription()
-  name: 'deploy-activity-log-diagnostics'
+  name: 'deploy-activity-log-diagnostics-${subDeploymentSuffix}'
   params: {
     diagnosticSettingName: 'activity-log-to-eventhub'
     eventHubAuthorizationRuleId: eventHub.outputs.sendAuthRuleId

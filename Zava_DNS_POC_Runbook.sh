@@ -41,7 +41,7 @@
 # -- Core settings --
 SUBSCRIPTION_ID="<your-subscription-id>"          # Zava subscription
 RESOURCE_GROUP="rg-dns-poc"                        # POC resource group
-LOCATION="southcentralus"                          # Closest Azure region to Zava HQ (San Antonio)
+LOCATION="${LOCATION:-<azure-region>}"             # Set explicit region, for example centralus
 
 # -- DNS settings --
 PUBLIC_ZONE="poc.Zava.com"                       # Public DNS zone for POC
