@@ -67,7 +67,7 @@ az bicep build --file infrastructure/main.bicep
 ```powershell
 az deployment sub what-if \
   --name dns-poc-le-whatif \
-  --location southcentralus \
+  --location <deployment-location> \
   --template-file infrastructure/main.bicep \
   --parameters infrastructure/main.bicepparam
 ```
@@ -77,7 +77,7 @@ az deployment sub what-if \
 ```powershell
 az deployment sub create \
   --name dns-poc-le-deploy \
-  --location southcentralus \
+  --location <deployment-location> \
   --template-file infrastructure/main.bicep \
   --parameters infrastructure/main.bicepparam
 ```

@@ -1007,6 +1007,13 @@ if ($useCustomerDomain) {
         $AdditionalParameters += 'deployAppServiceDomain=false'
         Write-Warning "Customer domain mode detected. Setting deployAppServiceDomain=false unless explicitly overridden."
     }
+
+    # For customer-owned domains, DNS delegation must complete before ACME DNS-01 can validate.
+    # Always skip immediate local Let's Encrypt so deployment can finish cleanly.
+    $AdditionalParameters = @($AdditionalParameters | Where-Object { $_ -notmatch '^postDeployTlsMode=' })
+    $AdditionalParameters += 'postDeployTlsMode=Skip'
+    Write-Warning "Customer domain mode detected. Skipping post-deployment Let's Encrypt TLS setup for now."
+    Write-Host "  Complete DNS delegation first, then run Invoke-LetsEncryptKeyVaultTls.ps1 separately." -ForegroundColor Yellow
 }
 
 # Derive the Let's Encrypt ACME contact email from the discovered domain.
@@ -1124,10 +1131,15 @@ try {
 
 Write-Step "Validating Template"
 
+# Extract postDeployTlsMode from AdditionalParameters before passing to Bicep.
+# postDeployTlsMode is only for PowerShell script control flow, not a Bicep parameter.
+$postDeployTlsMode = Get-ParameterOverrideValue -Parameters $AdditionalParameters -Name 'postDeployTlsMode' -DefaultValue 'Auto'
+$BicepParameters = @($AdditionalParameters | Where-Object { $_ -notmatch '^postDeployTlsMode=' })
+
 Write-Host "Running pre-deployment validation..."
 $validateArgs = @('deployment', 'sub', 'validate', '--location', $Location, '--template-file', $TemplateFile)
 if ($ParametersFile) { $validateArgs += @('--parameters', $ParametersFile) }
-if ($AdditionalParameters.Count -gt 0) { $validateArgs += @('--parameters') + $AdditionalParameters }
+if ($BicepParameters.Count -gt 0) { $validateArgs += @('--parameters') + $BicepParameters }
 
 $rawValidation = az @validateArgs --output json 2>&1
 if ($LASTEXITCODE -ne 0) {
@@ -1165,7 +1177,7 @@ if ($WhatIf) {
     
     $whatIfArgs = @('deployment', 'sub', 'what-if', '--location', $Location, '--template-file', $TemplateFile)
     if ($ParametersFile) { $whatIfArgs += @('--parameters', $ParametersFile) }
-    if ($AdditionalParameters.Count -gt 0) { $whatIfArgs += @('--parameters') + $AdditionalParameters }
+    if ($BicepParameters.Count -gt 0) { $whatIfArgs += @('--parameters') + $BicepParameters }
     
     Write-Host "Generating what-if preview..."
     az @whatIfArgs
@@ -1186,7 +1198,8 @@ Write-Host "  Deployment Name: $DeploymentName"
 Write-Host "  Location: $Location"
 Write-Host "  Template: $TemplateFile"
 Write-Host "  Parameters: $(if ($ParametersFile) { $ParametersFile } else { 'None (using defaults)' })"
-Write-Host "  Parameter Overrides: $(if ($AdditionalParameters.Count -gt 0) { $AdditionalParameters -join ', ' } else { 'None' })"
+Write-Host "  Bicep Parameter Overrides: $(if ($BicepParameters.Count -gt 0) { $BicepParameters -join ', ' } else { 'None' })"
+Write-Host "  Post-Deploy TLS Mode: $postDeployTlsMode"
 Write-Host "  Domain: $discoveredDomain"
 Write-Host "  Subscription: $($account.name)`n"
 
@@ -1204,7 +1217,7 @@ Write-Step "Deploying Infrastructure"
 
 $deployArgs = @('deployment', 'sub', 'create', '--name', $DeploymentName, '--location', $Location, '--template-file', $TemplateFile)
 if ($ParametersFile) { $deployArgs += @('--parameters', $ParametersFile) }
-if ($AdditionalParameters.Count -gt 0) { $deployArgs += @('--parameters') + $AdditionalParameters }
+if ($BicepParameters.Count -gt 0) { $deployArgs += @('--parameters') + $BicepParameters }
 
 Write-Host "Starting deployment... (this may take 15-20 minutes)`n"
 $startTime = Get-Date
@@ -1391,6 +1404,20 @@ Write-Host "   Run: az network traffic-manager endpoint list --profile-name tm-p
 
 Write-Host "4. TEST DNS RESOLUTION" -ForegroundColor Yellow
 Write-Host "   Run: nslookup failover.$($outputs.publicDnsZoneName.value)`n"
+
+if ($useCustomerDomain) {
+    Write-Host "5. RUN TLS SCRIPT AFTER DELEGATION" -ForegroundColor Yellow
+    Write-Host "   After NS delegation is complete and TXT queries resolve from public DNS, run:" -ForegroundColor Yellow
+    Write-Host ('   pwsh -ExecutionPolicy Bypass -File "{0}\Invoke-LetsEncryptKeyVaultTls.ps1" `' -f $PSScriptRoot) -ForegroundColor Gray
+    Write-Host ('     -SubscriptionId "{0}" `' -f $account.id) -ForegroundColor Gray
+    Write-Host ('     -ResourceGroup "{0}" `' -f $outputs.resourceGroupName.value) -ForegroundColor Gray
+    Write-Host ('     -DnsZoneName "{0}" `' -f $outputs.publicDnsZoneName.value) -ForegroundColor Gray
+    Write-Host ('     -KeyVaultName "{0}" `' -f $outputs.tlsKeyVaultName.value) -ForegroundColor Gray
+    Write-Host ('     -WebAppNames "{0},{1}" `' -f $outputs.webAppUSName.value, $outputs.webAppUKName.value) -ForegroundColor Gray
+    Write-Host ('     -CustomDomains "webfailover.{0},webgeo.{0},webweighted.{0}" `' -f $outputs.publicDnsZoneName.value) -ForegroundColor Gray
+    Write-Host ('     -ContactEmail "{0}"' -f $acmeContactEmail) -ForegroundColor Gray
+    Write-Host ""
+}
 
 # ============================================================================
 # SAVE OUTPUTS TO FILE

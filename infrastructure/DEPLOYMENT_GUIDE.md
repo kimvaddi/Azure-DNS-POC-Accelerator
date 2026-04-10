@@ -89,7 +89,7 @@ param domain = 'zava-dnspoc-002.com'
 # Private internal domain (optional)
 param privateDomain = 'poc-internal.zava.local'
 
-# Azure regions (default: southcentralus, westus3, westeurope)
+# Azure regions (defaults from main.bicepparam)
 param location = 'southcentralus'
 param locationPrimary = 'westus3'
 param locationSecondary = 'westeurope'
@@ -109,7 +109,7 @@ param letsEncryptContactEmail = 'dnsadmin@zava-dnspoc-002.com'
 
 **Key Parameters**:
 - `domain`: The public DNS zone name (e.g., `zava-dnspoc-002.com`)
-- `location`: The region for core services (southcentralus recommended for Zava)
+- `location`: The region for core services (deploy.ps1 aligns this to the existing RG region on reruns)
 - `locationPrimary` / `locationSecondary`: US and UK web app regions
 - `deployWebApps`: Set to `true` by default (deploy web apps)
 - `deployTrafficManagerDnsAliases`: Set to `true` (bind TM profiles to DNS records)
@@ -123,13 +123,13 @@ cd infrastructure/
 
 # Validate template syntax and logic
 az deployment sub validate `
-  --location southcentralus `
+  --location <deployment-location> `
   --template-file main.bicep `
   --parameters main.bicepparam
 
 # View what-if preview (shows what will be created/modified)
 az deployment sub what-if `
-  --location southcentralus `
+  --location <deployment-location> `
   --template-file main.bicep `
   --parameters main.bicepparam
 ```
@@ -149,6 +149,8 @@ cd infrastructure/
 .\deploy.ps1
 ```
 
+Note: `deploy.ps1` may derive a domain-specific resource group name (for example `rg-dnspoc-006`) and pass it as `rgName`.
+
 **What happens**:
 1. Pre-flight checks (Azure CLI, domain, permissions)
 2. Discovers or reuses existing public DNS zone
@@ -160,6 +162,8 @@ cd infrastructure/
    - Stores in Key Vault
    - Imports and binds SNI on both web apps
 7. Outputs deployment summary and test URLs
+
+`-ValidateOnly` and `-WhatIf` run non-destructive domain checks and skip the real domain purchase attempt.
 
 ### Option B: Staged Deployment (Infrastructure First)
 
@@ -434,7 +438,7 @@ az keyvault list-deleted --query "[?name=='kvdnsg7vqz5xal6jqs']"
 
 ```powershell
 # Purge Key Vault (only if purge protection is disabled)
-az keyvault purge --name kvdnsg7vqz5xal6jqs --location southcentralus
+az keyvault purge --name kvdnsg7vqz5xal6jqs --location <kv-location>
 
 # Delete resource group
 az group delete --name rg-dns-poc --yes

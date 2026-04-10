@@ -337,7 +337,7 @@ az network dns zone delete -g rg-dns-poc -n snapshot-test.poc.Zava.com --yes
 ```bash
 # Enable Log Analytics workspace for richer reporting
 az monitor log-analytics workspace create \
-  -g rg-dns-poc -n la-dns-poc --location southcentralus
+  -g rg-dns-poc -n la-dns-poc --location <deployment-location>
 
 # Add Log Analytics as a second diagnostic destination
 LA_WORKSPACE_ID=$(az monitor log-analytics workspace show \

@@ -24,10 +24,10 @@ Complete Infrastructure-as-Code deployment for Azure DNS POC evaluation, includi
 
 ### Multi-Region Web Apps
 - **US Region** (`westus3`): App Service Plan B1 + Web App
-- **UK Region** (`eastasia`): App Service Plan B1 + Web App
+- **UK Region** (`westeurope`): App Service Plan B1 + Web App
 - Security hardening: `httpsOnly=true`, `ftpsState=Disabled`, `minTlsVersion=1.2`
 
-### DNS Records (TTL=30)
+### DNS Records (TTL=10 default)
 - `webfailover.poc.zava.com` → `tm-poc-failover` Traffic Manager FQDN
 - `webgeo.poc.zava.com` → `tm-poc-geo` Traffic Manager FQDN
 - `webweighted.poc.zava.com` → `tm-poc-weighted` Traffic Manager FQDN
@@ -61,7 +61,7 @@ Complete Infrastructure-as-Code deployment for Azure DNS POC evaluation, includi
 Edit `main.bicepparam` to customize:
 - Domain names (`domain`, `privateDomain`)
 - Resource naming (web app names must be globally unique)
-- Regions (default: `southcentralus`, `westus3`, `eastasia`)
+- Regions (default: `southcentralus`, `westus3`, `westeurope`)
 - Whether to manage Traffic Manager DNS aliases separately from web app deployment
 
 ```bicep
@@ -71,11 +71,17 @@ param location = 'southcentralus'
 param deployTrafficManagerDnsAliases = true
 ```
 
+`deploy.ps1` behavior to know:
+- If target RG already exists, deployment location is auto-aligned to that RG's region.
+- The template `location` parameter is overridden to match the final deployment location.
+- `-ValidateOnly` and `-WhatIf` skip real domain purchase attempts.
+- The script may derive a domain-specific RG name (`rg-dnspoc-###`) and pass it as `rgName`.
+
 ### Step 2: Validate Template
 ```powershell
-# Test deployment (no-op validation)
+# Test deployment (non-destructive validation)
 az deployment sub validate `
-  --location southcentralus `
+  --location <deployment-location> `
   --template-file main.bicep `
   --parameters main.bicepparam
 ```
@@ -85,7 +91,7 @@ az deployment sub validate `
 # Deploy to subscription scope
 az deployment sub create `
   --name Zava-dns-poc-deployment `
-  --location southcentralus `
+  --location <deployment-location> `
   --template-file main.bicep `
   --parameters main.bicepparam `
   --confirm-with-what-if
@@ -458,7 +464,7 @@ az monitor diagnostic-settings subscription delete `
 │  │  ┌──────────────────────────────────────────────────────┐  │ │
 │  │  │  WEB APPS (Multi-Region)                              │  │ │
 │  │  │  • webapp-poc-us (westus3) → App Service Plan B1    │  │ │
-│  │  │  • webapp-poc-uk (eastasia) → App Service Plan B1   │  │ │
+│  │  │  • webapp-poc-uk (westeurope) → App Service Plan B1 │  │ │
 │  │  │  Security: HTTPS Only, FTPS Disabled, TLS 1.2       │  │ │
 │  │  └──────────────────────────────────────────────────────┘  │ │
 │  │                                                              │ │

@@ -315,7 +315,7 @@ This shows the production pattern — cert in Key Vault instead of on disk:
 az keyvault create `
   --name "kv-kimvaddi-dns-poc" `
   --resource-group rg-dns-poc `
-  --location southcentralus `
+  --location <deployment-location> `
   --output table
 
 # Import a PFX certificate into Key Vault

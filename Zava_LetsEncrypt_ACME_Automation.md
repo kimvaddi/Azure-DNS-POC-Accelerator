@@ -288,7 +288,7 @@ Expected output: no errors, `infrastructure/main.json` updated.
 ```powershell
 az deployment sub what-if `
   --name dns-poc-le-whatif `
-  --location southcentralus `
+  --location <deployment-location> `
   --template-file infrastructure/main.bicep `
   --parameters infrastructure/main.bicepparam
 ```
@@ -300,7 +300,7 @@ Review the planned changes. The deployment script resource will appear as a new 
 ```powershell
 az deployment sub create `
   --name dns-poc-le-deploy `
-  --location southcentralus `
+  --location <deployment-location> `
   --template-file infrastructure/main.bicep `
   --parameters infrastructure/main.bicepparam
 ```

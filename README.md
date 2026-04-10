@@ -13,7 +13,7 @@ Built from a live customer engagement (Zava Energy Corporation), battle-tested w
 | **Deployment Options** | Bicep (IaC), PowerShell (step-by-step), Bash (az CLI) |
 | **Time to Deploy** | ~15 minutes (Bicep) · ~45 minutes (manual step-by-step) |
 | **Estimated POC Cost** | ~$27 for a 2-week evaluation ([API-verified pricing](#cost-estimate)) |
-| **Target Region** | `southcentralus` (configurable) |
+| **Target Region** | Derived from `main.bicepparam` / `-Location` (default `southcentralus`) |
 | **Security Posture** | Least-privilege RBAC, HTTPS-only, TLS 1.2, CanNotDelete locks, SAS key rotation |
 
 ---
@@ -111,7 +111,7 @@ Open [infrastructure/main.bicepparam](infrastructure/main.bicepparam) and update
 
 | Parameter | Default | What to change |
 |-----------|---------|----------------|
-| `location` | `southcentralus` | Resource group region |
+| `location` | `southcentralus` | Core services region (script aligns to existing RG region on reruns) |
 | `locationPrimary` | `westus3` | Primary web app region |
 | `locationSecondary` | `westeurope` | Secondary web app region |
 | `domain` | auto-discovered (`zava-dnspoc-NNN.com`) | Public DNS domain — set by `deploy.ps1` availability check |
@@ -121,9 +121,11 @@ Open [infrastructure/main.bicepparam](infrastructure/main.bicepparam) and update
 
 > **Note:** `storageAccountName` and web app names already use `uniqueString(subscription().subscriptionId)` so they are unique by default. Only `eventHubNamespaceName` needs manual disambiguation.
 
+> **Resource group naming:** `deploy.ps1` can derive a domain-specific RG name (for example `rg-dnspoc-006`) and pass it as `rgName`. Use deployment outputs for the final RG value.
+
 #### Step 2 — Validate (Template Only)
 
-Catches syntax errors and type mismatches without touching Azure resources:
+Catches syntax errors and type mismatches with non-destructive checks:
 
 ```powershell
 cd infrastructure
@@ -137,6 +139,8 @@ Shows every resource that will be created/modified before committing:
 ```powershell
 .\deploy.ps1 -WhatIf
 ```
+
+`-ValidateOnly` and `-WhatIf` skip the real domain purchase attempt.
 
 Review the output — you should see ~35 resources listed with `+ Create` status.
 
@@ -227,7 +231,7 @@ Resource Group: rg-dns-poc
 ├── Storage Account (QRadar checkpoint tracking)
 ├── Log Analytics Workspace (30-day retention)
 ├── Traffic Manager × 3 (Priority, Geographic, Weighted)
-├── App Service Plan × 2 (West US 3, East Asia)
+├── App Service Plan × 2 (West US 3, West Europe)
 ├── Web App × 2 (dotnet:8, httpsOnly, FTPS disabled, TLS 1.2)
 ├── Custom RBAC role (DNS Record Operator)
 ├── Event Hub RBAC (Data Sender + Data Receiver)
@@ -270,7 +274,7 @@ See the PowerShell script header for the complete list. Key findings:
 1. Azure DNS public zones **do not support query-level logging** (management plane only)
 2. Event Hub **must be Standard SKU** (Basic doesn't support consumer groups/SAS policies)
 3. QRadar needs **4 Azure resources** per Microsoft's SIEM guide
-4. CNAME TTL defaults to **3600s** — must be set to **30s** for fast failover
+4. CNAME TTL defaults to **3600s** — set to **10s** in this POC for fast failover testing
 5. Web apps default to **httpsOnly=false** and **ftpsState=FtpsOnly** — must harden
 6. Custom domain binding requires **NS delegation + asuid TXT verification** first
 7. `RootManageSharedAccessKey` **cannot be deleted** — rotate + use dedicated policies
@@ -311,7 +315,7 @@ Edit Section 0 (PowerShell/Bash) or parameters file (Bicep):
 | `$DOMAIN` / `domain` | zava-dnspoc-NNN.com (auto) | ✅ |
 | `$RG_NAME` / `rgName` | rg-dns-poc | ✅ |
 | `$LOCATION_PRIMARY` / `locationPrimary` | westus3 | ✅ |
-| `$LOCATION_SECONDARY` / `locationSecondary` | eastasia | ✅ |
+| `$LOCATION_SECONDARY` / `locationSecondary` | westeurope | ✅ |
 | `$EH_NAMESPACE` | ehns-dns-poc-`<last4-of-sub-id>` (auto-derived) | ✅ |
 | `$WEBAPP_US` / `webAppNameUS` | webapp-poc-us | ✅ |
 | `$WEBAPP_UK` / `webAppNameUK` | webapp-poc-uk | ✅ |

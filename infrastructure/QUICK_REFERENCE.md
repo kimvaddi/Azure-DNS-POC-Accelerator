@@ -65,7 +65,7 @@ az role assignment list --scope $kvScope --assignee $(az ad signed-in-user show 
 
 | Resource Type | Name | Purpose |
 |---------------|------|---------|
-| **Resource Group** | `rg-dns-poc` | Container for all POC resources |
+| **Resource Group** | `rg-dns-poc` or `rg-dnspoc-###` | Container for all POC resources (selected/derived by deploy script) |
 | **App Service Domain** | `zava-dnspoc-NNN.com` | Auto-discovered, purchased via Azure |
 | **Public DNS Zone** | `zava-dnspoc-NNN.com` | Main POC DNS zone (auto-bound to domain) |
 | **Private DNS Zone** | `poc-internal.Zava.local` | Internal DNS testing |
@@ -78,7 +78,7 @@ az role assignment list --scope $kvScope --assignee $(az ad signed-in-user show 
 | **Traffic Manager** | `tm-poc-geo` | Geographic routing |
 | **Traffic Manager** | `tm-poc-weighted` | Weighted load balancing |
 | **App Service Plan** | `asp-poc-us` | US region hosting (westus3) |
-| **App Service Plan** | `asp-poc-uk` | UK region hosting (eastasia) |
+| **App Service Plan** | `asp-poc-uk` | UK region hosting (westeurope) |
 | **Web App** | `webapp-poc-us` | US endpoint |
 | **Web App** | `webapp-poc-uk` | UK endpoint |
 
@@ -88,9 +88,9 @@ az role assignment list --scope $kvScope --assignee $(az ad signed-in-user show 
 
 | Record | Type | Target | TTL |
 |--------|------|--------|-----|
-| `webfailover.zava-dnspoc-NNN.com` | CNAME | `tm-poc-failover.trafficmanager.net` | 30 |
-| `webgeo.zava-dnspoc-NNN.com` | CNAME | `tm-poc-geo.trafficmanager.net` | 30 |
-| `webweighted.zava-dnspoc-NNN.com` | CNAME | `tm-poc-weighted.trafficmanager.net` | 30 |
+| `webfailover.zava-dnspoc-NNN.com` | CNAME | `tm-poc-failover.trafficmanager.net` | 10 |
+| `webgeo.zava-dnspoc-NNN.com` | CNAME | `tm-poc-geo.trafficmanager.net` | 10 |
+| `webweighted.zava-dnspoc-NNN.com` | CNAME | `tm-poc-weighted.trafficmanager.net` | 10 |
 | `db.poc-internal.zava.local` | A | `10.0.1.100` | 300 |
 | `app.poc-internal.zava.local` | A | `10.0.1.101` | 300 |
 | `cache.poc-internal.zava.local` | A | `10.0.1.102` | 300 |

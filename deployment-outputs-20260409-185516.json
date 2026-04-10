@@ -1,0 +1,165 @@
+{
+  "appServiceDomainId": {
+    "type": "String",
+    "value": ""
+  },
+  "appServiceDomainName": {
+    "type": "String",
+    "value": ""
+  },
+  "appServiceDomainStatus": {
+    "type": "String",
+    "value": ""
+  },
+  "dnsTestUrls": {
+    "type": "Object",
+    "value": {
+      "webfailover": "https://webfailover.demopoc.danmauser.com",
+      "webgeo": "https://webgeo.demopoc.danmauser.com",
+      "webweighted": "https://webweighted.demopoc.danmauser.com"
+    }
+  },
+  "eventHubListenConnectionString": {
+    "type": "SecureString"
+  },
+  "eventHubName": {
+    "type": "String",
+    "value": "dns-logs"
+  },
+  "eventHubNamespaceId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-demopoc-danmauser-com/providers/Microsoft.EventHub/namespaces/ehns-dns-poc-fvs2ttdhm6rai"
+  },
+  "eventHubSendConnectionString": {
+    "type": "SecureString"
+  },
+  "letsEncryptCertificateThumbprint": {
+    "type": "String",
+    "value": ""
+  },
+  "logAnalyticsWorkspaceId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-demopoc-danmauser-com/providers/Microsoft.OperationalInsights/workspaces/law-dns-poc"
+  },
+  "logAnalyticsWorkspaceName": {
+    "type": "String",
+    "value": "law-dns-poc"
+  },
+  "privateDnsZoneId": {
+    "type": "String",
+    "value": ""
+  },
+  "privateDnsZoneName": {
+    "type": "String",
+    "value": "poc-internal.zava.local"
+  },
+  "publicDnsNameServers": {
+    "type": "Array",
+    "value": [
+      "ns1-02.azure-dns.com.",
+      "ns2-02.azure-dns.net.",
+      "ns3-02.azure-dns.org.",
+      "ns4-02.azure-dns.info."
+    ]
+  },
+  "publicDnsWorkbookId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-demopoc-danmauser-com/providers/Microsoft.Insights/workbooks/284c097a-526e-5d0c-9ad6-67e1a122ff18"
+  },
+  "publicDnsWorkbookName": {
+    "type": "String",
+    "value": "Public DNS Monitoring - demopoc.danmauser.com"
+  },
+  "publicDnsWorkbookUrl": {
+    "type": "String",
+    "value": "https://portal.azure.com/#view/AppInsightsExtension/UsageNotebookBlade/ComponentId/Azure%20Monitor/ConfigurationId/%2Fsubscriptions%2F78216abe-8139-4b45-8715-6bab2010101e%2FresourceGroups%2Frg-demopoc-danmauser-com%2Fproviders%2FMicrosoft.Insights%2Fworkbooks%2F284c097a-526e-5d0c-9ad6-67e1a122ff18/Type/workbook/WorkbookTemplateName/Public%20DNS%20Monitoring%20-%20demopoc.danmauser.com"
+  },
+  "publicDnsZoneId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-demopoc-danmauser-com/providers/Microsoft.Network/dnsZones/demopoc.danmauser.com"
+  },
+  "publicDnsZoneName": {
+    "type": "String",
+    "value": "demopoc.danmauser.com"
+  },
+  "resourceGroupId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-demopoc-danmauser-com"
+  },
+  "resourceGroupName": {
+    "type": "String",
+    "value": "rg-demopoc-danmauser-com"
+  },
+  "storageAccountId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-demopoc-danmauser-com/providers/Microsoft.Storage/storageAccounts/stqradarpocfvs2ttdhm6r"
+  },
+  "storageAccountName": {
+    "type": "String",
+    "value": "stqradarpocfvs2ttdhm6r"
+  },
+  "tlsKeyVaultName": {
+    "type": "String",
+    "value": "kvdnsfvs2ttdhm6rai"
+  },
+  "trafficManagerFailoverFqdn": {
+    "type": "String",
+    "value": "tm-poc-failover-fvs2ttdhm6rai.trafficmanager.net"
+  },
+  "trafficManagerGeoFqdn": {
+    "type": "String",
+    "value": "tm-poc-geo-fvs2ttdhm6rai.trafficmanager.net"
+  },
+  "trafficManagerWeightedFqdn": {
+    "type": "String",
+    "value": "tm-poc-weighted-fvs2ttdhm6rai.trafficmanager.net"
+  },
+  "vnetId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-demopoc-danmauser-com/providers/Microsoft.Network/virtualNetworks/vnet-dns-poc"
+  },
+  "vnetName": {
+    "type": "String",
+    "value": "vnet-dns-poc"
+  },
+  "webAppUKHostName": {
+    "type": "String",
+    "value": "webapp-poc-uk-fvs2ttdhm6rai.azurewebsites.net"
+  },
+  "webAppUKId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-demopoc-danmauser-com/providers/Microsoft.Web/sites/webapp-poc-uk-fvs2ttdhm6rai"
+  },
+  "webAppUKName": {
+    "type": "String",
+    "value": "webapp-poc-uk-fvs2ttdhm6rai"
+  },
+  "webAppUKRegionUrl": {
+    "type": "String",
+    "value": "https://webapp-poc-uk-fvs2ttdhm6rai.azurewebsites.net/region.txt"
+  },
+  "webAppUKUrl": {
+    "type": "String",
+    "value": "https://webapp-poc-uk-fvs2ttdhm6rai.azurewebsites.net"
+  },
+  "webAppUSHostName": {
+    "type": "String",
+    "value": "webapp-poc-us-fvs2ttdhm6rai.azurewebsites.net"
+  },
+  "webAppUSId": {
+    "type": "String",
+    "value": "/subscriptions/78216abe-8139-4b45-8715-6bab2010101e/resourceGroups/rg-demopoc-danmauser-com/providers/Microsoft.Web/sites/webapp-poc-us-fvs2ttdhm6rai"
+  },
+  "webAppUSName": {
+    "type": "String",
+    "value": "webapp-poc-us-fvs2ttdhm6rai"
+  },
+  "webAppUSRegionUrl": {
+    "type": "String",
+    "value": "https://webapp-poc-us-fvs2ttdhm6rai.azurewebsites.net/region.txt"
+  },
+  "webAppUSUrl": {
+    "type": "String",
+    "value": "https://webapp-poc-us-fvs2ttdhm6rai.azurewebsites.net"
+  }
+}

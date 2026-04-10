@@ -100,11 +100,11 @@ infrastructure/
 #### `traffic-manager.bicep`
 - **Resources**: Traffic Manager Profile + Endpoints (loop) + Diagnostics
 - **Routing**: Supports Priority, Geographic, Weighted
-- **Health Probes**: HTTPS/443, 30s interval, path=/
+- **Health Probes**: HTTPS/443, 10s interval (POC default), path=/
 
 #### `dns-cname-records.bicep`
 - **Resources**: CNAME records (loop)
-- **Configuration**: TTL=30 for fast failover
+- **Configuration**: TTL=10 for fast failover testing
 - **Purpose**: Wire DNS to Traffic Manager FQDNs
 
 #### `activity-log-diagnostics.bicep`
@@ -131,7 +131,7 @@ infrastructure/
   - Full output capture and formatting
   - Post-deployment action list
   - Save outputs to JSON file
-- **Flags**: `-ValidateOnly`, `-WhatIf`
+- **Flags**: `-ValidateOnly`, `-WhatIf` (non-destructive domain checks)
 - **Usage**: `.\deploy.ps1`
 
 #### `README.md`
@@ -189,7 +189,7 @@ infrastructure/
 ```powershell
 az deployment sub create \
   --name Zava-dns-poc \
-  --location southcentralus \
+  --location <deployment-location> \
   --template-file main.bicep \
   --parameters main.bicepparam
 ```
@@ -198,7 +198,7 @@ az deployment sub create \
 ```powershell
 az deployment sub create \
   --name Zava-dns-poc \
-  --location southcentralus \
+  --location <deployment-location> \
   --template-file main.bicep \
   --parameters main.parameters.json
 ```
@@ -231,7 +231,7 @@ After deploying, verify:
 - [ ] Traffic Manager endpoints show "Online" status
 - [ ] Event Hub receiving Activity Log events
 - [ ] Web apps accessible via HTTPS
-- [ ] DNS CNAME records created with TTL=30
+- [ ] DNS CNAME records created with TTL=10
 - [ ] Private DNS zone linked to VNet
 - [ ] Log Analytics receiving diagnostic data
 - [ ] Resource lock applied to DNS zone
@@ -305,7 +305,7 @@ After deploying, verify:
 - ✅ **Tag strategy**: project, customer, environment, managed-by
 
 ### Infrastructure Design
-- ✅ **Multi-region**: US (westus3) + UK (eastasia)
+- ✅ **Multi-region**: US (westus3) + UK (westeurope)
 - ✅ **High availability**: Traffic Manager failover + health probes
 - ✅ **Observability**: Full diagnostic settings on all resources
 - ✅ **Cost-optimized**: B1 App Service Plans for POC
